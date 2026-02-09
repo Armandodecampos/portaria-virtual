@@ -504,18 +504,15 @@ class SmartPortariaScanner(QMainWindow):
 
             html += f"""
             <a href="{vid}" style="text-decoration: none;">
-                <div style='background-color: #ffffff; border: 2px solid #cbd5e1; border-bottom: 4px solid #94a3b8; border-right: 3px solid #94a3b8; border-radius: 8px; padding: 12px; margin-bottom: 16px;'>
-                    <div style='color: #1e293b; font-size: 14px; margin-bottom: 4px;'>
-                        <b style='color: #2563eb;'>ID {vid}:</b> {nome}
-                    </div>
-                    <div style='color: #64748b; font-size: 12px; margin-bottom: 4px;'>
-                        CPF: {cpf}
-                    </div>
-                    <div style='color: #475569; font-size: 12px;'>
-                        <b>Validade:</b> <span style='color: {cor}; font-weight: bold;'>{horario}</span>
+                <div style='background-color: #ffffff; border: 2px solid #cbd5e1; border-bottom: 4px solid #94a3b8; border-right: 3px solid #94a3b8; border-radius: 8px; padding: 12px;'>
+                    <div style='color: #1e293b; font-size: 14px;'>
+                        <b style='color: #2563eb;'>ID {vid}:</b> {nome} - <br>
+                        <span style='color: #64748b; font-size: 12px;'>CPF: {cpf}</span><br>
+                        <span style='color: #475569; font-size: 12px;'><b>Validade:</b> <span style='color: {cor}; font-weight: bold;'>{horario}</span></span>
                     </div>
                 </div>
             </a>
+            <div style='font-size: 12px;'>&nbsp;</div>
             """
         self.txt_res_busca.setHtml(html)
 
