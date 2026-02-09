@@ -34,19 +34,9 @@ class CustomWebPage(QWebEnginePage):
     def createWindow(self, _type):
         # Quando o site pede para criar uma nova janela (ex: Link do WhatsApp),
         # retornamos 'self'. Isso diz ao Qt: "Use esta mesma janela/aba para carregar o link".
+        # Isso força links com target='_blank' ou window.open a abrirem nesta mesma página.
         print(">>> Interceptando tentativa de abrir nova janela -> Forçando na mesma página.")
         return self
-
-    def acceptNavigationRequest(self, url, _type, isMainFrame):
-        """
-        Força qualquer clique em link a carregar na mesma página,
-        mesmo que o HTML peça target='_blank'.
-        """
-        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
-            print(f">>> Navegação detectada: {url.toString()} -> Forçando mesma guia.")
-            self.setUrl(url)
-            return False
-        return True
 
 class DatabaseHandler:
     def __init__(self, db_name="dados_detalhes.db"):
@@ -91,6 +81,11 @@ class SmartPortariaScanner(QMainWindow):
         self.resize(1400, 900)
 
         self.db = DatabaseHandler()
+
+        # Configurar User Agent moderno para compatibilidade (ex: WhatsApp Web)
+        profile = QWebEngineProfile.defaultProfile()
+        profile.setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
         self.id_atual = 1
         self.rodando = True
 
@@ -445,14 +440,15 @@ class SmartPortariaScanner(QMainWindow):
                     <div style='margin-bottom: 12px; padding: 10px; border-radius: 8px; background-color: #ffffff; border: 1px solid #e2e8f0;'>
                         <div style='font-size: 14px; color: #1e293b; font-weight: bold;'>{clean_nome}</div>
                         <div style='font-size: 12px; color: #64748b; margin-top: 2px; margin-bottom: 8px;'>ID: {vid} | CPF: {cpf}</div>
-                        <a href="{vid}" style="text-decoration:none; color:white; background-color:#2563eb; padding:5px 15px; border-radius:5px; font-size:11px; font-weight: bold;">VER DETALHES</a>
+                        <a href="visita:{vid}" style="text-decoration:none; color:white; background-color:#2563eb; padding:5px 15px; border-radius:5px; font-size:11px; font-weight: bold;">VER DETALHES</a>
                     </div>
                     """
         self.txt_res_busca.setHtml(html)
 
     def abrir_link_resultado(self, url_qurl):
-        # Ação ao clicar no botão "ABRIR NO SISTEMA" da busca
-        visita_id = url_qurl.toString()
+        # Ação ao clicar no botão "VER DETALHES" da busca
+        # O formato agora é "visita:ID" para evitar avisos no QTextBrowser
+        visita_id = url_qurl.toString().replace("visita:", "")
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         self.view_principal.setUrl(QUrl(link_final))
 
@@ -468,4 +464,3 @@ if __name__ == "__main__":
         print("="*60)
         traceback.print_exc()
         print("="*60 + "\n")
-        input("Pressione ENTER para fechar...")
