@@ -9,7 +9,8 @@ try:
     from PyQt6.QtCore import Qt, QUrl, QTimer
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
-        QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox
+        QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
+        QStackedWidget, QTabBar
     )
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
@@ -25,17 +26,19 @@ except ImportError as e:
     # mas mantemos o sys.exit para parar a execução.
     sys.exit(1)
 
-# --- CLASSE CUSTOMIZADA PARA NAVEGAÇÃO EM JANELA ÚNICA ---
+# --- CLASSE CUSTOMIZADA PARA NAVEGAÇÃO COM ABAS ---
 class CustomWebPage(QWebEnginePage):
     """
-    Página customizada que força todos os links (target='_blank', window.open, etc)
-    a abrirem na mesma janela do navegador.
+    Página customizada que abre links em novas abas.
     """
+    def __init__(self, profile, parent_view, browser_window):
+        super().__init__(profile, parent_view)
+        self.browser_window = browser_window
+
     def createWindow(self, _type):
-        # Quando o site pede para criar uma nova janela (ex: Link do WhatsApp),
-        # retornamos 'self'. Isso diz ao Qt: "Use esta mesma janela/aba para carregar o link".
-        print(">>> Interceptando tentativa de abrir nova janela -> Forçando na mesma página.")
-        return self
+        print(">>> Abrindo link em nova aba.")
+        new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia")
+        return new_view.page()
 
 class DatabaseHandler:
     def __init__(self, db_name="dados_detalhes.db"):
@@ -91,8 +94,12 @@ class SmartPortariaScanner(QMainWindow):
         self.carregar_ultimo_id()
         self.configurar_navegadores()
         
-        # URL Inicial
-        self.view_principal.setUrl(QUrl("https://portaria-global.governarti.com.br/"))
+        # Configuração do User Agent Global
+        profile = QWebEngineProfile.defaultProfile()
+        profile.setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+        # Aba Inicial (Portaria Virtual)
+        self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/"), "Portaria Virtual", closable=False)
 
         self.txt_live.append(f"--- SISTEMA INICIADO: {datetime.datetime.now().strftime('%H:%M:%S')} ---")
         self.txt_live.append(">>> Monitoramento automático ativado.")
@@ -158,37 +165,54 @@ class SmartPortariaScanner(QMainWindow):
         
         self.address_bar = QLineEdit()
         self.address_bar.setPlaceholderText("Introduza o URL ou pesquise...")
+        self.address_bar.setMinimumWidth(200)
         self.address_bar.returnPressed.connect(self.ir_para_url)
 
+        # Abas ao lado da barra de pesquisa
+        self.tabs = QTabBar()
+        self.tabs.setTabsClosable(True)
+        self.tabs.setExpanding(False)
+        self.tabs.setMovable(False)
+        self.tabs.setStyleSheet("""
+            QTabBar::tab {
+                background: #f1f5f9;
+                padding: 6px 12px;
+                border: 1px solid #cbd5e1;
+                margin-right: 2px;
+                border-radius: 4px;
+                min-width: 100px;
+                max-width: 180px;
+            }
+            QTabBar::tab:selected {
+                background: #2563eb;
+                color: white;
+                font-weight: bold;
+            }
+        """)
+        self.tabs.tabCloseRequested.connect(self.fechar_aba)
+        self.tabs.currentChanged.connect(self.mudar_aba)
+
         # Botão para ir para a Home
-        self.btn_home = QPushButton("🏠 Portaria Global")
-        self.btn_home.setStyleSheet("padding: 5px; font-weight: bold;")
+        self.btn_home = QPushButton("🏠")
+        self.btn_home.setFixedWidth(35)
+        self.btn_home.setToolTip("Ir para Portaria Global")
         self.btn_home.clicked.connect(self.ir_para_home)
 
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
         toolbar.addWidget(self.address_bar)
+        toolbar.addWidget(self.tabs)
         toolbar.addWidget(self.btn_home)
         
         layout_web.addLayout(toolbar)
 
-        self.view_principal = QWebEngineView()
-        
-        # --- APLICAÇÃO DA LÓGICA DE JANELA ÚNICA ---
-        # Usamos o perfil padrão para manter logins e cookies.
-        profile = QWebEngineProfile.defaultProfile()
-        custom_page = CustomWebPage(profile, self.view_principal)
-        self.view_principal.setPage(custom_page)
-        # -------------------------------------------
-        
-        self.view_principal.urlChanged.connect(self.atualizar_barra_endereco)
-        self.btn_back.clicked.connect(self.view_principal.back)
-        self.btn_forward.clicked.connect(self.view_principal.forward)
-        self.btn_reload.clicked.connect(self.view_principal.reload)
-        self.view_principal.loadFinished.connect(self.on_principal_load_finished)
-        
-        layout_web.addWidget(self.view_principal)
+        self.web_stack = QStackedWidget()
+        layout_web.addWidget(self.web_stack)
+
+        self.btn_back.clicked.connect(lambda: self.web_stack.currentWidget().back() if self.web_stack.currentWidget() else None)
+        self.btn_forward.clicked.connect(lambda: self.web_stack.currentWidget().forward() if self.web_stack.currentWidget() else None)
+        self.btn_reload.clicked.connect(lambda: self.web_stack.currentWidget().reload() if self.web_stack.currentWidget() else None)
 
         # Navegador Worker (Invisível - usado para varredura)
         self.view_worker = QWebEngineView()
@@ -199,17 +223,81 @@ class SmartPortariaScanner(QMainWindow):
         splitter.addWidget(container_web)
         layout.addWidget(splitter)
 
+    def add_new_tab(self, qurl, title, closable=True):
+        view = QWebEngineView()
+        profile = QWebEngineProfile.defaultProfile()
+        page = CustomWebPage(profile, view, self)
+        view.setPage(page)
+
+        # Configurar configurações da aba
+        s = view.page().settings()
+        s.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
+        s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
+        s.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+        s.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
+
+        view.urlChanged.connect(lambda q: self.atualizar_barra_endereco(q, view))
+        view.titleChanged.connect(lambda t: self.atualizar_titulo_aba(t, view))
+        view.loadFinished.connect(lambda ok: self.on_tab_load_finished(ok, view))
+
+        idx = self.web_stack.addWidget(view)
+        tab_idx = self.tabs.addTab(title)
+
+        # Se não for fechável, remove o botão de fechar
+        if not closable:
+            self.tabs.setTabButton(tab_idx, QTabBar.ButtonPosition.RightSide, None)
+
+        if qurl and not qurl.isEmpty():
+            view.setUrl(qurl)
+
+        self.tabs.setCurrentIndex(tab_idx)
+        self.web_stack.setCurrentIndex(idx)
+        return view
+
     def ir_para_url(self):
         url_texto = self.address_bar.text()
         if not url_texto.startswith("http"):
             url_texto = "https://" + url_texto
-        self.view_principal.setUrl(QUrl(url_texto))
+        view = self.web_stack.currentWidget()
+        if view:
+            view.setUrl(QUrl(url_texto))
 
     def ir_para_home(self):
-        self.view_principal.setUrl(QUrl("https://portaria-global.governarti.com.br/"))
+        view = self.web_stack.currentWidget()
+        if view:
+            view.setUrl(QUrl("https://portaria-global.governarti.com.br/"))
 
-    def atualizar_barra_endereco(self, qurl):
-        self.address_bar.setText(qurl.toString())
+    def mudar_aba(self, index):
+        if index >= 0:
+            self.web_stack.setCurrentIndex(index)
+            view = self.web_stack.currentWidget()
+            if view:
+                self.address_bar.setText(view.url().toString())
+
+    def fechar_aba(self, index):
+        # Proteção para não fechar a Portaria Virtual (identificada pelo texto ou índice 0)
+        if self.tabs.tabText(index) == "Portaria Virtual" or index == 0:
+            return
+
+        widget = self.web_stack.widget(index)
+        if widget:
+            self.web_stack.removeWidget(widget)
+            widget.deleteLater()
+        self.tabs.removeTab(index)
+
+    def atualizar_titulo_aba(self, titulo, view):
+        index = self.web_stack.indexOf(view)
+        if index != -1:
+            if index == 0:
+                self.tabs.setTabText(index, "Portaria Virtual")
+            else:
+                display_title = titulo[:15] + "..." if len(titulo) > 15 else titulo
+                self.tabs.setTabText(index, display_title)
+
+    def atualizar_barra_endereco(self, qurl, view):
+        if view == self.web_stack.currentWidget():
+            self.address_bar.setText(qurl.toString())
 
     def log(self, tag, msg):
         hora = datetime.datetime.now().strftime('%H:%M:%S')
@@ -222,16 +310,8 @@ class SmartPortariaScanner(QMainWindow):
         s_worker.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, False)
         s_worker.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
 
-        # Configurações do Principal (Otimizado para usabilidade)
-        # Nota: As configurações devem ser aplicadas na página customizada que já setamos
-        s_main = self.view_principal.page().settings()
-        s_main.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
-        s_main.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-        
-        # Permite JS abrir janelas (que nosso CustomWebPage vai interceptar e forçar na mesma)
-        s_main.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
-        s_main.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
-        s_main.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+        # Nota: As configurações do navegador principal agora são feitas
+        # individualmente para cada aba em 'add_new_tab'.
 
     def carregar_ultimo_id(self):
         maior = self.db.get_maior_id_salvo()
@@ -254,8 +334,8 @@ class SmartPortariaScanner(QMainWindow):
             js_login = "document.querySelectorAll('input').forEach(i => { if(i.type=='text') i.value='armando.junior'; if(i.type=='password') i.value='armandocampos.1'; });"
             browser_view.page().runJavaScript(js_login)
 
-    def on_principal_load_finished(self, ok):
-        self.injetar_login(self.view_principal)
+    def on_tab_load_finished(self, ok, view):
+        self.injetar_login(view)
 
     def on_worker_load_finished(self, ok):
         self.injetar_login(self.view_worker)
@@ -337,7 +417,8 @@ class SmartPortariaScanner(QMainWindow):
         # Ação ao clicar no botão "ABRIR NO SISTEMA" da busca
         visita_id = url_qurl.toString()
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
-        self.view_principal.setUrl(QUrl(link_final))
+        # Abre em uma nova aba
+        self.add_new_tab(QUrl(link_final), f"ID {visita_id}")
 
 if __name__ == "__main__":
     try:
