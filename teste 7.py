@@ -500,21 +500,20 @@ class SmartPortariaScanner(QMainWindow):
                     print(f"Erro ao processar data: {e}")
 
             html += f"""
-            <div style='background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px;'>
-                <div style='color: #1e293b; font-size: 14px; margin-bottom: 4px;'>
-                    <b style='color: #2563eb;'>ID {vid}:</b> {nome}
+            <a href="{vid}" style="text-decoration: none;">
+                <div style='background-color: #ffffff; border: 1px solid #cbd5e1; border-bottom: 3px solid #94a3b8; border-right: 2px solid #94a3b8; border-radius: 8px; padding: 12px; margin-bottom: 12px;'>
+                    <div style='color: #1e293b; font-size: 14px; margin-bottom: 4px;'>
+                        <b style='color: #2563eb;'>ID {vid}:</b> {nome}
+                    </div>
+                    <div style='color: #64748b; font-size: 12px; margin-bottom: 8px;'>
+                        CPF: {cpf}
+                    </div>
+                    <div style='background: #f8fafc; border-radius: 4px; padding: 6px; border-left: 4px solid {cor};'>
+                        <span style='color: #475569; font-size: 10px; font-weight: bold; text-transform: uppercase;'>Validade:</span><br>
+                        <span style='color: {cor}; font-weight: bold; font-size: 13px;'>{horario}</span>
+                    </div>
                 </div>
-                <div style='color: #64748b; font-size: 12px; margin-bottom: 8px;'>
-                    CPF: {cpf}
-                </div>
-                <div style='background: white; border-radius: 4px; padding: 6px; border-left: 4px solid {cor}; margin-bottom: 10px;'>
-                    <span style='color: #475569; font-size: 11px; font-weight: bold; text-transform: uppercase;'>Validade:</span><br>
-                    <span style='color: {cor}; font-weight: bold; font-size: 13px;'>{horario}</span>
-                </div>
-                <div style='text-align: right;'>
-                    <a href="{vid}" style="text-decoration: none; color: white; background-color: #2563eb; padding: 6px 16px; border-radius: 4px; font-size: 11px; font-weight: bold;">ABRIR</a>
-                </div>
-            </div>
+            </a>
             """
         self.txt_res_busca.setHtml(html)
 
