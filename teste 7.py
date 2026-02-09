@@ -45,22 +45,49 @@ class DatabaseHandler:
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.criar_tabelas()
+        self.migrar_dados_vazios()
+
+    def migrar_dados_vazios(self):
+        # Busca registros onde nome ou cpf estão nulos
+        self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas WHERE nome IS NULL OR cpf IS NULL")
+        vazios = self.cursor.fetchall()
+        if vazios:
+            print(f">>> Migrando {len(vazios)} registros antigos...")
+            for vid, conteudo in vazios:
+                nome, cpf = self.extrair_dados(conteudo)
+                self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ? WHERE visita_id = ?", (nome, cpf, vid))
+            self.conn.commit()
+            print(">>> Migração concluída.")
 
     def criar_tabelas(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS detalhes_visitas (
                 visita_id INTEGER PRIMARY KEY,
+                nome TEXT,
+                cpf TEXT,
                 conteudo TEXT,
                 url TEXT,
                 data_captura TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        # Migração: adiciona colunas nome e cpf se não existirem
+        self.cursor.execute("PRAGMA table_info(detalhes_visitas)")
+        columns = [col[1] for col in self.cursor.fetchall()]
+        if 'nome' not in columns:
+            self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN nome TEXT")
+        if 'cpf' not in columns:
+            self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN cpf TEXT")
+
+        # Índices para busca rápida
+        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_nome ON detalhes_visitas(nome)")
+        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpf ON detalhes_visitas(cpf)")
+
         self.conn.commit()
 
-    def salvar_visita(self, visita_id, conteudo, url):
+    def salvar_visita(self, visita_id, nome, cpf, conteudo, url):
         try:
-            self.cursor.execute('INSERT OR REPLACE INTO detalhes_visitas (visita_id, conteudo, url) VALUES (?, ?, ?)', 
-                               (visita_id, conteudo, url))
+            self.cursor.execute('INSERT OR REPLACE INTO detalhes_visitas (visita_id, nome, cpf, conteudo, url) VALUES (?, ?, ?, ?, ?)',
+                               (visita_id, nome, cpf, conteudo, url))
             self.conn.commit()
             return True
         except Exception as e:
@@ -71,10 +98,50 @@ class DatabaseHandler:
         self.cursor.execute("SELECT visita_id, conteudo, url FROM detalhes_visitas ORDER BY visita_id DESC")
         return self.cursor.fetchall()
 
+    def buscar_por_filtro(self, termos):
+        if not termos:
+            return []
+
+        query = "SELECT visita_id, nome, cpf FROM detalhes_visitas WHERE "
+        conditions = []
+        params = []
+        for t in termos:
+            conditions.append("(nome LIKE ? OR cpf LIKE ?)")
+            params.extend([f"%{t}%", f"%{t}%"])
+
+        query += " AND ".join(conditions)
+        query += " ORDER BY visita_id DESC LIMIT 50"
+
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+
     def get_maior_id_salvo(self):
         self.cursor.execute("SELECT MAX(visita_id) FROM detalhes_visitas")
         res = self.cursor.fetchone()
         return res[0] if res[0] else 0
+
+    @staticmethod
+    def extrair_dados(conteudo):
+        if not conteudo:
+            return "Desconhecido", "N/A"
+
+        reg_nome = r"Visitante:\s*([\w\.\s\-]+)"
+        reg_cpf = r"(\d{3}\.\d{3}\.\d{3}-\d{2})"
+
+        m_nome = re.search(reg_nome, conteudo, re.IGNORECASE)
+        m_cpf = re.search(reg_cpf, conteudo)
+
+        raw_nome = m_nome.group(1).strip() if m_nome else "Desconhecido"
+        cpf = m_cpf.group(1) if m_cpf else "N/A"
+
+        if cpf != "N/A" and cpf in raw_nome:
+            raw_nome = raw_nome.replace(cpf, "")
+
+        clean_nome = raw_nome.split("Telefone")[0].split("CPF")[0].split("Celular")[0].strip(" -")
+        if not clean_nome:
+            clean_nome = "Desconhecido"
+
+        return clean_nome, cpf
 
 class SmartPortariaScanner(QMainWindow):
     def __init__(self):
@@ -93,6 +160,11 @@ class SmartPortariaScanner(QMainWindow):
         self.setup_ui()
         self.carregar_ultimo_id()
         self.configurar_navegadores()
+
+        # Timer para busca (debounce)
+        self.timer_busca = QTimer()
+        self.timer_busca.setSingleShot(True)
+        self.timer_busca.timeout.connect(self.executar_busca_local)
         
         # Configuração do User Agent Global
         profile = QWebEngineProfile.defaultProfile()
@@ -354,17 +426,11 @@ class SmartPortariaScanner(QMainWindow):
             self.timer_retry.start(3000)
             return
 
-        match_nome = re.search(r"Visitante:\s*([\w\.\s\-]+)", conteudo, re.IGNORECASE)
-        match_cpf = re.search(r"(\d{3}\.\d{3}\.\d{3}-\d{2})", conteudo)
-
-        dados_encontrados = (match_nome or match_cpf) and "não encontrada" not in conteudo.lower()
+        nome_str, cpf_str = self.db.extrair_dados(conteudo)
+        dados_encontrados = (nome_str != "Desconhecido" or cpf_str != "N/A") and "não encontrada" not in conteudo.lower()
 
         if dados_encontrados:
-            self.db.salvar_visita(self.id_atual, conteudo, self.view_worker.url().toString())
-            nome_str = match_nome.group(1).strip() if match_nome else "Nome Desconhecido"
-            # Limpeza básica do nome
-            nome_str = nome_str.split("Telefone")[0].split("CPF")[0].strip(" -")
-            cpf_str = match_cpf.group(1) if match_cpf else "Doc N/A"
+            self.db.salvar_visita(self.id_atual, nome_str, cpf_str, conteudo, self.view_worker.url().toString())
             
             log_entry = f"ID {self.id_atual}: {nome_str} - {cpf_str}"
             self.txt_live.append(log_entry)
@@ -377,40 +443,27 @@ class SmartPortariaScanner(QMainWindow):
             self.timer_retry.start(10000)
 
     def realizar_busca_local(self):
+        # Inicia ou reinicia o timer de debounce
+        self.timer_busca.start(300)
+
+    def executar_busca_local(self):
         termo = self.input_busca.text().strip().lower()
         if not termo: 
             self.txt_res_busca.clear()
             return
         
         termos = termo.split()
-        dados = self.db.buscar_todos()
+        # Busca otimizada via SQL
+        dados = self.db.buscar_por_filtro(termos)
         html = ""
         
-        reg_nome = r"Visitante:\s*([\w\.\s\-]+)"
-        reg_cpf = r"(\d{3}\.\d{3}\.\d{3}-\d{2})"
-        
-        for vid, txt, url in dados:
-            m_nome = re.search(reg_nome, txt, re.IGNORECASE)
-            m_cpf = re.search(reg_cpf, txt)
-            
-            if m_nome or m_cpf:
-                raw_nome = m_nome.group(1).strip() if m_nome else "N/A"
-                cpf = m_cpf.group(1) if m_cpf else "N/A"
-
-                if cpf in raw_nome:
-                    raw_nome = raw_nome.replace(cpf, "")
-
-                clean_nome = raw_nome.split("Telefone")[0].split("CPF")[0].split("Celular")[0].strip(" -")
-                texto_completo = f"{clean_nome} {cpf}"
-                
-                # Filtra se todos os termos digitados estão no texto
-                if all(t in texto_completo.lower() for t in termos):
-                    html += f"""
-                    <div style='margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #ddd;'>
-                        <b>ID {vid}:</b> {clean_nome} - {cpf}<br>
-                        <a href="{vid}" style="text-decoration:none; color:white; background-color:#16a34a; padding:2px 8px; border-radius:3px; font-size:10px;">ABRIR NO SISTEMA</a>
-                    </div>
-                    """
+        for vid, nome, cpf in dados:
+            html += f"""
+            <div style='margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #ddd;'>
+                <b>ID {vid}:</b> {nome} - {cpf}<br>
+                <a href="{vid}" style="text-decoration:none; color:white; background-color:#16a34a; padding:2px 8px; border-radius:3px; font-size:10px;">ABRIR NO SISTEMA</a>
+            </div>
+            """
         self.txt_res_busca.setHtml(html)
 
     def abrir_link_resultado(self, url_qurl):
