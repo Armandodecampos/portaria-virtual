@@ -47,6 +47,18 @@ class DatabaseHandler:
         self.criar_tabelas()
         self.migrar_dados_vazios()
 
+    def reprocessar_dados_existentes(self):
+        # Reprocessa todos os registros para garantir que o novo formato de extração (ID no nome) seja aplicado
+        self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas")
+        registros = self.cursor.fetchall()
+        if registros:
+            print(f">>> Reprocessando {len(registros)} registros para novo formato...")
+            for vid, conteudo in registros:
+                nome, cpf, horario = self.extrair_dados(conteudo)
+                self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ?, horario = ? WHERE visita_id = ?", (nome, cpf, horario, vid))
+            self.conn.commit()
+            print(">>> Reprocessamento concluído.")
+
     def migrar_dados_vazios(self):
         # Busca registros onde nome, cpf ou horario estão nulos
         self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas WHERE nome IS NULL OR cpf IS NULL OR horario IS NULL")
@@ -60,6 +72,10 @@ class DatabaseHandler:
             print(">>> Migração concluída.")
 
     def criar_tabelas(self):
+        # Verifica versão do banco para migrações
+        self.cursor.execute("PRAGMA user_version")
+        versao = self.cursor.fetchone()[0]
+
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS detalhes_visitas (
                 visita_id INTEGER PRIMARY KEY,
@@ -85,6 +101,11 @@ class DatabaseHandler:
         self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_nome ON detalhes_visitas(nome)")
         self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpf ON detalhes_visitas(cpf)")
         self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_horario ON detalhes_visitas(horario)")
+
+        # Se for uma versão antiga, aplica o reprocessamento uma única vez para o novo formato
+        if versao < 1:
+            self.reprocessar_dados_existentes()
+            self.cursor.execute("PRAGMA user_version = 1")
 
         self.conn.commit()
 
@@ -147,7 +168,18 @@ class DatabaseHandler:
         if cpf != "N/A" and cpf in raw_nome:
             raw_nome = raw_nome.replace(cpf, "")
 
-        clean_nome = raw_nome.split("Telefone")[0].split("CPF")[0].split("Celular")[0].strip(" -")
+        clean_nome = raw_nome.split("Telefone")[0].split("CPF")[0].split("Celular")[0].split("Horário")[0].strip(" -")
+
+        # Se CPF não foi identificado, tenta buscar um ID no nome (ex: "Nome - ID")
+        if cpf == "N/A" and " - " in clean_nome:
+            partes = [p.strip() for p in clean_nome.split(" - ") if p.strip()]
+            if len(partes) >= 2:
+                possivel_id = partes[-1]
+                # Se a última parte contiver números, assumimos que é um ID
+                if any(char.isdigit() for char in possivel_id):
+                    cpf = possivel_id
+                    clean_nome = " - ".join(partes[:-1]).strip(" -")
+
         if not clean_nome:
             clean_nome = "Desconhecido"
 
@@ -506,8 +538,8 @@ class SmartPortariaScanner(QMainWindow):
             <a href="{vid}" style="text-decoration: none;">
                 <div style='background-color: #ffffff; border: 2px solid #cbd5e1; border-bottom: 4px solid #94a3b8; border-right: 3px solid #94a3b8; border-radius: 8px; padding: 12px;'>
                     <div style='color: #1e293b; font-size: 14px;'>
-                        <b style='color: #2563eb;'>ID {vid}:</b> {nome} - <br>
-                        <span style='color: #64748b; font-size: 12px;'>CPF: {cpf}</span><br>
+                        <b style='color: #2563eb;'>ID {vid}:</b> {nome}<br>
+                        <span style='color: #64748b; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                         <span style='color: #475569; font-size: 12px;'><b>Validade:</b> <span style='color: {cor}; font-weight: bold;'>{horario}</span></span>
                     </div>
                 </div>
