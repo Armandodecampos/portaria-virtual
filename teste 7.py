@@ -286,6 +286,9 @@ class SmartPortariaScanner(QMainWindow):
                 color: white;
                 font-weight: bold;
             }
+            QTabBar::close-button {
+                margin-right: 8px;
+            }
         """)
         self.tabs.tabCloseRequested.connect(self.fechar_aba)
         self.tabs.currentChanged.connect(self.mudar_aba)
@@ -501,7 +504,7 @@ class SmartPortariaScanner(QMainWindow):
 
             html += f"""
             <a href="{vid}" style="text-decoration: none;">
-                <div style='background-color: #ffffff; border: 1px solid #cbd5e1; border-bottom: 3px solid #94a3b8; border-right: 2px solid #94a3b8; border-radius: 8px; padding: 12px; margin-bottom: 12px;'>
+                <div style='background-color: #ffffff; border: 2px solid #cbd5e1; border-bottom: 4px solid #94a3b8; border-right: 3px solid #94a3b8; border-radius: 8px; padding: 12px; margin-bottom: 16px;'>
                     <div style='color: #1e293b; font-size: 14px; margin-bottom: 4px;'>
                         <b style='color: #2563eb;'>ID {vid}:</b> {nome}
                     </div>
