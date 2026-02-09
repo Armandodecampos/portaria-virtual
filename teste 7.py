@@ -230,25 +230,6 @@ class SmartPortariaScanner(QMainWindow):
         painel.setFixedWidth(450)
         lat = QVBoxLayout(painel)
 
-        self.status_box = QWidget()
-        self.status_box.setStyleSheet("background: #f1f5f9; border-radius: 8px; padding: 10px; border: 1px solid #ccc;")
-        status_lat = QVBoxLayout(self.status_box)
-        self.lbl_id_viva = QLabel("ID ATUAL: --")
-        self.lbl_id_viva.setStyleSheet("font-size: 22px; font-weight: bold; color: #2563eb;")
-        self.lbl_status = QLabel("Monitorando em 2º plano...")
-        self.lbl_status.setWordWrap(True)
-        status_lat.addWidget(self.lbl_id_viva)
-        status_lat.addWidget(self.lbl_status)
-        lat.addWidget(self.status_box)
-
-        group_live = QGroupBox("CAPTURAS EM TEMPO REAL")
-        layout_live = QVBoxLayout(group_live)
-        self.txt_live = QTextEdit()
-        self.txt_live.setReadOnly(True)
-        self.txt_live.setStyleSheet("background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px;")
-        layout_live.addWidget(self.txt_live)
-        lat.addWidget(group_live)
-
         group_busca = QGroupBox("BUSCA NO BANCO DE DADOS")
         layout_busca = QVBoxLayout(group_busca)
         layout_busca.setContentsMargins(10, 15, 10, 10)
@@ -278,6 +259,25 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
         lat.addWidget(group_busca)
+
+        self.status_box = QWidget()
+        self.status_box.setStyleSheet("background: #f1f5f9; border-radius: 8px; padding: 10px; border: 1px solid #ccc;")
+        status_lat = QVBoxLayout(self.status_box)
+        self.lbl_id_viva = QLabel("ID ATUAL: --")
+        self.lbl_id_viva.setStyleSheet("font-size: 22px; font-weight: bold; color: #2563eb;")
+        self.lbl_status = QLabel("Monitorando em 2º plano...")
+        self.lbl_status.setWordWrap(True)
+        status_lat.addWidget(self.lbl_id_viva)
+        status_lat.addWidget(self.lbl_status)
+        lat.addWidget(self.status_box)
+
+        group_live = QGroupBox("CAPTURAS EM TEMPO REAL")
+        layout_live = QVBoxLayout(group_live)
+        self.txt_live = QTextEdit()
+        self.txt_live.setReadOnly(True)
+        self.txt_live.setStyleSheet("background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px;")
+        layout_live.addWidget(self.txt_live)
+        lat.addWidget(group_live)
 
         # --- NAVEGADOR PRINCIPAL (Janela Única) ---
         container_web = QWidget()
@@ -319,7 +319,7 @@ class SmartPortariaScanner(QMainWindow):
                 font-weight: bold;
             }
             QTabBar::close-button {
-                margin-right: 8px;
+                margin-right: 15px;
             }
         """)
         self.tabs.tabCloseRequested.connect(self.fechar_aba)
