@@ -215,7 +215,7 @@ class SmartPortariaScanner(QMainWindow):
 
         # --- NOVA GUIA ANÔNIMA FIXA ---
         # Abre uma aba em branco ou URL especifica com o perfil anônimo
-        self.add_new_tab(QUrl("about:blank"), "🕵️ DESBLOQUEADOR ANÔNIMO", closable=False, profile=self.profile_anonimo)
+        self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
 
         self.txt_live.append(f"--- SISTEMA INICIADO: {datetime.datetime.now().strftime('%H:%M:%S')} ---")
         # Removido log de ativação da guia anônima para manter discrição
@@ -293,7 +293,7 @@ class SmartPortariaScanner(QMainWindow):
         self.address_bar.returnPressed.connect(self.ir_para_url)
 
         # BOTÃO MÁGICO DE DESBLOQUEIO
-        self.btn_unlock = QPushButton("🔓 FORCE UNLOCK")
+        self.btn_unlock = QPushButton("Destravar")
         self.btn_unlock.setToolTip("Forçar desbloqueio de botões e pular vídeos")
         self.btn_unlock.setStyleSheet("""
             QPushButton {
@@ -326,8 +326,8 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
-        toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.btn_unlock) # Adicionado botão unlock
+        toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
         toolbar.addWidget(self.btn_home)
         
@@ -371,10 +371,6 @@ class SmartPortariaScanner(QMainWindow):
         view.titleChanged.connect(lambda t: self.atualizar_titulo_aba(t, view))
         view.loadFinished.connect(lambda ok: self.on_tab_load_finished(ok, view))
         
-        # Verifica se é anônimo para injetar o filtro de cores
-        if target_profile == self.profile_anonimo:
-            view.loadFinished.connect(lambda ok: self.aplicar_cores_invertidas(ok, view))
-
         idx = self.web_stack.addWidget(view)
         tab_idx = self.tabs.addTab(title)
 
@@ -387,20 +383,6 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.setCurrentIndex(tab_idx)
         self.web_stack.setCurrentIndex(idx)
         return view
-
-    def aplicar_cores_invertidas(self, ok, view):
-        """
-        Injeta CSS para inverter cores na guia anônima, mas mantendo imagens e vídeos corretos.
-        """
-        if not ok: return
-        js_invert = """
-        (function() {
-            var style = document.createElement('style');
-            style.innerHTML = 'html { filter: invert(1) hue-rotate(180deg); background: white; } img, video, iframe, picture { filter: invert(1) hue-rotate(180deg); }';
-            document.head.appendChild(style);
-        })();
-        """
-        view.page().runJavaScript(js_invert)
 
     def executar_desbloqueio(self):
         """
@@ -494,18 +476,18 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 if url_str == "about:blank":
                     self.address_bar.clear()
-                    self.address_bar.setPlaceholderText("Navegação Anônima - Digite URL...")
+                    self.address_bar.setPlaceholderText("Guia anônima - Digite URL...")
                 else:
                     self.address_bar.setText(url_str)
 
     def fechar_aba(self, index):
         # Protege Portaria Virtual e Guia Anônima
         titulo = self.tabs.tabText(index)
-        if "Portaria Virtual" in titulo or "Anônima" in titulo:
+        if "Portaria Virtual" in titulo or "anônima" in titulo.lower():
             # Só loga tentativa de fecho se NÃO for a guia anônima envolvida (para garantir sigilo total)
             # Mas aqui o log é sobre a ação do usuário na interface, então pode ser útil saber.
             # Vou silenciar se for a anônima.
-            if "Anônima" not in titulo:
+            if "anônima" not in titulo.lower():
                 self.txt_live.append(">>> Tentativa de fechar guia protegida bloqueada.")
             return
 
@@ -521,7 +503,7 @@ class SmartPortariaScanner(QMainWindow):
             # Mantém nomes fixos para as guias especiais
             current_text = self.tabs.tabText(index)
             if "Portaria Virtual" in current_text: return
-            if "Anônima" in current_text: return
+            if "anônima" in current_text.lower(): return
 
             display_title = titulo[:15] + "..." if len(titulo) > 15 else titulo
             self.tabs.setTabText(index, display_title)
@@ -533,7 +515,7 @@ class SmartPortariaScanner(QMainWindow):
             # Na prática, urlChanged é disparado quando a página carrega.
             if url_str == "about:blank":
                 self.address_bar.clear()
-                self.address_bar.setPlaceholderText("Navegação Anônima - Digite URL...")
+                self.address_bar.setPlaceholderText("Guia anônima - Digite URL...")
             else:
                 self.address_bar.setText(url_str)
 
