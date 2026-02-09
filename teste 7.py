@@ -37,6 +37,17 @@ class CustomWebPage(QWebEnginePage):
         print(">>> Interceptando tentativa de abrir nova janela -> Forçando na mesma página.")
         return self
 
+    def acceptNavigationRequest(self, url, _type, isMainFrame):
+        """
+        Força qualquer clique em link a carregar na mesma página,
+        mesmo que o HTML peça target='_blank'.
+        """
+        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+            print(f">>> Navegação detectada: {url.toString()} -> Forçando mesma guia.")
+            self.setUrl(url)
+            return False
+        return True
+
 class DatabaseHandler:
     def __init__(self, db_name="dados_detalhes.db"):
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
@@ -355,10 +366,9 @@ class SmartPortariaScanner(QMainWindow):
 
         # Só preenche se estiver na página de login
         if "portaria-global.governarti.com.br/login" in url_atual:
-            # Script para preencher login automaticamente (Credenciais removidas por segurança)
-            # js_login = "document.querySelectorAll('input').forEach(i => { if(i.type=='text') i.value='USUARIO'; if(i.type=='password') i.value='SENHA'; });"
-            # browser_view.page().runJavaScript(js_login)
-            pass
+            # Script para preencher login automaticamente caso caia na tela de login
+            js_login = "document.querySelectorAll('input').forEach(i => { if(i.type=='text') i.value='armando.junior'; if(i.type=='password') i.value='armandocampos.1'; });"
+            browser_view.page().runJavaScript(js_login)
 
     def on_principal_load_finished(self, ok):
         self.injetar_login(self.view_principal)
