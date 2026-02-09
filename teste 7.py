@@ -485,8 +485,9 @@ class SmartPortariaScanner(QMainWindow):
 
             html += f"""
             <div style='margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #ddd;'>
-                <b>ID {vid}:</b> {nome} - - {cpf} - <span style="color:{cor};">{horario}</span><br>
-                <a href="{vid}" style="text-decoration:none; color:white; background-color:#16a34a; padding:2px 8px; border-radius:3px; font-size:10px;">ABRIR NO SISTEMA</a>
+                <b>ID {vid}:</b> {nome} - - - {cpf}<br>
+                Validade: <span style="color:{cor}; font-weight:bold;">{horario}</span><br>
+                <a href="{vid}" style="text-decoration:none; color:white; background-color:#16a34a; padding:2px 8px; border-radius:3px; font-size:10px;">ABRIR</a>
             </div>
             """
         self.txt_res_busca.setHtml(html)
