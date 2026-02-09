@@ -48,14 +48,14 @@ class DatabaseHandler:
         self.migrar_dados_vazios()
 
     def migrar_dados_vazios(self):
-        # Busca registros onde nome ou cpf estão nulos
-        self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas WHERE nome IS NULL OR cpf IS NULL")
+        # Busca registros onde nome, cpf ou horario estão nulos
+        self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas WHERE nome IS NULL OR cpf IS NULL OR horario IS NULL")
         vazios = self.cursor.fetchall()
         if vazios:
             print(f">>> Migrando {len(vazios)} registros antigos...")
             for vid, conteudo in vazios:
-                nome, cpf = self.extrair_dados(conteudo)
-                self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ? WHERE visita_id = ?", (nome, cpf, vid))
+                nome, cpf, horario = self.extrair_dados(conteudo)
+                self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ?, horario = ? WHERE visita_id = ?", (nome, cpf, horario, vid))
             self.conn.commit()
             print(">>> Migração concluída.")
 
@@ -65,29 +65,33 @@ class DatabaseHandler:
                 visita_id INTEGER PRIMARY KEY,
                 nome TEXT,
                 cpf TEXT,
+                horario TEXT,
                 conteudo TEXT,
                 url TEXT,
                 data_captura TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        # Migração: adiciona colunas nome e cpf se não existirem
+        # Migração: adiciona colunas se não existirem
         self.cursor.execute("PRAGMA table_info(detalhes_visitas)")
         columns = [col[1] for col in self.cursor.fetchall()]
         if 'nome' not in columns:
             self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN nome TEXT")
         if 'cpf' not in columns:
             self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN cpf TEXT")
+        if 'horario' not in columns:
+            self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN horario TEXT")
 
         # Índices para busca rápida
         self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_nome ON detalhes_visitas(nome)")
         self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpf ON detalhes_visitas(cpf)")
+        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_horario ON detalhes_visitas(horario)")
 
         self.conn.commit()
 
-    def salvar_visita(self, visita_id, nome, cpf, conteudo, url):
+    def salvar_visita(self, visita_id, nome, cpf, horario, conteudo, url):
         try:
-            self.cursor.execute('INSERT OR REPLACE INTO detalhes_visitas (visita_id, nome, cpf, conteudo, url) VALUES (?, ?, ?, ?, ?)',
-                               (visita_id, nome, cpf, conteudo, url))
+            self.cursor.execute('INSERT OR REPLACE INTO detalhes_visitas (visita_id, nome, cpf, horario, conteudo, url) VALUES (?, ?, ?, ?, ?, ?)',
+                               (visita_id, nome, cpf, horario, conteudo, url))
             self.conn.commit()
             return True
         except Exception as e:
@@ -102,7 +106,7 @@ class DatabaseHandler:
         if not termos:
             return []
 
-        query = "SELECT visita_id, nome, cpf FROM detalhes_visitas WHERE "
+        query = "SELECT visita_id, nome, cpf, horario FROM detalhes_visitas WHERE "
         conditions = []
         params = []
         for t in termos:
@@ -123,16 +127,22 @@ class DatabaseHandler:
     @staticmethod
     def extrair_dados(conteudo):
         if not conteudo:
-            return "Desconhecido", "N/A"
+            return "Desconhecido", "N/A", "N/A"
 
         reg_nome = r"Visitante:\s*([\w\.\s\-]+)"
         reg_cpf = r"(\d{3}\.\d{3}\.\d{3}-\d{2})"
+        reg_horario = r"Horário:\s*(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}\s*-\s*(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}"
 
         m_nome = re.search(reg_nome, conteudo, re.IGNORECASE)
         m_cpf = re.search(reg_cpf, conteudo)
+        m_horario = re.search(reg_horario, conteudo)
 
         raw_nome = m_nome.group(1).strip() if m_nome else "Desconhecido"
         cpf = m_cpf.group(1) if m_cpf else "N/A"
+        horario = "N/A"
+
+        if m_horario:
+            horario = f"{m_horario.group(1)} - {m_horario.group(2)}"
 
         if cpf != "N/A" and cpf in raw_nome:
             raw_nome = raw_nome.replace(cpf, "")
@@ -141,7 +151,7 @@ class DatabaseHandler:
         if not clean_nome:
             clean_nome = "Desconhecido"
 
-        return clean_nome, cpf
+        return clean_nome, cpf, horario
 
 class SmartPortariaScanner(QMainWindow):
     def __init__(self):
@@ -426,13 +436,13 @@ class SmartPortariaScanner(QMainWindow):
             self.timer_retry.start(3000)
             return
 
-        nome_str, cpf_str = self.db.extrair_dados(conteudo)
+        nome_str, cpf_str, horario_str = self.db.extrair_dados(conteudo)
         dados_encontrados = (nome_str != "Desconhecido" or cpf_str != "N/A") and "não encontrada" not in conteudo.lower()
 
         if dados_encontrados:
-            self.db.salvar_visita(self.id_atual, nome_str, cpf_str, conteudo, self.view_worker.url().toString())
+            self.db.salvar_visita(self.id_atual, nome_str, cpf_str, horario_str, conteudo, self.view_worker.url().toString())
             
-            log_entry = f"ID {self.id_atual}: {nome_str} - {cpf_str}"
+            log_entry = f"ID {self.id_atual}: {nome_str} - {cpf_str} - {horario_str}"
             self.txt_live.append(log_entry)
             self.log("ACHOU", f"Capturado: {nome_str}")
             
@@ -457,10 +467,25 @@ class SmartPortariaScanner(QMainWindow):
         dados = self.db.buscar_por_filtro(termos)
         html = ""
         
-        for vid, nome, cpf in dados:
+        hoje = datetime.date.today()
+
+        for vid, nome, cpf, horario in dados:
+            cor = "green"
+            if horario and horario != "N/A":
+                try:
+                    # Tenta extrair a data final (segunda data do intervalo)
+                    partes = horario.split(" - ")
+                    if len(partes) == 2:
+                        data_fim_str = partes[1].strip()
+                        data_fim = datetime.datetime.strptime(data_fim_str, "%d/%m/%Y").date()
+                        if data_fim < hoje:
+                            cor = "red"
+                except Exception as e:
+                    print(f"Erro ao processar data: {e}")
+
             html += f"""
             <div style='margin-bottom:8px; padding-bottom:5px; border-bottom:1px solid #ddd;'>
-                <b>ID {vid}:</b> {nome} - {cpf}<br>
+                <b>ID {vid}:</b> {nome} - - {cpf} - <span style="color:{cor};">{horario}</span><br>
                 <a href="{vid}" style="text-decoration:none; color:white; background-color:#16a34a; padding:2px 8px; border-radius:3px; font-size:10px;">ABRIR NO SISTEMA</a>
             </div>
             """
