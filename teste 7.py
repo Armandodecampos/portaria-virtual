@@ -508,12 +508,11 @@ class SmartPortariaScanner(QMainWindow):
                     <div style='color: #1e293b; font-size: 14px; margin-bottom: 4px;'>
                         <b style='color: #2563eb;'>ID {vid}:</b> {nome}
                     </div>
-                    <div style='color: #64748b; font-size: 12px; margin-bottom: 8px;'>
+                    <div style='color: #64748b; font-size: 12px; margin-bottom: 4px;'>
                         CPF: {cpf}
                     </div>
-                    <div style='background: #f8fafc; border-radius: 4px; padding: 6px; border-left: 4px solid {cor};'>
-                        <span style='color: #475569; font-size: 10px; font-weight: bold; text-transform: uppercase;'>Validade:</span><br>
-                        <span style='color: {cor}; font-weight: bold; font-size: 13px;'>{horario}</span>
+                    <div style='color: #475569; font-size: 12px;'>
+                        <b>Validade:</b> <span style='color: {cor}; font-weight: bold;'>{horario}</span>
                     </div>
                 </div>
             </a>
