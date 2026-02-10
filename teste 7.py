@@ -10,10 +10,13 @@ try:
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
-        QStackedWidget, QTabBar, QMessageBox
+        QStackedWidget, QTabBar, QMessageBox, QDialog
     )
+    from PyQt6.QtGui import QPixmap
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
+    import qrcode
+    from PIL.ImageQt import ImageQt
 except ImportError as e:
     print("\n" + "="*60)
     print("ERRO CRÍTICO: BIBLIOTECAS NÃO ENCONTRADAS")
@@ -37,6 +40,39 @@ class CustomWebPage(QWebEnginePage):
         current_profile = self.profile()
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
+
+class QRDialog(QDialog):
+    def __init__(self, pixmap, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("QR Code Gerado")
+        self.setModal(True)
+        self.setStyleSheet("background-color: white;")
+
+        layout = QVBoxLayout(self)
+
+        self.lbl_qr = QLabel()
+        self.lbl_qr.setPixmap(pixmap)
+        self.lbl_qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.lbl_qr)
+
+        self.btn_close = QPushButton("Fechar")
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                font-weight: bold;
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #dc2626;
+            }
+        """)
+        self.btn_close.clicked.connect(self.accept)
+        layout.addWidget(self.btn_close)
+
+        self.setFixedSize(self.sizeHint())
 
 class DatabaseHandler:
     def __init__(self, db_name="dados_detalhes.db"):
@@ -214,6 +250,28 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_live.setStyleSheet("background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px;")
         layout_live.addWidget(self.txt_live)
         lat.addWidget(group_live)
+
+        group_qr = QGroupBox("Gerador de QR code")
+        layout_qr = QVBoxLayout(group_qr)
+        self.txt_qr_input = QTextEdit()
+        self.txt_qr_input.setPlaceholderText("Cole a mensagem aqui para extrair o link...")
+        self.txt_qr_input.setMaximumHeight(100)
+        self.txt_qr_input.setStyleSheet("border: 1px solid #cbd5e1; border-radius: 6px;")
+        layout_qr.addWidget(self.txt_qr_input)
+
+        btns_layout = QHBoxLayout()
+        self.btn_open_anon = QPushButton("Abrir na Guia Anônima")
+        self.btn_open_anon.setStyleSheet("background-color: #334155; color: white; padding: 8px; border-radius: 4px;")
+        self.btn_open_anon.clicked.connect(self.abrir_qr_na_anonima)
+
+        self.btn_gen_qr = QPushButton("Gerar QR Code")
+        self.btn_gen_qr.setStyleSheet("background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
+        self.btn_gen_qr.clicked.connect(self.mostrar_qr_code)
+
+        btns_layout.addWidget(self.btn_open_anon)
+        btns_layout.addWidget(self.btn_gen_qr)
+        layout_qr.addLayout(btns_layout)
+        lat.addWidget(group_qr)
 
         # --- NAVEGADOR PRINCIPAL ---
         container_web = QWidget()
@@ -474,6 +532,54 @@ class SmartPortariaScanner(QMainWindow):
         visita_id = url_qurl.toString()
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         self.add_new_tab(QUrl(link_final), f"ID {visita_id}")
+
+    def extrair_url_qr(self):
+        texto = self.txt_qr_input.toPlainText()
+        match = re.search(r'https?://[^\s]+', texto)
+        if match:
+            return match.group(0).rstrip('.')
+        return None
+
+    def abrir_qr_na_anonima(self):
+        url = self.extrair_url_qr()
+        if not url:
+            QMessageBox.warning(self, "Aviso", "Nenhuma URL encontrada na mensagem.")
+            return
+
+        # Procura a guia anônima
+        for i in range(self.tabs.count()):
+            if "anônima" in self.tabs.tabText(i).lower():
+                self.tabs.setCurrentIndex(i)
+                view = self.web_stack.widget(i)
+                if view:
+                    view.setUrl(QUrl(url))
+                return
+
+        # Se não encontrou (não deveria acontecer), cria uma nova
+        self.add_new_tab(QUrl(url), "Guia anônima", closable=False, profile=self.profile_anonimo)
+
+    def mostrar_qr_code(self):
+        url = self.extrair_url_qr()
+        if not url:
+            QMessageBox.warning(self, "Aviso", "Nenhuma URL encontrada na mensagem para gerar QR Code.")
+            return
+
+        try:
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr.add_data(url)
+            qr.make(fit=True)
+            img_pil = qr.make_image(fill_color="black", back_color="white")
+
+            # Converter PIL image para QPixmap
+            # img_pil é um objeto qrcode.image.pil.PilImage, o PIL.Image real está em img_pil._img
+            actual_image = img_pil._img
+            qimg = ImageQt(actual_image)
+            pixmap = QPixmap.fromImage(qimg)
+
+            dlg = QRDialog(pixmap, self)
+            dlg.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao gerar QR Code: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
