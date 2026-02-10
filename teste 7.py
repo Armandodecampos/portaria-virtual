@@ -539,6 +539,17 @@ class SmartPortariaScanner(QMainWindow):
     def abrir_link_resultado(self, url_qurl):
         visita_id = url_qurl.toString()
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
+
+        # Procura a aba "Portaria Virtual" para abrir nela em vez de criar nova aba
+        for i in range(self.tabs.count()):
+            if "Portaria Virtual" in self.tabs.tabText(i):
+                self.tabs.setCurrentIndex(i)
+                view = self.web_stack.widget(i)
+                if view:
+                    view.setUrl(QUrl(link_final))
+                return
+
+        # Fallback caso não encontre a aba (não deve ocorrer)
         self.add_new_tab(QUrl(link_final), f"ID {visita_id}")
 
     def extrair_url_qr(self):
