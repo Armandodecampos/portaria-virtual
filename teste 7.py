@@ -257,9 +257,11 @@ class SmartPortariaScanner(QMainWindow):
                 font-weight: bold; 
                 border: 1px solid #1d4ed8;
             }
-            /* O segredo para afastar da borda direita: margem positiva */
+            /* O segredo para afastar da borda direita: subcontrol-position e right */
             QTabBar::close-button {
-                margin-right: 15px; /* Afasta fisicamente da extremidade direita da aba */
+                subcontrol-origin: border;
+                subcontrol-position: right verticalcenter;
+                right: 12px;
                 width: 16px;
                 height: 16px;
             }
