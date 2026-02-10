@@ -48,7 +48,11 @@ class QRDialog(QDialog):
         self.setModal(True)
         self.setStyleSheet("background-color: white;")
 
+        # Faz a janela ocupar toda a tela/página
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+
         layout = QVBoxLayout(self)
+        layout.addStretch() # Espaço flexível no topo
 
         self.lbl_qr = QLabel()
         self.lbl_qr.setPixmap(pixmap)
@@ -56,23 +60,27 @@ class QRDialog(QDialog):
         layout.addWidget(self.lbl_qr)
 
         self.btn_close = QPushButton("Fechar")
+        self.btn_close.setFixedWidth(200)
         self.btn_close.setStyleSheet("""
             QPushButton {
                 background-color: #ef4444;
                 color: white;
                 font-weight: bold;
-                padding: 10px;
-                border-radius: 6px;
-                font-size: 14px;
+                padding: 12px;
+                border-radius: 8px;
+                font-size: 16px;
+                margin-top: 20px;
             }
             QPushButton:hover {
                 background-color: #dc2626;
             }
         """)
         self.btn_close.clicked.connect(self.accept)
-        layout.addWidget(self.btn_close)
+        layout.addWidget(self.btn_close, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        self.setFixedSize(self.sizeHint())
+        layout.addStretch() # Espaço flexível na base
+
+        self.showFullScreen()
 
 class DatabaseHandler:
     def __init__(self, db_name="dados_detalhes.db"):
