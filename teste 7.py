@@ -37,6 +37,15 @@ class CustomWebPage(QWebEnginePage):
         self.browser_window = browser_window
 
     def createWindow(self, _type):
+        # Tenta encontrar a aba "Portaria Virtual" para abrir o link nela
+        for i in range(self.browser_window.tabs.count()):
+            if "Portaria Virtual" in self.browser_window.tabs.tabText(i):
+                self.browser_window.tabs.setCurrentIndex(i)
+                view = self.browser_window.web_stack.widget(i)
+                if view:
+                    return view.page()
+
+        # Fallback caso não encontre (abre em nova guia)
         current_profile = self.profile()
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
