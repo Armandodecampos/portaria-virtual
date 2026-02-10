@@ -243,7 +243,7 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.setStyleSheet("""
             QTabBar::tab { 
                 background: #f1f5f9; 
-                padding: 8px 30px 8px 12px; /* Espaço generoso à direita */
+                padding: 8px 35px 8px 12px; /* Espaço generoso à direita */
                 border: 1px solid #cbd5e1; 
                 margin-right: 4px; 
                 border-radius: 6px; 
@@ -257,10 +257,11 @@ class SmartPortariaScanner(QMainWindow):
                 font-weight: bold; 
                 border: 1px solid #1d4ed8;
             }
-            /* O segredo para afastar da borda direita: margem negativa */
+            /* O segredo para afastar da borda direita: subcontrol-position e right */
             QTabBar::close-button {
-                image: none; /* Deixa o Qt usar o ícone padrão se disponível */
-                margin-right: 12px; /* Afasta fisicamente da extremidade direita da aba */
+                subcontrol-origin: border;
+                subcontrol-position: right verticalcenter;
+                right: 12px;
                 width: 16px;
                 height: 16px;
             }
