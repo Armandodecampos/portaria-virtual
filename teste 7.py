@@ -243,7 +243,7 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.setStyleSheet("""
             QTabBar::tab { 
                 background: #f1f5f9; 
-                padding: 8px 35px 8px 12px; /* Espaço generoso à direita */
+                padding: 8px 55px 8px 12px; /* Espaço generoso à direita */
                 border: 1px solid #cbd5e1; 
                 margin-right: 4px; 
                 border-radius: 6px; 
@@ -260,8 +260,8 @@ class SmartPortariaScanner(QMainWindow):
             /* O segredo para afastar da borda direita: subcontrol-position e right */
             QTabBar::close-button {
                 subcontrol-origin: border;
-                subcontrol-position: right verticalcenter;
-                right: 12px;
+                subcontrol-position: right center;
+                right: 25px;
                 width: 16px;
                 height: 16px;
             }
@@ -315,6 +315,9 @@ class SmartPortariaScanner(QMainWindow):
         tab_idx = self.tabs.addTab(title)
         if not closable: 
             self.tabs.setTabButton(tab_idx, QTabBar.ButtonPosition.RightSide, None)
+        else:
+            btn = self.tabs.tabButton(tab_idx, QTabBar.ButtonPosition.RightSide)
+            if btn: btn.setToolTip("Fechar aba")
             
         if qurl and not qurl.isEmpty(): 
             view.setUrl(qurl)
