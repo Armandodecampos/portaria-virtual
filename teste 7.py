@@ -214,7 +214,8 @@ class CameraDialog(QDialog):
 
     def save_photo(self):
         if self.captured_image:
-            fname, _ = QFileDialog.getSaveFileName(self, "Salvar Foto", "foto_visitante.jpg", "Images (*.jpg *.png)")
+            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads", "foto_visitante.jpg")
+            fname, _ = QFileDialog.getSaveFileName(self, "Salvar Foto", downloads_path, "Images (*.jpg *.png)")
             if fname:
                 if self.captured_image.save(fname):
                     QMessageBox.information(self, "Sucesso", "Foto salva com sucesso!")
@@ -560,6 +561,9 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_open_anon = QPushButton("Abrir na Guia Anônima")
         self.btn_open_anon.clicked.connect(self.abrir_qr_na_anonima)
 
+        self.btn_abrir_camera = QPushButton("📷 Câmera")
+        self.btn_abrir_camera.clicked.connect(self.abrir_camera)
+
         self.btn_gen_qr = QPushButton("Gerar QR Code")
         self.btn_gen_qr.clicked.connect(self.mostrar_qr_code)
 
@@ -568,18 +572,11 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_clear_qr.clicked.connect(self.txt_qr_input.clear)
 
         btns_layout.addWidget(self.btn_open_anon)
+        btns_layout.addWidget(self.btn_abrir_camera)
         btns_layout.addWidget(self.btn_gen_qr)
         btns_layout.addWidget(self.btn_clear_qr)
         layout_qr.addLayout(btns_layout)
         lat.addWidget(group_qr)
-
-        # === GRUPO CAPTURA DE FOTO ===
-        group_foto = QGroupBox("Captura de Foto")
-        layout_foto = QVBoxLayout(group_foto)
-        self.btn_abrir_camera = QPushButton("📷 Abrir Câmera")
-        self.btn_abrir_camera.clicked.connect(self.abrir_camera)
-        layout_foto.addWidget(self.btn_abrir_camera)
-        lat.addWidget(group_foto)
 
         # --- NAVEGADOR PRINCIPAL ---
         container_web = QWidget()
