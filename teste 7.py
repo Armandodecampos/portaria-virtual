@@ -95,7 +95,7 @@ class CameraDialog(QDialog):
     # Sinal para atualizar a UI com o novo frame com segurança de thread (QImage é mais seguro para threads que QPixmap)
     frame_ready = pyqtSignal(QImage)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, camera_device=None):
         super().__init__(parent)
         self.setWindowTitle("Captura de Foto")
         self.setModal(True)
@@ -153,7 +153,9 @@ class CameraDialog(QDialog):
         self.btn_cancel.clicked.connect(self.reset_camera)
 
         # Configuração da Câmera
-        self.camera = QCamera(QMediaDevices.defaultVideoInput())
+        if camera_device is None:
+            camera_device = QMediaDevices.defaultVideoInput()
+        self.camera = QCamera(camera_device)
         self.session = QMediaCaptureSession()
         self.sink = QVideoSink()
 
@@ -561,9 +563,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_open_anon = QPushButton("Abrir na Guia Anônima")
         self.btn_open_anon.clicked.connect(self.abrir_qr_na_anonima)
 
-        self.btn_abrir_camera = QPushButton("📷 Câmera")
-        self.btn_abrir_camera.clicked.connect(self.abrir_camera)
-
         self.btn_gen_qr = QPushButton("Gerar QR Code")
         self.btn_gen_qr.clicked.connect(self.mostrar_qr_code)
 
@@ -572,7 +571,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_clear_qr.clicked.connect(self.txt_qr_input.clear)
 
         btns_layout.addWidget(self.btn_open_anon)
-        btns_layout.addWidget(self.btn_abrir_camera)
         btns_layout.addWidget(self.btn_gen_qr)
         btns_layout.addWidget(self.btn_clear_qr)
         layout_qr.addLayout(btns_layout)
@@ -614,6 +612,11 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.tabCloseRequested.connect(self.fechar_aba)
         self.tabs.currentChanged.connect(self.mudar_aba)
 
+        self.btn_abrir_camera = QPushButton("📷")
+        self.btn_abrir_camera.setToolTip("Abrir Câmera")
+        self.btn_abrir_camera.setFixedWidth(40)
+        self.btn_abrir_camera.clicked.connect(self.abrir_camera)
+
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
@@ -621,6 +624,7 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_home)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
+        toolbar.addWidget(self.btn_abrir_camera)
         layout_web.addLayout(toolbar)
 
         self.web_stack = QStackedWidget()
@@ -994,7 +998,25 @@ class SmartPortariaScanner(QMainWindow):
             QMessageBox.warning(self, "Câmera não encontrada", "Nenhum dispositivo de vídeo foi detectado no sistema.")
             return
 
-        dlg = CameraDialog(self)
+        # Tenta evitar a câmera integrada
+        camera_selecionada = cameras[0]
+        if len(cameras) > 1:
+            # Primeiro procura por câmeras que pareçam externas
+            for cam in cameras:
+                desc = cam.description().lower()
+                if "usb" in desc or "external" in desc:
+                    camera_selecionada = cam
+                    break
+
+            # Se não achou por palavra-chave positiva, tenta excluir as que parecem integradas
+            if camera_selecionada == cameras[0]:
+                for cam in cameras:
+                    desc = cam.description().lower()
+                    if "integrated" not in desc and "built-in" not in desc and "notebook" not in desc:
+                        camera_selecionada = cam
+                        break
+
+        dlg = CameraDialog(self, camera_device=camera_selecionada)
         dlg.exec()
 
 if __name__ == "__main__":
