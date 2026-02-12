@@ -6,15 +6,16 @@ import traceback
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
-    from PyQt6.QtCore import Qt, QUrl, QTimer
+    from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSignal
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
-        QStackedWidget, QTabBar, QMessageBox, QDialog
+        QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog
     )
     from PyQt6.QtGui import QPixmap
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
+    from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QImageCapture, QMediaDevices, QVideoSink
     import qrcode
     from PIL.ImageQt import ImageQt
 except ImportError as e:
@@ -49,6 +50,130 @@ class CustomWebPage(QWebEnginePage):
         current_profile = self.profile()
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
+
+class CameraDialog(QDialog):
+    sig_frame_ready = pyqtSignal(QPixmap)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Captura de Foto")
+        self.setStyleSheet("background-color: #f8fafc;")
+
+        # Proporção 120:141. Usaremos uma escala para exibição.
+        self.target_w = 120
+        self.target_h = 141
+        self.display_scale = 3
+        self.display_w = self.target_w * self.display_scale
+        self.display_h = self.target_h * self.display_scale
+
+        layout = QVBoxLayout(self)
+
+        self.lbl_video = QLabel("Iniciando câmera...")
+        self.lbl_video.setFixedSize(self.display_w, self.display_h)
+        self.lbl_video.setStyleSheet("background-color: black; border: 2px solid #cbd5e1; border-radius: 8px;")
+        self.lbl_video.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.lbl_video, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        btns_layout = QHBoxLayout()
+        self.btn_capture = QPushButton("Tirar Foto")
+        self.btn_capture.setStyleSheet("background-color: #2563eb; color: white; padding: 10px; border-radius: 6px; font-weight: bold;")
+
+        self.btn_download = QPushButton("Baixar")
+        self.btn_download.setEnabled(False)
+        self.btn_download.setStyleSheet("background-color: #10b981; color: white; padding: 10px; border-radius: 6px; font-weight: bold;")
+
+        self.btn_close = QPushButton("Fechar")
+        self.btn_close.setStyleSheet("background-color: #ef4444; color: white; padding: 10px; border-radius: 6px; font-weight: bold;")
+
+        btns_layout.addWidget(self.btn_capture)
+        btns_layout.addWidget(self.btn_download)
+        btns_layout.addWidget(self.btn_close)
+        layout.addLayout(btns_layout)
+
+        # Signal for thread-safe UI updates
+        self.sig_frame_ready.connect(self.lbl_video.setPixmap)
+
+        # Inicialização da Câmera
+        self.capture_session = QMediaCaptureSession()
+        device = QMediaDevices.defaultVideoInput()
+
+        if device.isNull():
+            self.lbl_video.setText("Câmera não disponível")
+            self.camera = None
+        else:
+            self.camera = QCamera(device)
+            self.image_capture = QImageCapture()
+
+            self.capture_session.setCamera(self.camera)
+            self.capture_session.setImageCapture(self.image_capture)
+
+            self.video_sink = QVideoSink()
+            self.video_sink.videoFrameChanged.connect(self.process_frame)
+            self.capture_session.setVideoSink(self.video_sink)
+
+            self.captured_image = None
+
+            self.camera.start()
+            self.btn_capture.clicked.connect(self.take_photo)
+            self.btn_download.clicked.connect(self.save_photo)
+            self.image_capture.imageCaptured.connect(self.on_image_captured)
+
+        self.btn_close.clicked.connect(self.close)
+
+    def take_photo(self):
+        if self.camera and self.camera.isActive():
+            self.image_capture.capture()
+
+    def on_image_captured(self, id, image):
+        # Cropping the final captured image to 120:141
+        self.captured_image = self.crop_to_ratio(image, self.target_w, self.target_h)
+        self.btn_download.setEnabled(True)
+        # Update display to show the frozen captured image
+        scaled = self.captured_image.scaled(self.display_w, self.display_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.lbl_video.setPixmap(QPixmap.fromImage(scaled))
+        self.camera.stop()
+
+    def save_photo(self):
+        if self.captured_image:
+            file_path, _ = QFileDialog.getSaveFileName(self, "Salvar Foto", "foto_visitante.jpg", "Images (*.jpg *.png)")
+            if file_path:
+                if self.captured_image.save(file_path):
+                    QMessageBox.information(self, "Sucesso", "Foto salva com sucesso!")
+                else:
+                    QMessageBox.critical(self, "Erro", "Falha ao salvar a foto.")
+
+    def closeEvent(self, event):
+        if hasattr(self, 'camera') and self.camera:
+            self.camera.stop()
+        super().closeEvent(event)
+
+    def process_frame(self, frame):
+        image = frame.toImage()
+        if image.isNull():
+            return
+
+        cropped = self.crop_to_ratio(image, self.target_w, self.target_h)
+        scaled = cropped.scaled(self.display_w, self.display_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.sig_frame_ready.emit(QPixmap.fromImage(scaled))
+
+    def crop_to_ratio(self, image, rw, rh):
+        w = image.width()
+        h = image.height()
+        target_ratio = rw / rh
+        current_ratio = w / h
+
+        if current_ratio > target_ratio:
+            new_w = int(h * target_ratio)
+            new_h = h
+            x = (w - new_w) // 2
+            y = 0
+        else:
+            new_w = w
+            new_h = int(w / target_ratio)
+            x = 0
+            y = (h - new_h) // 2
+
+        return image.copy(x, y, new_w, new_h)
 
 class QRDialog(QDialog):
     def __init__(self, pixmap, parent=None):
@@ -289,6 +414,14 @@ class SmartPortariaScanner(QMainWindow):
         btns_layout.addWidget(self.btn_gen_qr)
         layout_qr.addLayout(btns_layout)
         lat.addWidget(group_qr)
+
+        group_cam = QGroupBox("Captura de Foto")
+        layout_cam = QVBoxLayout(group_cam)
+        self.btn_open_cam = QPushButton("Abrir Câmera")
+        self.btn_open_cam.setStyleSheet("background-color: #10b981; color: white; padding: 10px; border-radius: 6px; font-weight: bold;")
+        self.btn_open_cam.clicked.connect(self.abrir_camera)
+        layout_cam.addWidget(self.btn_open_cam)
+        lat.addWidget(group_cam)
 
         # --- NAVEGADOR PRINCIPAL ---
         container_web = QWidget()
@@ -608,6 +741,10 @@ class SmartPortariaScanner(QMainWindow):
             dlg.exec()
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao gerar QR Code: {str(e)}")
+
+    def abrir_camera(self):
+        dlg = CameraDialog(self)
+        dlg.exec()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
