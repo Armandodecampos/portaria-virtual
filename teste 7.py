@@ -351,23 +351,32 @@ class InstrucoesDialog(QDialog):
 
         texto_html = f"""
         <div style="font-family: sans-serif; line-height: 1.5;">
-            <b style="font-size: 16px;">Liberação pela Portaria Virtual:</b><br><br>
+            <b style="font-size: 18px;">Guia de Liberação: Portaria Virtual</b><br>
+            Para garantir o acesso de visitantes ao escritório, o anfitrião deve seguir as instruções de acordo com a sua área de atuação:<br><br>
 
-            <b>Liberação de visitantes do Global:</b> O anfitrião, pertencente ao time do Facilities, BP ou às bandas V, IV, III, II, I, deverá realizar o convite do visitante pelo site <a href="https://portaria-global.governarti.com.br/" style="color: {link_color}; text-decoration: none;">https://portaria-global.governarti.com.br/</a>, informando os seguintes dados:<br><br>
+            <b style="font-size: 16px; color: {link_color};">Anfitriões do Global</b><br>
+            Anfitriões das bandas V à I devem realizar o convite diretamente pelo site <a href="https://portaria-global.governarti.com.br/" style="color: {link_color}; text-decoration: none;">portaria-global.governarti.com.br</a>, preenchendo os seguintes dados:<br><br>
 
-            Nome completo<br>
-            CPF (ou outro documento de identidade, se estrangeiro)<br>
-            E-mail<br>
-            Telefone<br><br>
+            • Nome completo<br>
+            • CPF (Para estrangeiros: altere o país no sistema para habilitar outros documentos)<br>
+            • E-mail e Telefone<br>
+            • Período de liberação<br><br>
 
-            <b>Liberação de visitantes do BEES:</b> O anfitrião deve enviar um e-mail para <a href="mailto:facilities.bees@ab-inbev.com" style="color: {link_color}; text-decoration: none;">facilities.bees@ab-inbev.com</a> solicitando a liberação do visitante e informando os seguintes dados:<br><br>
+            <b>Próximo passo:</b> Após o envio, o visitante receberá um e-mail com o link para cadastro. A autorização de acesso será emitida automaticamente após a conclusão.<br><br>
 
-            Nome completo<br>
-            CPF (ou outro documento de identidade, se estrangeiro)<br>
-            E-mail<br>
-            Telefone<br><br>
+            <i><b>Nota:</b> Em caso de instabilidade no sistema, a liberação pode ser solicitada via time de Facilities ou BPs.</i><br><br>
 
-            <b>Próximo passo:</b> Após o envio do convite, o visitante receberá um e-mail com um link para realizar o cadastro na Portaria Virtual. Após concluir o processo, ele receberá a autorização para acessar o escritório.
+            <b style="font-size: 16px; color: {link_color};">Anfitriões do BEES</b><br>
+            O anfitrião deve solicitar a liberação enviando um e-mail para <a href="mailto:facilities.bees@ab-inbev.com" style="color: {link_color}; text-decoration: none;">facilities.bees@ab-inbev.com</a> com as seguintes informações:<br><br>
+
+            • Nome completo<br>
+            • CPF ou documento de identidade (se estrangeiro)<br>
+            • E-mail e Telefone<br>
+            • Período de liberação<br><br>
+
+            <b>Próximo passo:</b> O visitante receberá o link de cadastro da Portaria Virtual por e-mail. A entrada será autorizada assim que o registro for finalizado.<br><br>
+
+            <i><b>Nota:</b> Caso ocorra algum problema com a Portaria Virtual, o anfitrião deve entrar em contato com o time de Facilities.</i>
         </div>
         """
         self.browser.setHtml(texto_html)
