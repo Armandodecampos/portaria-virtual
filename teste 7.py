@@ -324,6 +324,65 @@ class ConfigDialog(QDialog):
         modo = "dark" if id == 2 else "light"
         self.parent_window.aplicar_tema(modo)
 
+class InstrucoesDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Instrução para cadastramento")
+        self.setMinimumWidth(600)
+        self.setModal(True)
+
+        # Tema
+        theme = parent.settings.value("theme", "light") if parent else "light"
+        if theme == "dark":
+            self.setStyleSheet("background-color: #1e293b; color: #e2e8f0;")
+            link_color = "#38bdf8"
+            btn_style = "background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px;"
+        else:
+            self.setStyleSheet("background-color: #ffffff; color: #1e293b;")
+            link_color = "#2563eb"
+            btn_style = "background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;"
+
+        layout = QVBoxLayout(self)
+
+        self.browser = QTextBrowser()
+        self.browser.setOpenExternalLinks(True)
+        self.browser.setReadOnly(True)
+        self.browser.setStyleSheet("border: none; background: transparent;")
+
+        texto_html = f"""
+        <div style="font-family: sans-serif; line-height: 1.5;">
+            <b style="font-size: 16px;">Liberação pela Portaria Virtual:</b><br><br>
+
+            <b>Liberação de visitantes do Global:</b> O anfitrião, pertencente ao time do Facilities, BP ou às bandas V, IV, III, II, I, deverá realizar o convite do visitante pelo site <a href="https://portaria-global.governarti.com.br/" style="color: {link_color}; text-decoration: none;">https://portaria-global.governarti.com.br/</a>, informando os seguintes dados:<br><br>
+
+            Nome completo<br>
+            CPF (ou outro documento de identidade, se estrangeiro)<br>
+            E-mail<br>
+            Telefone<br><br>
+
+            <b>Liberação de visitantes do BEES:</b> O anfitrião deve enviar um e-mail para <a href="mailto:facilities.bees@ab-inbev.com" style="color: {link_color}; text-decoration: none;">facilities.bees@ab-inbev.com</a> solicitando a liberação do visitante e informando os seguintes dados:<br><br>
+
+            Nome completo<br>
+            CPF (ou outro documento de identidade, se estrangeiro)<br>
+            E-mail<br>
+            Telefone<br><br>
+
+            <b>Próximo passo:</b> Após o envio do convite, o visitante receberá um e-mail com um link para realizar o cadastro na Portaria Virtual. Após concluir o processo, ele receberá a autorização para acessar o escritório.
+        </div>
+        """
+        self.browser.setHtml(texto_html)
+        layout.addWidget(self.browser)
+
+        btn_layout = QHBoxLayout()
+        self.btn_fechar = QPushButton("Fechar")
+        self.btn_fechar.setFixedWidth(100)
+        self.btn_fechar.clicked.connect(self.accept)
+        self.btn_fechar.setStyleSheet(btn_style)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_fechar)
+        layout.addLayout(btn_layout)
+
 class DatabaseHandler:
     def __init__(self, db_path):
         # Conexão direta com o caminho fornecido pelo usuário via GUI
@@ -501,6 +560,11 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_config.clicked.connect(self.abrir_configuracoes)
 
         header_layout.addWidget(lbl_titulo)
+
+        self.btn_instrucao = QPushButton("Instrução para cadastramento")
+        self.btn_instrucao.clicked.connect(self.abrir_instrucoes)
+        header_layout.addWidget(self.btn_instrucao)
+
         header_layout.addStretch()
         header_layout.addWidget(self.btn_config)
         lat.addLayout(header_layout)
@@ -692,6 +756,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setStyleSheet(btn_unlock_style)
         self.btn_open_anon.setStyleSheet(btn_anon_style)
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
+        self.btn_instrucao.setStyleSheet(btn_qr_style + " font-size: 11px; padding: 4px;")
         self.btn_abrir_camera.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
@@ -710,6 +775,11 @@ class SmartPortariaScanner(QMainWindow):
     def abrir_configuracoes(self):
         """Abre o diálogo de configurações central"""
         dlg = ConfigDialog(self)
+        dlg.exec()
+
+    def abrir_instrucoes(self):
+        """Abre o diálogo de instruções de cadastramento"""
+        dlg = InstrucoesDialog(self)
         dlg.exec()
 
     def abrir_selecao_arquivo(self):
