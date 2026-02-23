@@ -328,21 +328,20 @@ class InstrucoesDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Instrução para cadastramento")
-        self.setMinimumWidth(600)
         self.setModal(True)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
 
         # Tema
         theme = parent.settings.value("theme", "light") if parent else "light"
         if theme == "dark":
             self.setStyleSheet("background-color: #1e293b; color: #e2e8f0;")
             link_color = "#38bdf8"
-            btn_style = "background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px;"
         else:
             self.setStyleSheet("background-color: #ffffff; color: #1e293b;")
             link_color = "#2563eb"
-            btn_style = "background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px;"
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(40, 40, 40, 40)
 
         self.browser = QTextBrowser()
         self.browser.setOpenExternalLinks(True)
@@ -383,14 +382,51 @@ class InstrucoesDialog(QDialog):
         layout.addWidget(self.browser)
 
         btn_layout = QHBoxLayout()
+
+        self.btn_copy = QPushButton("📋 Copiar todo o texto")
+        self.btn_copy.setFixedWidth(200)
+        self.btn_copy.clicked.connect(self.copiar_texto)
+        self.btn_copy.setStyleSheet("""
+            QPushButton {
+                background-color: #2563eb;
+                color: white;
+                font-weight: bold;
+                padding: 12px;
+                border-radius: 8px;
+                font-size: 16px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #1d4ed8; }
+        """)
+
         self.btn_fechar = QPushButton("Fechar")
-        self.btn_fechar.setFixedWidth(100)
+        self.btn_fechar.setFixedWidth(200)
         self.btn_fechar.clicked.connect(self.accept)
-        self.btn_fechar.setStyleSheet(btn_style)
+        self.btn_fechar.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                font-weight: bold;
+                padding: 12px;
+                border-radius: 8px;
+                font-size: 16px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #dc2626; }
+        """)
 
         btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_copy)
         btn_layout.addWidget(self.btn_fechar)
+        btn_layout.addStretch()
         layout.addLayout(btn_layout)
+
+        self.showFullScreen()
+
+    def copiar_texto(self):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.browser.toPlainText())
+        QMessageBox.information(self, "Sucesso", "Texto copiado para a área de transferência!")
 
 class DatabaseHandler:
     def __init__(self, db_path):
@@ -557,25 +593,27 @@ class SmartPortariaScanner(QMainWindow):
         lat = QVBoxLayout(painel)
         lat.setSpacing(10)
 
-        # === CABEÇALHO DO PAINEL COM BOTÃO DE ENGRENAGEM ===
+        # === CABEÇALHO DO PAINEL COM BOTÕES DE CONFIG, INSTRUÇÃO E CÂMERA ===
         header_layout = QHBoxLayout()
-        lbl_titulo = QLabel("Painel de Controle")
-        lbl_titulo.setStyleSheet("font-size: 16px; font-weight: bold;")
         
         self.btn_config = QPushButton("⚙️")
         self.btn_config.setToolTip("Abrir Configurações")
         self.btn_config.setFixedSize(32, 32)
-        # Estilo do botão será gerido pelo tema global
         self.btn_config.clicked.connect(self.abrir_configuracoes)
 
-        header_layout.addWidget(lbl_titulo)
-
         self.btn_instrucao = QPushButton("Instrução para cadastramento")
+        self.btn_instrucao.setFixedHeight(32)
         self.btn_instrucao.clicked.connect(self.abrir_instrucoes)
-        header_layout.addWidget(self.btn_instrucao)
 
-        header_layout.addStretch()
+        self.btn_abrir_camera = QPushButton("📷")
+        self.btn_abrir_camera.setToolTip("Abrir Câmera")
+        self.btn_abrir_camera.setFixedSize(32, 32)
+        self.btn_abrir_camera.clicked.connect(self.abrir_camera)
+
         header_layout.addWidget(self.btn_config)
+        header_layout.addWidget(self.btn_instrucao)
+        header_layout.addWidget(self.btn_abrir_camera)
+        header_layout.addStretch()
         lat.addLayout(header_layout)
 
         # Pequeno status do banco no painel
@@ -685,11 +723,6 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.tabCloseRequested.connect(self.fechar_aba)
         self.tabs.currentChanged.connect(self.mudar_aba)
 
-        self.btn_abrir_camera = QPushButton("📷")
-        self.btn_abrir_camera.setToolTip("Abrir Câmera")
-        self.btn_abrir_camera.setFixedWidth(40)
-        self.btn_abrir_camera.clicked.connect(self.abrir_camera)
-
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
@@ -697,7 +730,6 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_home)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
-        toolbar.addWidget(self.btn_abrir_camera)
         layout_web.addLayout(toolbar)
 
         self.web_stack = QStackedWidget()
@@ -765,20 +797,21 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setStyleSheet(btn_unlock_style)
         self.btn_open_anon.setStyleSheet(btn_anon_style)
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
-        self.btn_instrucao.setStyleSheet(btn_qr_style + " font-size: 11px; padding: 4px;")
-        self.btn_abrir_camera.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
         self.txt_live.setStyleSheet(live_log_style)
         self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;" + ("color: white;" if modo == "dark" else ""))
         
-        # Ajusta botão de configuração para parecer com o tema
+        # Ajusta botões do cabeçalho para parecerem com o tema
         btn_conf_color = "#334155" if modo == "dark" else "#f1f5f9"
         btn_conf_border = "#475569" if modo == "dark" else "#cbd5e1"
-        self.btn_config.setStyleSheet(f"""
-            QPushButton {{ background-color: {btn_conf_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 18px; }}
-            QPushButton:hover {{ border-color: #94a3b8; }}
-        """)
+        header_btn_style = f"""
+            QPushButton {{ background-color: {btn_conf_color}; color: {'white' if modo=='dark' else '#334155'}; border: 1px solid {btn_conf_border}; border-radius: 6px; }}
+            QPushButton:hover {{ border-color: #94a3b8; background-color: {'#475569' if modo=='dark' else '#e2e8f0'}; }}
+        """
+        self.btn_config.setStyleSheet(header_btn_style + "font-size: 18px;")
+        self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 12px; padding: 0 10px; font-weight: bold;")
+        self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 18px;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
