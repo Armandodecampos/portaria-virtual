@@ -7,7 +7,7 @@ import traceback
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
-    from PyQt6.QtCore import Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal
+    from PyQt6.QtCore import Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
@@ -425,8 +425,11 @@ class InstrucoesDialog(QDialog):
 
     def copiar_texto(self):
         clipboard = QApplication.clipboard()
-        clipboard.setText(self.browser.toPlainText())
-        QMessageBox.information(self, "Sucesso", "Texto copiado para a área de transferência!")
+        mime_data = QMimeData()
+        mime_data.setHtml(self.browser.toHtml())
+        mime_data.setText(self.browser.toPlainText())
+        clipboard.setMimeData(mime_data)
+        QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
 class DatabaseHandler:
     def __init__(self, db_path):
