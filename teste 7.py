@@ -424,11 +424,14 @@ class InstrucoesDialog(QDialog):
         self.showFullScreen()
 
     def copiar_texto(self):
-        clipboard = QApplication.clipboard()
-        mime_data = QMimeData()
-        mime_data.setHtml(self.browser.toHtml())
-        mime_data.setText(self.browser.toPlainText())
-        clipboard.setMimeData(mime_data)
+        self.browser.selectAll()
+        self.browser.copy()
+
+        # Desmarcar para não ficar azul
+        cursor = self.browser.textCursor()
+        cursor.clearSelection()
+        self.browser.setTextCursor(cursor)
+
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
 class DatabaseHandler:
