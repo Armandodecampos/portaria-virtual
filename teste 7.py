@@ -7,7 +7,7 @@ import traceback
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
-    from PyQt6.QtCore import Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData
+    from PyQt6.QtCore import Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData, QPropertyAnimation, QEasingCurve, QPoint
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
@@ -228,6 +228,112 @@ class CameraDialog(QDialog):
     def closeEvent(self, event):
         self.camera.stop()
         super().closeEvent(event)
+
+# --- NOVA CLASSE: NOTIFICAÇÃO TOAST ---
+class NotificationToast(QFrame):
+    def __init__(self, message, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(350, 80)
+
+        # Layout principal
+        self.main_layout = QHBoxLayout(self)
+        self.main_layout.setContentsMargins(15, 10, 15, 10)
+        self.main_layout.setSpacing(10)
+
+        # Ícone ou indicador (opcional, mas bom para o layout)
+        self.lbl_icon = QLabel("🔔")
+        self.lbl_icon.setStyleSheet("font-size: 20px;")
+        self.main_layout.addWidget(self.lbl_icon)
+
+        # Mensagem
+        self.lbl_msg = QLabel(message)
+        self.lbl_msg.setWordWrap(True)
+        self.lbl_msg.setStyleSheet("font-size: 13px; font-weight: 500;")
+        self.main_layout.addWidget(self.lbl_msg, 1)
+
+        # Botão Fechar
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setFixedSize(24, 24)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.clicked.connect(self.hide_notification)
+        self.main_layout.addWidget(self.btn_close)
+
+        # Timer para auto-fechamento
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.hide_notification)
+
+    def apply_toast_theme(self, mode):
+        if mode == "dark":
+            bg_color = "#1e293b"
+            text_color = "#e2e8f0"
+            border_color = "#334155"
+            close_hover = "#475569"
+        else:
+            bg_color = "#ffffff"
+            text_color = "#1e293b"
+            border_color = "#cbd5e1"
+            close_hover = "#f1f5f9"
+
+        self.setStyleSheet(f"""
+            NotificationToast {{
+                background-color: {bg_color};
+                border: 2px solid {border_color};
+                border-radius: 10px;
+            }}
+            QLabel {{
+                color: {text_color};
+                background: transparent;
+            }}
+            QPushButton {{
+                background: transparent;
+                color: {text_color};
+                border: none;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {close_hover};
+            }}
+        """)
+
+    def show_notification(self):
+        screen_geo = QApplication.primaryScreen().availableGeometry()
+        end_x = screen_geo.width() - self.width() - 20
+        end_y = screen_geo.height() - self.height() - 20
+
+        # Começa fora da tela (à direita)
+        start_x = screen_geo.width()
+        self.move(start_x, end_y)
+        self.show()
+
+        self.anim = QPropertyAnimation(self, b"pos")
+        self.anim.setDuration(500)
+        self.anim.setStartValue(QPoint(start_x, end_y))
+        self.anim.setEndValue(QPoint(end_x, end_y))
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.start()
+
+        # Inicia timer de 10 segundos
+        self.timer.start(10000)
+
+    def hide_notification(self):
+        screen_geo = QApplication.primaryScreen().availableGeometry()
+        start_x = self.x()
+        start_y = self.y()
+        end_x = screen_geo.width() # Volta para fora da tela
+
+        self.anim_hide = QPropertyAnimation(self, b"pos")
+        self.anim_hide.setDuration(500)
+        self.anim_hide.setStartValue(QPoint(start_x, start_y))
+        self.anim_hide.setEndValue(QPoint(end_x, start_y))
+        self.anim_hide.setEasingCurve(QEasingCurve.Type.InCubic)
+        self.anim_hide.finished.connect(self.deleteLater)
+        self.anim_hide.start()
 
 # --- NOVA CLASSE: DIÁLOGO DE CONFIGURAÇÕES ---
 class ConfigDialog(QDialog):
@@ -1012,8 +1118,17 @@ class SmartPortariaScanner(QMainWindow):
         dados_encontrados = (nome_str != "Desconhecido" or cpf_str != "N/A") and "não encontrada" not in conteudo.lower()
 
         if dados_encontrados:
+            agora = datetime.datetime.now().strftime('%H:%M')
             self.db.salvar_visita(self.id_atual, nome_str, cpf_str, horario_str, conteudo, self.view_worker.url().toString())
-            self.txt_live.append(f"ID {self.id_atual} registrado: {nome_str}")
+
+            msg_log = f"ID {self.id_atual} registrado às {agora}: {nome_str}"
+            self.txt_live.append(msg_log)
+
+            # Exibe Notificação Toast
+            toast = NotificationToast(msg_log, self)
+            toast.apply_toast_theme(self.settings.value("theme", "light"))
+            toast.show_notification()
+
             self.id_atual += 1
             QTimer.singleShot(500, self.carregar_url_id)
         else:
