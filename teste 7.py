@@ -480,8 +480,6 @@ class InstrucoesDialog(QDialog):
             • Período de liberação<br><br>
 
             <b>Próximo passo:</b> O visitante receberá o link de cadastro da Portaria Virtual por e-mail. A entrada será autorizada assim que o registro for finalizado.<br><br>
-
-            <i><b>Nota:</b> Caso ocorra algum problema com a Portaria Virtual, o anfitrião deve entrar em contato com o time de Facilities.</i>
         </div>
         """
         self.browser.setHtml(texto_html)
