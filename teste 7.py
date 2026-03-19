@@ -1,6 +1,7 @@
 import sys
 import os
 import sqlite3
+import unicodedata
 import re
 import datetime
 import traceback
@@ -541,9 +542,17 @@ class InstrucoesDialog(QDialog):
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
 class DatabaseHandler:
+    @staticmethod
+    def remove_accents(input_str):
+        if not input_str:
+            return ""
+        nfkd_form = unicodedata.normalize('NFKD', input_str)
+        return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower()
+
     def __init__(self, db_path):
         # Conexão direta com o caminho fornecido pelo usuário via GUI
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.conn.create_function("unaccent", 1, self.remove_accents)
         self.cursor = self.conn.cursor()
         self.criar_tabelas()
         self.migrar_dados_vazios()
@@ -614,8 +623,9 @@ class DatabaseHandler:
         conditions = []
         params = []
         for t in termos:
-            conditions.append("(nome LIKE ? OR cpf LIKE ?)")
-            params.extend([f"%{t}%", f"%{t}%"])
+            t_norm = self.remove_accents(t)
+            conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ?)")
+            params.extend([f"%{t_norm}%", f"%{t}%"])
         query += " AND ".join(conditions)
         query += " ORDER BY visita_id DESC LIMIT 50"
         self.cursor.execute(query, params)
