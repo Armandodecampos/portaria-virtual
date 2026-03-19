@@ -236,12 +236,17 @@ class NotificationToast(QFrame):
         self.parent_window = parent
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(350, 80)
+
+        self.messages = [message]
+        self.is_hiding = False
+        self.setFixedWidth(400)
+        self.setMinimumHeight(80)
 
         # Layout principal
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(15, 10, 15, 10)
         self.main_layout.setSpacing(10)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # Ícone ou indicador (opcional, mas bom para o layout)
         self.lbl_icon = QLabel("🔔")
@@ -265,6 +270,23 @@ class NotificationToast(QFrame):
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.hide_notification)
+
+    def add_message(self, message):
+        self.messages.append(message)
+        if len(self.messages) > 10:
+            self.messages.pop(0)
+
+        self.lbl_msg.setText("<br>".join(self.messages))
+        self.adjustSize()
+
+        # Reposiciona se já estiver visível
+        if self.isVisible() and not self.is_hiding:
+            screen_geo = QApplication.primaryScreen().availableGeometry()
+            end_x = screen_geo.width() - self.width() - 20
+            end_y = screen_geo.height() - self.height() - 20
+            self.move(end_x, end_y)
+
+        self.timer.start(10000)
 
     def apply_toast_theme(self, mode):
         if mode == "dark":
@@ -302,6 +324,7 @@ class NotificationToast(QFrame):
         """)
 
     def show_notification(self):
+        self.adjustSize()
         screen_geo = QApplication.primaryScreen().availableGeometry()
         end_x = screen_geo.width() - self.width() - 20
         end_y = screen_geo.height() - self.height() - 20
@@ -322,6 +345,7 @@ class NotificationToast(QFrame):
         self.timer.start(10000)
 
     def hide_notification(self):
+        self.is_hiding = True
         screen_geo = QApplication.primaryScreen().availableGeometry()
         start_x = self.x()
         start_y = self.y()
@@ -690,6 +714,8 @@ class SmartPortariaScanner(QMainWindow):
         
         # Tenta carregar automaticamente o último banco usado
         self.carregar_ultimo_banco()
+
+        self.active_toast = None
 
     def setup_ui(self):
         self.central = QWidget()
@@ -1122,10 +1148,16 @@ class SmartPortariaScanner(QMainWindow):
             msg_log = f"ID {self.id_atual} registrado às {agora}: {nome_str}"
             self.txt_live.append(msg_log)
 
-            # Exibe Notificação Toast
-            toast = NotificationToast(msg_log, self)
-            toast.apply_toast_theme(self.settings.value("theme", "light"))
-            toast.show_notification()
+            # Exibe Notificação Toast (Acumulada)
+            try:
+                if self.active_toast and not self.active_toast.is_hiding:
+                    self.active_toast.add_message(msg_log)
+                else:
+                    raise AttributeError
+            except (AttributeError, RuntimeError):
+                self.active_toast = NotificationToast(msg_log, self)
+                self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
+                self.active_toast.show_notification()
 
             self.id_atual += 1
             QTimer.singleShot(500, self.carregar_url_id)
