@@ -425,6 +425,39 @@ class ConfigDialog(QDialog):
         lay_theme.addWidget(self.rb_escuro)
         layout.addWidget(gb_theme)
 
+        # === SEÇÃO CREDENCIAIS ===
+        gb_creds = QGroupBox("Credenciais de Acesso")
+        lay_creds = QVBoxLayout(gb_creds)
+
+        lay_portaria = QHBoxLayout()
+        lay_portaria.addWidget(QLabel("Portaria:"))
+        self.edit_portaria_user = QLineEdit(self.parent_window.creds['portaria_user'])
+        self.edit_portaria_user.setPlaceholderText("Usuário")
+        self.edit_portaria_pass = QLineEdit(self.parent_window.creds['portaria_pass'])
+        self.edit_portaria_pass.setPlaceholderText("Senha")
+        self.edit_portaria_pass.setEchoMode(QLineEdit.EchoMode.Password)
+        lay_portaria.addWidget(self.edit_portaria_user)
+        lay_portaria.addWidget(self.edit_portaria_pass)
+        lay_creds.addLayout(lay_portaria)
+
+        lay_zk = QHBoxLayout()
+        lay_zk.addWidget(QLabel("ZK Bio:  "))
+        self.edit_zk_user = QLineEdit(self.parent_window.creds['zk_user'])
+        self.edit_zk_user.setPlaceholderText("Usuário")
+        self.edit_zk_pass = QLineEdit(self.parent_window.creds['zk_pass'])
+        self.edit_zk_pass.setPlaceholderText("Senha")
+        self.edit_zk_pass.setEchoMode(QLineEdit.EchoMode.Password)
+        lay_zk.addWidget(self.edit_zk_user)
+        lay_zk.addWidget(self.edit_zk_pass)
+        lay_creds.addLayout(lay_zk)
+
+        btn_save_creds = QPushButton("💾 Salvar Credenciais")
+        btn_save_creds.setStyleSheet("background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold; margin-top: 5px;")
+        btn_save_creds.clicked.connect(self.acao_salvar_credenciais)
+        lay_creds.addWidget(btn_save_creds)
+
+        layout.addWidget(gb_creds)
+
         # === RODAPÉ ===
         btn_fechar = QPushButton("Fechar")
         btn_fechar.clicked.connect(self.accept)
@@ -446,6 +479,24 @@ class ConfigDialog(QDialog):
     def trocar_tema(self, id):
         modo = "dark" if id == 2 else "light"
         self.parent_window.aplicar_tema(modo)
+
+    def acao_salvar_credenciais(self):
+        p_user = self.edit_portaria_user.text().strip()
+        p_pass = self.edit_portaria_pass.text().strip()
+        z_user = self.edit_zk_user.text().strip()
+        z_pass = self.edit_zk_pass.text().strip()
+
+        if not p_user or not p_pass or not z_user or not z_pass:
+            QMessageBox.warning(self, "Aviso", "Todos os campos de credenciais devem ser preenchidos.")
+            return
+
+        self.parent_window.settings.setValue("portaria_user", p_user)
+        self.parent_window.settings.setValue("portaria_pass", p_pass)
+        self.parent_window.settings.setValue("zk_user", z_user)
+        self.parent_window.settings.setValue("zk_pass", z_pass)
+
+        self.parent_window.carregar_credenciais()
+        QMessageBox.information(self, "Sucesso", "Credenciais salvas com sucesso!")
 
 class InstrucoesDialog(QDialog):
     def __init__(self, parent=None):
@@ -559,20 +610,17 @@ class InstrucoesDialog(QDialog):
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ['no_proxy'] = '192.168.7.9'
 
-PORTARIA_LOGIN = "armando.junior"
-PORTARIA_PASS = "armandocampos.1"
 ZK_SERVER = "http://192.168.7.9:8098"
-ZK_USER = "armando.campos"
-ZK_PASS = "armandocampos.1"
 
 class TransferThread(QThread):
     success = pyqtSignal(str)
     error = pyqtSignal(str)
     log = pyqtSignal(str)
 
-    def __init__(self, id_convite):
+    def __init__(self, id_convite, creds):
         super().__init__()
         self.id_convite = id_convite
+        self.creds = creds
 
     def run(self):
         driver = None
@@ -587,8 +635,8 @@ class TransferThread(QThread):
             # PORTARIA
             self.log.emit("🌐 Acessando Portaria...")
             driver.get("https://portaria-global.governarti.com.br/login")
-            wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(PORTARIA_LOGIN)
-            driver.find_element(By.NAME, "password").send_keys(PORTARIA_PASS + Keys.ENTER)
+            wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(self.creds['portaria_user'])
+            driver.find_element(By.NAME, "password").send_keys(self.creds['portaria_pass'] + Keys.ENTER)
 
             # EXTRAIR DADOS
             self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
@@ -643,8 +691,8 @@ class TransferThread(QThread):
             # ZK LOGIN
             self.log.emit("🔐 Acessando ZK Server...")
             driver.get(f"{ZK_SERVER}/bioLogin.do")
-            wait.until(EC.element_to_be_clickable((By.ID, "username"))).send_keys(ZK_USER)
-            driver.find_element(By.ID, "password").send_keys(ZK_PASS + Keys.ENTER)
+            wait.until(EC.element_to_be_clickable((By.ID, "username"))).send_keys(self.creds['zk_user'])
+            driver.find_element(By.ID, "password").send_keys(self.creds['zk_pass'] + Keys.ENTER)
 
             # NAVEGAÇÃO
             time.sleep(5)
@@ -851,7 +899,8 @@ class SmartPortariaScanner(QMainWindow):
         self.setup_ui()
         self.configurar_navegadores()
 
-        # Carrega e aplica tema salvo
+        # Carrega credenciais e tema
+        self.carregar_credenciais()
         saved_theme = self.settings.value("theme", "light")
         self.aplicar_tema(saved_theme)
 
@@ -1048,6 +1097,15 @@ class SmartPortariaScanner(QMainWindow):
         layout.addWidget(splitter)
 
     # === LÓGICA DE TEMAS ===
+    def carregar_credenciais(self):
+        """Carrega credenciais do QSettings ou usa padrões"""
+        self.creds = {
+            'portaria_user': self.settings.value("portaria_user", "armando.junior"),
+            'portaria_pass': self.settings.value("portaria_pass", "armandocampos.1"),
+            'zk_user': self.settings.value("zk_user", "armando.campos"),
+            'zk_pass': self.settings.value("zk_pass", "armandocampos.1")
+        }
+
     def aplicar_tema(self, modo):
         self.settings.setValue("theme", modo)
         
@@ -1289,7 +1347,7 @@ class SmartPortariaScanner(QMainWindow):
         if browser_view.page().profile() == self.profile_anonimo: return
         url_atual = browser_view.url().toString()
         if "portaria-global.governarti.com.br/login" in url_atual:
-            js_login = "document.querySelectorAll('input').forEach(i => { if(i.type=='text') i.value='armando.junior'; if(i.type=='password') i.value='armandocampos.1'; });"
+            js_login = f"document.querySelectorAll('input').forEach(i => {{ if(i.type=='text') i.value='{self.creds['portaria_user']}'; if(i.type=='password') i.value='{self.creds['portaria_pass']}'; }});"
             browser_view.page().runJavaScript(js_login)
 
     def on_tab_load_finished(self, ok, view):
@@ -1464,7 +1522,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_transferir.setEnabled(False)
         self.btn_transferir.setText("⏳ Processando...")
 
-        self.transfer_thread = TransferThread(id_convite)
+        self.transfer_thread = TransferThread(id_convite, self.creds)
         self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
         self.transfer_thread.success.connect(self.on_transfer_success)
         self.transfer_thread.error.connect(self.on_transfer_error)
