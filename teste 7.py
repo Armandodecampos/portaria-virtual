@@ -695,7 +695,7 @@ class TransferThread(QThread):
             driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
             time.sleep(2)
 
-            self.success.emit(f"Dados de {dados['primeiro_nome']} preenchidos.\nCelular capturado: {dados['telefone']}")
+            self.success.emit("Dados transferidos")
 
             # Remove foto temporária com pequeno delay para garantir o envio
             time.sleep(3)
@@ -892,8 +892,9 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_config.setFixedSize(32, 32)
         self.btn_config.clicked.connect(self.abrir_configuracoes)
 
-        self.btn_instrucao = QPushButton("Instrução para cadastramento")
-        self.btn_instrucao.setFixedHeight(32)
+        self.btn_instrucao = QPushButton("📖")
+        self.btn_instrucao.setToolTip("Instrução para cadastramento")
+        self.btn_instrucao.setFixedSize(32, 32)
         self.btn_instrucao.clicked.connect(self.abrir_instrucoes)
 
         self.btn_abrir_camera = QPushButton("📷")
@@ -901,9 +902,14 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_abrir_camera.setFixedSize(32, 32)
         self.btn_abrir_camera.clicked.connect(self.abrir_camera)
 
+        self.btn_transferir = QPushButton("Transferir")
+        self.btn_transferir.setFixedHeight(32)
+        self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
+
         header_layout.addWidget(self.btn_config)
         header_layout.addWidget(self.btn_instrucao)
         header_layout.addWidget(self.btn_abrir_camera)
+        header_layout.addWidget(self.btn_transferir)
         header_layout.addStretch()
         lat.addLayout(header_layout)
 
@@ -960,11 +966,8 @@ class SmartPortariaScanner(QMainWindow):
         transfer_input_layout = QHBoxLayout()
         self.input_transfer_id = QLineEdit()
         self.input_transfer_id.setPlaceholderText("ID do Convite...")
-        self.btn_transferir = QPushButton("Transferir")
-        self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
 
         transfer_input_layout.addWidget(self.input_transfer_id)
-        transfer_input_layout.addWidget(self.btn_transferir)
         layout_transfer.addLayout(transfer_input_layout)
         lat.addWidget(group_transfer)
 
@@ -1117,8 +1120,9 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton:hover {{ border-color: #94a3b8; background-color: {'#475569' if modo=='dark' else '#e2e8f0'}; }}
         """
         self.btn_config.setStyleSheet(header_btn_style + "font-size: 18px;")
-        self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 12px; padding: 0 10px; font-weight: bold;")
+        self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 18px;")
+        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 10px;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
