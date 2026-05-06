@@ -657,34 +657,48 @@ class TransferThread(QThread):
             time.sleep(6)
 
             # PREENCHIMENTO VIA JAVASCRIPT
-            # Escapa aspas simples para evitar quebra do JS
-            p_nome = dados['primeiro_nome'].replace("'", "\\'")
-            s_nome = dados['sobrenome'].replace("'", "\\'")
-            tel = dados['telefone'].replace("'", "\\'")
-            eml = dados['email'].replace("'", "\\'")
-
-            script_preencher = f"""
+            script_preencher = """
+                function triggerEvents(el) {
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    el.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
                 var inputs = document.getElementsByTagName('input');
-                for (var i = 0; i < inputs.length; i++) {{
-                    if (inputs[i].name == 'name') inputs[i].value = '{p_nome}';
-                    if (inputs[i].name == 'lastName') inputs[i].value = '{s_nome}';
-                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') inputs[i].value = '{tel}';
-                    if (inputs[i].name == 'email') inputs[i].value = '{eml}';
-                }}
+                var d = arguments[0];
+                for (var i = 0; i < inputs.length; i++) {
+                    if (inputs[i].name == 'name') { inputs[i].value = d.p_nome; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'lastName') { inputs[i].value = d.s_nome; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') { inputs[i].value = d.tel; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'email') { inputs[i].value = d.eml; triggerEvents(inputs[i]); }
+                }
             """
-            driver.execute_script(script_preencher)
+            driver.execute_script(script_preencher, {
+                'p_nome': dados['primeiro_nome'],
+                's_nome': dados['sobrenome'],
+                'tel': dados['telefone'],
+                'eml': dados['email']
+            })
+            time.sleep(1)
 
             # CPF/PIN
             pin_field = driver.find_element(By.ID, "pers_pin_register_id")
-            driver.execute_script("arguments[0].removeAttribute('readonly')", pin_field)
-            driver.execute_script(f"arguments[0].value = '{dados['cpf']}';", pin_field)
+            driver.execute_script("""
+                arguments[0].removeAttribute('readonly');
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));
+            """, pin_field, dados['cpf'])
+            time.sleep(1)
 
             # FOTO
             driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+            time.sleep(2)
 
             self.success.emit(f"Dados de {dados['primeiro_nome']} preenchidos.\nCelular capturado: {dados['telefone']}")
 
-            # Remove foto temporária
+            # Remove foto temporária com pequeno delay para garantir o envio
+            time.sleep(3)
             try: os.remove(path_foto)
             except: pass
 
