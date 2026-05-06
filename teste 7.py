@@ -906,10 +906,16 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_transferir.setFixedHeight(32)
         self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
 
+        self.input_transfer_id = QLineEdit()
+        self.input_transfer_id.setPlaceholderText("ID...")
+        self.input_transfer_id.setFixedWidth(80)
+        self.input_transfer_id.setFixedHeight(32)
+
         header_layout.addWidget(self.btn_config)
         header_layout.addWidget(self.btn_instrucao)
         header_layout.addWidget(self.btn_abrir_camera)
         header_layout.addWidget(self.btn_transferir)
+        header_layout.addWidget(self.input_transfer_id)
         header_layout.addStretch()
         lat.addLayout(header_layout)
 
@@ -959,17 +965,6 @@ class SmartPortariaScanner(QMainWindow):
         layout_live.addWidget(self.txt_live)
         lat.addWidget(group_live)
 
-        # === GRUPO SINCRONIZADOR AMBEV ===
-        group_transfer = QGroupBox("SINCRONIZADOR AMBEV")
-        layout_transfer = QVBoxLayout(group_transfer)
-
-        transfer_input_layout = QHBoxLayout()
-        self.input_transfer_id = QLineEdit()
-        self.input_transfer_id.setPlaceholderText("ID do Convite...")
-
-        transfer_input_layout.addWidget(self.input_transfer_id)
-        layout_transfer.addLayout(transfer_input_layout)
-        lat.addWidget(group_transfer)
 
         # === GRUPO EXTRATOR DE LINK ===
         group_qr = QGroupBox("EXTRATOR DE LINK")
