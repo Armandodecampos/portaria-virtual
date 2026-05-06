@@ -1362,13 +1362,10 @@ class SmartPortariaScanner(QMainWindow):
             <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
                 <div style='color: {text_color}; font-size: 14px;'>
                     <a href="{vid}" style="text-decoration: none; color: inherit;">
-                        <b style='color: #2563eb;'>ID {vid}:</b> {nome}<br>
+                        <b style='color: #2563eb;'>ID {vid}:</b> <span style='color: #ffffff;'>{nome}</span><br>
                         <span style='color: #64748b; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                         <span style='color: #64748b; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                     </a>
-                    <div style="margin-top: 8px; text-align: right;">
-                        <a href="transfer:{vid}" style="background-color: #2563eb; color: white; text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">➡️ TRANSFERIR</a>
-                    </div>
                 </div>
             </div>
             """
@@ -1382,6 +1379,7 @@ class SmartPortariaScanner(QMainWindow):
             return
 
         visita_id = url_str
+        self.input_transfer_id.setText(visita_id)
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         for i in range(self.tabs.count()):
             if "Portaria Virtual" in self.tabs.tabText(i):
