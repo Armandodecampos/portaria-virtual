@@ -28,13 +28,20 @@ try:
     import qrcode
     from PIL.ImageQt import ImageQt
 
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.keys import Keys
+
 except ImportError as e:
     print("\n" + "="*60)
     print("ERRO CRÍTICO: BIBLIOTECAS NÃO ENCONTRADAS")
     print("="*60)
     print(f"Erro detalhado: {e}")
     print("\nPara corrigir, abra o terminal e digite:")
-    print("pip install PyQt6 PyQt6-WebEngine pillow qrcode requests")
+    print("pip install PyQt6 PyQt6-WebEngine pillow qrcode selenium requests")
     print("="*60 + "\n")
     sys.exit(1)
 
@@ -558,6 +565,135 @@ ZK_SERVER = "http://192.168.7.9:8098"
 ZK_USER = "armando.campos"
 ZK_PASS = "armandocampos.1"
 
+class TransferThread(QThread):
+    success = pyqtSignal(str)
+    error = pyqtSignal(str)
+    log = pyqtSignal(str)
+
+    def __init__(self, id_convite):
+        super().__init__()
+        self.id_convite = id_convite
+
+    def run(self):
+        driver = None
+        try:
+            self.log.emit(f"🚀 Iniciando transferência para ID {self.id_convite}...")
+            options = Options()
+            # options.add_experimental_option("detach", True) # Comentado pois o thread termina e fecha o browser se não tiver cuidado
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            driver = webdriver.Chrome(options=options)
+            wait = WebDriverWait(driver, 35)
+
+            # PORTARIA
+            self.log.emit("🌐 Acessando Portaria...")
+            driver.get("https://portaria-global.governarti.com.br/login")
+            wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(PORTARIA_LOGIN)
+            driver.find_element(By.NAME, "password").send_keys(PORTARIA_PASS + Keys.ENTER)
+
+            # EXTRAIR DADOS
+            self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
+            url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
+            driver.get(url_detalhes)
+            wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
+            time.sleep(3)
+
+            # 1. Nome e CPF
+            try:
+                label_visitante = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(., 'Visitante')]/following::label[1]"))).text
+                texto_limpo = " ".join(label_visitante.split())
+                cpf_match = re.search(r'(\d{3}\.\d{3}\.\d{3}-\d{2})|(\d{11})', texto_limpo)
+                cpf_numeros = re.sub(r'\D', '', cpf_match.group(0)) if cpf_match else ""
+                nome_completo = texto_limpo.split("-")[0].strip()
+            except:
+                nome_completo = "Visitante"
+                cpf_numeros = ""
+
+            partes_nome = nome_completo.split(" ")
+            primeiro_nome = partes_nome[0]
+            sobrenome = " ".join(partes_nome[1:]) if len(partes_nome) > 1 else " "
+
+            # 2. Captura de Telefone
+            try:
+                tel_raw = driver.find_element(By.XPATH, "//div[contains(text(), 'Telefone')]/following::label[1] | //label[contains(text(), '(')]").text
+                telefone_limpo = re.sub(r'\D', '', tel_raw).strip()
+            except:
+                telefone_limpo = ""
+
+            # 3. Captura de Email
+            try:
+                email_raw = driver.find_element(By.XPATH, "//div[contains(text(), 'Email')]/following::label[1] | //label[contains(text(), '@')]").text
+                email_limpo = email_raw.strip()
+                if "unidade" in email_limpo.lower():
+                     email_raw = driver.find_element(By.XPATH, "//label[contains(., '@')]").text
+                     email_limpo = email_raw.strip()
+            except:
+                email_limpo = ""
+
+            img_url = driver.find_element(By.ID, "img-preview").get_attribute("src")
+            path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
+            with open(path_foto, 'wb') as f:
+                f.write(requests.get(img_url, verify=False).content)
+
+            dados = {
+                "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
+                "cpf": cpf_numeros, "telefone": telefone_limpo,
+                "email": email_limpo, "path_foto": path_foto
+            }
+
+            # ZK LOGIN
+            self.log.emit("🔐 Acessando ZK Server...")
+            driver.get(f"{ZK_SERVER}/bioLogin.do")
+            wait.until(EC.element_to_be_clickable((By.ID, "username"))).send_keys(ZK_USER)
+            driver.find_element(By.ID, "password").send_keys(ZK_PASS + Keys.ENTER)
+
+            # NAVEGAÇÃO
+            time.sleep(5)
+            driver.get(f"{ZK_SERVER}/main.do?home#basePerson")
+            time.sleep(7)
+
+            self.log.emit("➕ Criando novo registro no ZK...")
+            btn_novo = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]")))
+            btn_novo.click()
+            time.sleep(6)
+
+            # PREENCHIMENTO VIA JAVASCRIPT
+            # Escapa aspas simples para evitar quebra do JS
+            p_nome = dados['primeiro_nome'].replace("'", "\\'")
+            s_nome = dados['sobrenome'].replace("'", "\\'")
+            tel = dados['telefone'].replace("'", "\\'")
+            eml = dados['email'].replace("'", "\\'")
+
+            script_preencher = f"""
+                var inputs = document.getElementsByTagName('input');
+                for (var i = 0; i < inputs.length; i++) {{
+                    if (inputs[i].name == 'name') inputs[i].value = '{p_nome}';
+                    if (inputs[i].name == 'lastName') inputs[i].value = '{s_nome}';
+                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') inputs[i].value = '{tel}';
+                    if (inputs[i].name == 'email') inputs[i].value = '{eml}';
+                }}
+            """
+            driver.execute_script(script_preencher)
+
+            # CPF/PIN
+            pin_field = driver.find_element(By.ID, "pers_pin_register_id")
+            driver.execute_script("arguments[0].removeAttribute('readonly')", pin_field)
+            driver.execute_script(f"arguments[0].value = '{dados['cpf']}';", pin_field)
+
+            # FOTO
+            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+
+            self.success.emit(f"Dados de {dados['primeiro_nome']} preenchidos.\nCelular capturado: {dados['telefone']}")
+
+            # Remove foto temporária
+            try: os.remove(path_foto)
+            except: pass
+
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            # if driver: driver.quit() # Opcional: fechar o browser ao terminar
+            pass
+
 class DatabaseHandler:
     @staticmethod
     def remove_accents(input_str):
@@ -690,9 +826,6 @@ class SmartPortariaScanner(QMainWindow):
         self.db = None
         self.id_atual = 1
         self.rodando = True
-        self.transfer_state = "IDLE"
-        self.transfer_id = None
-        self.transfer_data = {}
         
         self.timer_retry = QTimer()
         self.timer_retry.setSingleShot(True)
@@ -1140,37 +1273,14 @@ class SmartPortariaScanner(QMainWindow):
         self.view_worker.setUrl(QUrl(url))
 
     def injetar_login(self, browser_view):
+        if browser_view.page().profile() == self.profile_anonimo: return
         url_atual = browser_view.url().toString()
         if "portaria-global.governarti.com.br/login" in url_atual:
-            js_login = f"""
-                var u = document.querySelector('input[name=username]');
-                var p = document.querySelector('input[name=password]');
-                if(u && p && u.value == '') {{
-                    u.value='{PORTARIA_LOGIN}';
-                    p.value='{PORTARIA_PASS}';
-                    var btn = document.querySelector('button[type=submit]');
-                    if(btn) btn.click();
-                }}
-            """
+            js_login = "document.querySelectorAll('input').forEach(i => { if(i.type=='text') i.value='armando.junior'; if(i.type=='password') i.value='armandocampos.1'; });"
             browser_view.page().runJavaScript(js_login)
-        elif "bioLogin.do" in url_atual:
-            js_zk = f"""
-                var u = document.getElementById('username');
-                var p = document.getElementById('password');
-                if(u && p && u.value == '') {{
-                    u.value='{ZK_USER}';
-                    p.value='{ZK_PASS}';
-                    var f = document.querySelector('form');
-                    if(f) f.submit();
-                }}
-            """
-            browser_view.page().runJavaScript(js_zk)
 
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
-        # Lógica do Sincronizador na Guia Anônima
-        if self.transfer_state != "IDLE" and view.page().profile() == self.profile_anonimo:
-            QTimer.singleShot(3000, lambda: self.processar_passo_transferencia(view))
 
     def on_worker_load_finished(self, ok):
         self.injetar_login(self.view_worker)
@@ -1220,29 +1330,27 @@ class SmartPortariaScanner(QMainWindow):
         html = ""
         hoje = datetime.date.today()
         # Define cor do texto baseada no tema
-        theme = self.settings.value("theme", "light")
-        text_color = "#ffffff" if theme == "dark" else "#1e293b"
-        card_bg = "#1e293b" if theme == "dark" else "#ffffff"
-        border_color = "#475569" if theme == "dark" else "#cbd5e1"
-        secondary_text = "#94a3b8" if theme == "dark" else "#64748b"
+        text_color = "#e2e8f0" if self.settings.value("theme") == "dark" else "#1e293b"
+        card_bg = "#1e293b" if self.settings.value("theme") == "dark" else "#ffffff"
+        border_color = "#475569" if self.settings.value("theme") == "dark" else "#cbd5e1"
         
         for vid, nome, cpf, horario in dados:
-            cor_validade = "#22c55e" # Green-500
+            cor_validade = "green"
             if horario and horario != "N/A":
                 try:
                     partes = horario.split(" - ")
                     if len(partes) == 2:
                         data_fim = datetime.datetime.strptime(partes[1].strip(), "%d/%m/%Y").date()
-                        if data_fim < hoje: cor_validade = "#ef4444" # Red-500
+                        if data_fim < hoje: cor_validade = "red"
                 except: pass
             
             html += f"""
             <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
                 <div style='color: {text_color}; font-size: 14px;'>
-                    <a href="{vid}" style="text-decoration: none; color: {text_color};">
-                        <b style='color: #3b82f6;'>ID {vid}:</b> {nome}<br>
-                        <span style='color: {secondary_text}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                        <span style='color: {secondary_text}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                    <a href="{vid}" style="text-decoration: none; color: inherit;">
+                        <b style='color: #2563eb;'>ID {vid}:</b> {nome}<br>
+                        <span style='color: #64748b; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                        <span style='color: #64748b; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                     </a>
                     <div style="margin-top: 8px; text-align: right;">
                         <a href="transfer:{vid}" style="background-color: #2563eb; color: white; text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">➡️ TRANSFERIR</a>
@@ -1342,113 +1450,24 @@ class SmartPortariaScanner(QMainWindow):
             QMessageBox.warning(self, "Aviso", "Por favor, insira um ID de convite válido.")
             return
 
-        # Busca a Guia Anônima
-        anon_idx = -1
-        for i in range(self.tabs.count()):
-            if "anônima" in self.tabs.tabText(i).lower():
-                anon_idx = i
-                break
-
-        if anon_idx == -1:
-            QMessageBox.critical(self, "Erro", "Guia anônima não encontrada!")
-            return
-
-        self.tabs.setCurrentIndex(anon_idx)
-        self.web_stack.setCurrentIndex(anon_idx)
-        view = self.web_stack.currentWidget()
-
-        self.transfer_id = id_convite
-        self.transfer_state = "FETCH_DATA"
         self.btn_transferir.setEnabled(False)
-        self.btn_transferir.setText("⏳ Sincronizando...")
+        self.btn_transferir.setText("⏳ Processando...")
 
-        self.txt_live.append(f"🤖 [Transfer] Iniciando sincronização do ID {id_convite} na Guia Anônima...")
+        self.transfer_thread = TransferThread(id_convite)
+        self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
+        self.transfer_thread.success.connect(self.on_transfer_success)
+        self.transfer_thread.error.connect(self.on_transfer_error)
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setEnabled(True))
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("Transferir"))
+        self.transfer_thread.start()
 
-        url_detalhes = f"https://portaria-global.governarti.com.br/visita/{id_convite}/detalhes"
-        view.setUrl(QUrl(url_detalhes))
+    def on_transfer_success(self, msg):
+        self.txt_live.append(f"✅ Transferência concluída: {msg.splitlines()[0]}")
+        QMessageBox.information(self, "Sucesso", msg)
 
-    def processar_passo_transferencia(self, view):
-        if self.transfer_state == "FETCH_DATA":
-            js_extract = """
-            (function() {
-                try {
-                    var label = document.evaluate("//div[contains(., 'Visitante')]/following::label[1]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.innerText;
-                    var tel = (document.evaluate("//div[contains(text(), 'Telefone')]/following::label[1]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue || {innerText: ""}).innerText;
-                    var email = (document.evaluate("//div[contains(text(), 'Email')]/following::label[1]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue || {innerText: ""}).innerText;
-                    return { label: label, tel: tel, email: email };
-                } catch(e) { return null; }
-            })()
-            """
-            view.page().runJavaScript(js_extract, lambda d: self.callback_dados_extraidos(d, view))
-
-        elif self.transfer_state == "GO_TO_NEW":
-            js_click_novo = """
-                var btn = document.evaluate("//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                if(btn) { btn.click(); true; } else { false; }
-            """
-            view.page().runJavaScript(js_click_novo, lambda ok: self.callback_novo_clicado(ok, view))
-
-        elif self.transfer_state == "FILLING":
-            p_nome = self.transfer_data['p_nome'].replace("'", "\\'")
-            s_nome = self.transfer_data['s_nome'].replace("'", "\\'")
-            tel = self.transfer_data['telefone'].replace("'", "\\'")
-            eml = self.transfer_data['email'].replace("'", "\\'")
-            cpf = self.transfer_data['cpf'].replace("'", "\\'")
-
-            script_fill = f"""
-                var inputs = document.getElementsByTagName('input');
-                for (var i = 0; i < inputs.length; i++) {{
-                    if (inputs[i].name == 'name') inputs[i].value = '{p_nome}';
-                    if (inputs[i].name == 'lastName') inputs[i].value = '{s_nome}';
-                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') inputs[i].value = '{tel}';
-                    if (inputs[i].name == 'email') inputs[i].value = '{eml}';
-                }}
-                var pin = document.getElementById('pers_pin_register_id');
-                if(pin) {{
-                    pin.removeAttribute('readonly');
-                    pin.value = '{cpf}';
-                }}
-            """
-            view.page().runJavaScript(script_fill)
-            self.transfer_state = "IDLE"
-            self.btn_transferir.setEnabled(True)
-            self.btn_transferir.setText("Transferir")
-            self.txt_live.append(f"✅ [Transfer] Dados preenchidos para {p_nome}. Por favor, anexe a foto manualmente.")
-            QMessageBox.information(self, "Sucesso", "Dados preenchidos na Guia Anônima.\n\nNota: Devido a restrições de segurança, a foto deve ser anexada manualmente.")
-
-    def callback_dados_extraidos(self, dados, view):
-        if not dados:
-            self.txt_live.append("❌ [Transfer] Falha ao extrair dados. Verifique se está na página correta.")
-            self.transfer_state = "IDLE"
-            self.btn_transferir.setEnabled(True)
-            self.btn_transferir.setText("Transferir")
-            return
-
-        texto = " ".join(dados['label'].split())
-        nome_completo = texto.split("-")[0].strip()
-        cpf_match = re.search(r'(\d{3}\.\d{3}\.\d{3}-\d{2})|(\d{11})', texto)
-
-        partes = nome_completo.split(" ")
-        self.transfer_data = {
-            'p_nome': partes[0],
-            's_nome': " ".join(partes[1:]) if len(partes) > 1 else " ",
-            'telefone': re.sub(r'\D', '', dados['tel']),
-            'email': dados['email'].strip(),
-            'cpf': re.sub(r'\D', '', cpf_match.group(0)) if cpf_match else ""
-        }
-
-        self.txt_live.append(f"🤖 [Transfer] Dados extraídos: {self.transfer_data['p_nome']}. Indo para ZK...")
-        self.transfer_state = "GO_TO_NEW"
-        view.setUrl(QUrl(f"{ZK_SERVER}/main.do?home#basePerson"))
-
-    def callback_novo_clicado(self, ok, view):
-        if ok:
-            self.transfer_state = "FILLING"
-            self.txt_live.append("🤖 [Transfer] Formulário 'Novo' aberto. Preenchendo...")
-            QTimer.singleShot(5000, lambda: self.processar_passo_transferencia(view))
-        else:
-            self.txt_live.append("⚠️ [Transfer] Botão 'Novo' não encontrado. Tentando novamente...")
-            QTimer.singleShot(3000, lambda: self.processar_passo_transferencia(view))
+    def on_transfer_error(self, err):
+        self.txt_live.append(f"❌ Erro na transferência: {err}")
+        QMessageBox.error(self, "Erro na Transferência", f"Falha: {err}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
