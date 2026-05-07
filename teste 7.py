@@ -947,12 +947,12 @@ class SmartPortariaScanner(QMainWindow):
         header_layout = QHBoxLayout()
         
         self.btn_config = QPushButton("⚙️")
-        self.btn_config.setToolTip("Abrir Configurações")
+        self.btn_config.setToolTip("Configurações")
         self.btn_config.setFixedSize(32, 32)
         self.btn_config.clicked.connect(self.abrir_configuracoes)
 
         self.btn_instrucao = QPushButton("📖")
-        self.btn_instrucao.setToolTip("Instrução para cadastramento")
+        self.btn_instrucao.setToolTip("Instrução")
         self.btn_instrucao.setFixedSize(32, 32)
         self.btn_instrucao.clicked.connect(self.abrir_instrucoes)
 
@@ -961,12 +961,14 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_abrir_camera.setFixedSize(32, 32)
         self.btn_abrir_camera.clicked.connect(self.abrir_camera)
 
-        self.btn_unlock = QPushButton("Destravar")
-        self.btn_unlock.setFixedHeight(32)
+        self.btn_unlock = QPushButton("🔓")
+        self.btn_unlock.setToolTip("Destravar")
+        self.btn_unlock.setFixedSize(32, 32)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
-        self.btn_transferir = QPushButton("Transferir")
-        self.btn_transferir.setFixedHeight(32)
+        self.btn_transferir = QPushButton("🚀")
+        self.btn_transferir.setToolTip("Transferir")
+        self.btn_transferir.setFixedSize(32, 32)
         self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
 
         self.input_transfer_id = QLineEdit()
@@ -977,8 +979,8 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_config)
         header_layout.addWidget(self.btn_instrucao)
         header_layout.addWidget(self.btn_abrir_camera)
-        header_layout.addWidget(self.btn_unlock)
         header_layout.addWidget(self.btn_transferir)
+        header_layout.addWidget(self.btn_unlock)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
         header_layout.addStretch()
@@ -1075,6 +1077,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_reload.clicked.connect(self.recarregar_pagina)
         
         self.btn_home = QPushButton("🏠")
+        self.btn_home.setToolTip("Página Inicial")
         self.btn_home.setFixedWidth(60)
         self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;")
         self.btn_home.clicked.connect(self.ir_para_home)
@@ -1186,8 +1189,8 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_config.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 18px;")
-        self.btn_unlock.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 10px;")
-        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 10px;")
+        self.btn_unlock.setStyleSheet(header_btn_style.replace(btn_conf_color, "#f59e0b") + "font-size: 18px;")
+        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 18px;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
