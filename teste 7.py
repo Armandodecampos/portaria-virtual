@@ -951,10 +951,13 @@ class SmartPortariaScanner(QMainWindow):
         self.painel_lateral = QWidget()
         self.painel_lateral.setFixedWidth(450)
         lat = QVBoxLayout(self.painel_lateral)
+        lat.setContentsMargins(5, 5, 5, 5)
         lat.setSpacing(10)
 
         # === CABEÇALHO DO PAINEL COM BOTÕES DE CONFIG, INSTRUÇÃO E CÂMERA ===
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(6)
+        header_layout.setContentsMargins(5, 5, 5, 5)
         
         self.btn_config = QPushButton("⚙️")
         self.btn_config.setToolTip("Configurações")
@@ -1072,9 +1075,11 @@ class SmartPortariaScanner(QMainWindow):
         # --- NAVEGADOR PRINCIPAL ---
         container_web = QWidget()
         layout_web = QVBoxLayout(container_web)
-        layout_web.setContentsMargins(0, 0, 0, 0)
+        layout_web.setContentsMargins(5, 5, 5, 5)
 
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(6)
+        toolbar.setContentsMargins(5, 5, 5, 5)
         self.btn_back = QPushButton("←")
         self.btn_back.setFixedSize(38, 38)
         self.btn_forward = QPushButton("→")
@@ -1089,10 +1094,10 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_home = QPushButton("🏠")
         self.btn_home.setToolTip("Página Inicial")
         self.btn_home.setFixedSize(38, 38)
-        self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;")
         self.btn_home.clicked.connect(self.ir_para_home)
 
         self.address_bar = QLineEdit()
+        self.address_bar.setFixedHeight(38)
         self.address_bar.setPlaceholderText("Introduza o URL...")
         self.address_bar.returnPressed.connect(self.ir_para_url)
 
@@ -1187,20 +1192,23 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
         self.txt_live.setStyleSheet(live_log_style)
-        self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;" + ("color: white;" if modo == "dark" else ""))
         
         # Ajusta botões do cabeçalho para parecerem com o tema
         btn_conf_color = "#334155" if modo == "dark" else "#f1f5f9"
         btn_conf_border = "#475569" if modo == "dark" else "#cbd5e1"
         header_btn_style = f"""
-            QPushButton {{ background-color: {btn_conf_color}; color: {'white' if modo=='dark' else '#334155'}; border: 1px solid {btn_conf_border}; border-radius: 6px; }}
+            QPushButton {{ background-color: {btn_conf_color}; color: {'white' if modo=='dark' else '#334155'}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {'#475569' if modo=='dark' else '#e2e8f0'}; }}
         """
-        self.btn_config.setStyleSheet(header_btn_style + "font-size: 22px;")
-        self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 22px;")
-        self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 22px;")
-        self.btn_unlock.setStyleSheet(header_btn_style + "font-size: 22px;")
-        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 22px;")
+        self.btn_config.setStyleSheet(header_btn_style)
+        self.btn_instrucao.setStyleSheet(header_btn_style)
+        self.btn_abrir_camera.setStyleSheet(header_btn_style)
+        self.btn_unlock.setStyleSheet(header_btn_style)
+        self.btn_transferir.setStyleSheet(header_btn_style)
+        self.btn_back.setStyleSheet(header_btn_style)
+        self.btn_forward.setStyleSheet(header_btn_style)
+        self.btn_reload.setStyleSheet(header_btn_style)
+        self.btn_home.setStyleSheet(header_btn_style)
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
