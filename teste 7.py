@@ -1076,11 +1076,11 @@ class SmartPortariaScanner(QMainWindow):
 
         toolbar = QHBoxLayout()
         self.btn_back = QPushButton("←")
-        self.btn_back.setFixedWidth(30)
+        self.btn_back.setFixedSize(38, 38)
         self.btn_forward = QPushButton("→")
-        self.btn_forward.setFixedWidth(30)
+        self.btn_forward.setFixedSize(38, 38)
         self.btn_reload = QPushButton("↻")
-        self.btn_reload.setFixedWidth(30)
+        self.btn_reload.setFixedSize(38, 38)
 
         self.btn_back.clicked.connect(self.navegar_voltar)
         self.btn_forward.clicked.connect(self.navegar_avancar)
@@ -1088,7 +1088,7 @@ class SmartPortariaScanner(QMainWindow):
         
         self.btn_home = QPushButton("🏠")
         self.btn_home.setToolTip("Página Inicial")
-        self.btn_home.setFixedWidth(60)
+        self.btn_home.setFixedSize(38, 38)
         self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;")
         self.btn_home.clicked.connect(self.ir_para_home)
 
