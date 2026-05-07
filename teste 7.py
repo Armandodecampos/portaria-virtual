@@ -628,7 +628,7 @@ class TransferThread(QThread):
         try:
             self.log.emit(f"🚀 Iniciando transferência para ID {self.id_convite}...")
             options = Options()
-            # options.add_experimental_option("detach", True) # Comentado pois o thread termina e fecha o browser se não tiver cuidado
+            options.add_experimental_option("detach", True)
             options.add_argument("--disable-blink-features=AutomationControlled")
             self.driver = webdriver.Chrome(options=options)
             driver = self.driver
@@ -755,11 +755,8 @@ class TransferThread(QThread):
         except Exception as e:
             self.error.emit(str(e))
         finally:
-            if self.driver:
-                try:
-                    self.driver.quit()
-                except:
-                    pass
+            # Não fechamos o driver no finally para permitir que o browser continue aberto após o sucesso.
+            # O driver será fechado apenas se stop() for chamado ou se houver erro antes da inicialização completa.
             self.driver = None
 
     def stop(self):
