@@ -948,33 +948,33 @@ class SmartPortariaScanner(QMainWindow):
         
         self.btn_config = QPushButton("⚙️")
         self.btn_config.setToolTip("Configurações")
-        self.btn_config.setFixedSize(42, 42)
+        self.btn_config.setFixedSize(64, 64)
         self.btn_config.clicked.connect(self.abrir_configuracoes)
 
         self.btn_instrucao = QPushButton("📖")
         self.btn_instrucao.setToolTip("Instrução")
-        self.btn_instrucao.setFixedSize(42, 42)
+        self.btn_instrucao.setFixedSize(64, 64)
         self.btn_instrucao.clicked.connect(self.abrir_instrucoes)
 
         self.btn_abrir_camera = QPushButton("📷")
         self.btn_abrir_camera.setToolTip("Abrir Câmera")
-        self.btn_abrir_camera.setFixedSize(42, 42)
+        self.btn_abrir_camera.setFixedSize(64, 64)
         self.btn_abrir_camera.clicked.connect(self.abrir_camera)
 
         self.btn_unlock = QPushButton("🔓")
         self.btn_unlock.setToolTip("Destravar")
-        self.btn_unlock.setFixedSize(42, 42)
+        self.btn_unlock.setFixedSize(64, 64)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
         self.btn_transferir = QPushButton("🚀")
         self.btn_transferir.setToolTip("Transferir")
-        self.btn_transferir.setFixedSize(42, 42)
+        self.btn_transferir.setFixedSize(64, 64)
         self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
 
         self.input_transfer_id = QLineEdit()
         self.input_transfer_id.setPlaceholderText("ID...")
         self.input_transfer_id.setFixedWidth(80)
-        self.input_transfer_id.setFixedHeight(42)
+        self.input_transfer_id.setFixedHeight(64)
 
         header_layout.addWidget(self.btn_config)
         header_layout.addWidget(self.btn_instrucao)
@@ -1078,8 +1078,8 @@ class SmartPortariaScanner(QMainWindow):
         
         self.btn_home = QPushButton("🏠")
         self.btn_home.setToolTip("Página Inicial")
-        self.btn_home.setFixedWidth(60)
-        self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;")
+        self.btn_home.setFixedWidth(64)
+        self.btn_home.setStyleSheet("font-size: 48px; padding-bottom: 3px;")
         self.btn_home.clicked.connect(self.ir_para_home)
 
         self.address_bar = QLineEdit()
@@ -1177,7 +1177,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
         self.txt_live.setStyleSheet(live_log_style)
-        self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;" + ("color: white;" if modo == "dark" else ""))
+        self.btn_home.setStyleSheet("font-size: 48px; padding-bottom: 3px;" + ("color: white;" if modo == "dark" else ""))
         
         # Ajusta botões do cabeçalho para parecerem com o tema
         btn_conf_color = "#334155" if modo == "dark" else "#f1f5f9"
@@ -1186,11 +1186,11 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton {{ background-color: {btn_conf_color}; color: {'white' if modo=='dark' else '#334155'}; border: 1px solid {btn_conf_border}; border-radius: 6px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {'#475569' if modo=='dark' else '#e2e8f0'}; }}
         """
-        self.btn_config.setStyleSheet(header_btn_style + "font-size: 28px;")
-        self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 28px;")
-        self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 28px;")
-        self.btn_unlock.setStyleSheet(header_btn_style + "font-size: 28px;")
-        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 28px;")
+        self.btn_config.setStyleSheet(header_btn_style + "font-size: 54px; padding: 0;")
+        self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 54px; padding: 0;")
+        self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 54px; padding: 0;")
+        self.btn_unlock.setStyleSheet(header_btn_style + "font-size: 54px; padding: 0;")
+        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 54px; padding: 0;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
