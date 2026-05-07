@@ -1578,14 +1578,14 @@ class SmartPortariaScanner(QMainWindow):
             return
 
         self.btn_transferir.setEnabled(False)
-        self.btn_transferir.setText("⏳ Processando...")
+        self.btn_transferir.setText("⏳")
 
         self.transfer_thread = TransferThread(id_convite, self.creds)
         self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
         self.transfer_thread.success.connect(self.on_transfer_success)
         self.transfer_thread.error.connect(self.on_transfer_error)
         self.transfer_thread.finished.connect(lambda: self.btn_transferir.setEnabled(True))
-        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("Transferir"))
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("🚀"))
         self.transfer_thread.start()
 
     def on_transfer_success(self, msg):
