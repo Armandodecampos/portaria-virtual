@@ -1018,8 +1018,8 @@ class SmartPortariaScanner(QMainWindow):
         self.input_busca.setPlaceholderText("Digite para buscar...")
         self.input_busca.textChanged.connect(self.realizar_busca_local)
         
-        self.btn_limpar_busca = QPushButton("✖")
-        self.btn_limpar_busca.setFixedWidth(30)
+        self.btn_limpar_busca = QPushButton("Apagar")
+        self.btn_limpar_busca.setFixedWidth(70)
         self.btn_limpar_busca.clicked.connect(self.input_busca.clear)
 
         busca_input_layout.addWidget(self.input_busca)
@@ -1190,7 +1190,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_open_anon.setStyleSheet(btn_anon_style)
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
-        self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
+        self.btn_limpar_busca.setStyleSheet(btn_clear_style)
         self.txt_live.setStyleSheet(live_log_style)
         
         # Ajusta botões do cabeçalho para parecerem com o tema
