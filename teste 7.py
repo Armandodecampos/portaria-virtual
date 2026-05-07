@@ -832,6 +832,14 @@ class DatabaseHandler:
         except Exception:
             return False
 
+    def buscar_por_id(self, visita_id):
+        try:
+            self.cursor.execute("SELECT nome FROM detalhes_visitas WHERE visita_id = ?", (visita_id,))
+            res = self.cursor.fetchone()
+            return res[0] if res else None
+        except Exception:
+            return None
+
     def buscar_por_filtro(self, termos):
         if not termos: return []
         query = "SELECT visita_id, nome, cpf, horario FROM detalhes_visitas WHERE "
@@ -965,6 +973,7 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_abrir_camera)
         header_layout.addWidget(self.btn_transferir)
         header_layout.addWidget(self.input_transfer_id)
+        self.input_transfer_id.hide()
         header_layout.addStretch()
         lat.addLayout(header_layout)
 
@@ -972,6 +981,7 @@ class SmartPortariaScanner(QMainWindow):
         self.lbl_status_db = QLabel("⚠️ Nenhum banco carregado")
         self.lbl_status_db.setStyleSheet("color: #ef4444; font-weight: bold; margin-bottom: 5px; font-size: 11px;")
         self.lbl_status_db.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.lbl_status_db.hide()
         lat.addWidget(self.lbl_status_db)
 
         # === GRUPO BUSCA NO BANCO ===
@@ -1517,6 +1527,24 @@ class SmartPortariaScanner(QMainWindow):
 
         if not id_convite:
             QMessageBox.warning(self, "Aviso", "Por favor, insira um ID de convite válido.")
+            return
+
+        # Busca o nome no banco para a confirmação
+        nome_visitante = None
+        if self.db:
+            nome_visitante = self.db.buscar_por_id(id_convite)
+
+        if nome_visitante:
+            msg = f"Deseja transferir os dados de {nome_visitante} Para o ZKBio?"
+        else:
+            msg = f"Deseja transferir os dados do ID {id_convite} Para o ZKBio?"
+
+        confirmacao = QMessageBox.question(
+            self, "Confirmar Transferência", msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if confirmacao != QMessageBox.StandardButton.Yes:
             return
 
         self.btn_transferir.setEnabled(False)
