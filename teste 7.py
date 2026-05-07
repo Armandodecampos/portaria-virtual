@@ -622,15 +622,16 @@ class TransferThread(QThread):
         super().__init__()
         self.id_convite = id_convite
         self.creds = creds
+        self.driver = None
 
     def run(self):
-        driver = None
         try:
             self.log.emit(f"🚀 Iniciando transferência para ID {self.id_convite}...")
             options = Options()
             # options.add_experimental_option("detach", True) # Comentado pois o thread termina e fecha o browser se não tiver cuidado
             options.add_argument("--disable-blink-features=AutomationControlled")
-            driver = webdriver.Chrome(options=options)
+            self.driver = webdriver.Chrome(options=options)
+            driver = self.driver
             wait = WebDriverWait(driver, 35)
 
             # PORTARIA
@@ -754,8 +755,20 @@ class TransferThread(QThread):
         except Exception as e:
             self.error.emit(str(e))
         finally:
-            # if driver: driver.quit() # Opcional: fechar o browser ao terminar
-            pass
+            if self.driver:
+                try:
+                    self.driver.quit()
+                except:
+                    pass
+            self.driver = None
+
+    def stop(self):
+        if self.driver:
+            try:
+                self.driver.quit()
+            except:
+                pass
+        self.driver = None
 
 class DatabaseHandler:
     @staticmethod
@@ -1552,29 +1565,43 @@ class SmartPortariaScanner(QMainWindow):
             id_convite = self.input_transfer_id.text().strip()
 
         if not id_convite:
-            id_novo, ok = QInputDialog.getText(self, "ID de Convite", "Por favor, insira um ID de convite válido ou digite o ID manualmente:")
-            if ok and id_novo.strip():
-                id_convite = id_novo.strip()
-                self.input_transfer_id.setText(id_convite)
-            else:
-                return
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("ID não selecionado")
+            msg_box.setText("Selecione um ID no banco de dados")
+            btn_ok = msg_box.addButton("Ok", QMessageBox.ButtonRole.AcceptRole)
+            btn_manual = msg_box.addButton("Inserir manualmente", QMessageBox.ButtonRole.ActionRole)
+            btn_cancel = msg_box.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+            msg_box.exec()
+
+            if msg_box.clickedButton() == btn_manual:
+                id_novo, ok = QInputDialog.getText(self, "Inserir ID", "Digite o ID de convite:")
+                if ok and id_novo.strip():
+                    return self.iniciar_transferencia(id_novo.strip())
+            return
 
         # Busca o nome no banco para a confirmação
         nome_visitante = None
         if self.db:
             nome_visitante = self.db.buscar_por_id(id_convite)
 
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Confirmar Transferência")
         if nome_visitante:
-            msg = f"Deseja transferir os dados de {nome_visitante} Para o ZKBio?"
+            msg_box.setText(f"Deseja transferir os dados de {nome_visitante} Para o ZKBio?")
         else:
-            msg = f"Deseja transferir os dados do ID {id_convite} Para o ZKBio?"
+            msg_box.setText(f"Deseja transferir os dados do ID {id_convite} Para o ZKBio?")
 
-        confirmacao = QMessageBox.question(
-            self, "Confirmar Transferência", msg,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+        btn_sim = msg_box.addButton("Sim", QMessageBox.ButtonRole.YesRole)
+        btn_nao = msg_box.addButton("Não", QMessageBox.ButtonRole.NoRole)
+        btn_manual = msg_box.addButton("Inserir manualmente", QMessageBox.ButtonRole.ActionRole)
+        msg_box.exec()
 
-        if confirmacao != QMessageBox.StandardButton.Yes:
+        if msg_box.clickedButton() == btn_manual:
+            id_novo, ok = QInputDialog.getText(self, "Inserir ID", "Digite o ID de convite:")
+            if ok and id_novo.strip():
+                return self.iniciar_transferencia(id_novo.strip())
+            return
+        elif msg_box.clickedButton() != btn_sim:
             return
 
         self.btn_transferir.setEnabled(False)
@@ -1594,7 +1621,13 @@ class SmartPortariaScanner(QMainWindow):
 
     def on_transfer_error(self, err):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
-        QMessageBox.error(self, "Erro na Transferência", f"Falha: {err}")
+        QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
+
+    def closeEvent(self, event):
+        if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
+            self.transfer_thread.stop()
+            self.transfer_thread.wait()
+        event.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
