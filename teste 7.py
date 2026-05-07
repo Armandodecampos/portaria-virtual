@@ -19,7 +19,7 @@ try:
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
-        QRadioButton, QButtonGroup
+        QRadioButton, QButtonGroup, QInputDialog
     )
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
@@ -1552,8 +1552,12 @@ class SmartPortariaScanner(QMainWindow):
             id_convite = self.input_transfer_id.text().strip()
 
         if not id_convite:
-            QMessageBox.warning(self, "Aviso", "Por favor, insira um ID de convite válido.")
-            return
+            id_novo, ok = QInputDialog.getText(self, "ID de Convite", "Por favor, insira um ID de convite válido ou digite o ID manualmente:")
+            if ok and id_novo.strip():
+                id_convite = id_novo.strip()
+                self.input_transfer_id.setText(id_convite)
+            else:
+                return
 
         # Busca o nome no banco para a confirmação
         nome_visitante = None
