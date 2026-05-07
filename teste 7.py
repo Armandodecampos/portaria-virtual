@@ -57,7 +57,7 @@ class CustomWebPage(QWebEnginePage):
     def createWindow(self, _type):
         for i in range(self.browser_window.tabs.count()):
             tab_text = self.browser_window.tabs.tabText(i)
-            if "Portaria Virtual" in tab_text or "ZK Bio" in tab_text:
+            if "Portaria Virtual" in tab_text or "ZK Bio" in tab_text or "Monitoramento ZK" in tab_text:
                 self.browser_window.tabs.setCurrentIndex(i)
                 view = self.browser_window.web_stack.widget(i)
                 if view:
@@ -930,6 +930,7 @@ class SmartPortariaScanner(QMainWindow):
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
         self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
+        self.add_new_tab(QUrl(f"{ZK_SERVER}/main.do#accMonitor"), "Monitoramento ZK", closable=False)
         
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
@@ -1319,6 +1320,8 @@ class SmartPortariaScanner(QMainWindow):
             titulo = self.tabs.tabText(idx)
             if "ZK Bio" in titulo:
                 view.setUrl(QUrl(f"{ZK_SERVER}/bioLogin.do"))
+            elif "Monitoramento ZK" in titulo:
+                view.setUrl(QUrl(f"{ZK_SERVER}/main.do#accMonitor"))
             elif view.page().profile() == self.profile_anonimo:
                 view.setUrl(QUrl("https://www.google.com"))
             else:
@@ -1332,9 +1335,9 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
-            # Recolher menu na aba ZK Bio
+            # Recolher menu na aba ZK Bio ou Monitoramento
             titulo = self.tabs.tabText(index)
-            if "ZK Bio" in titulo:
+            if "ZK Bio" in titulo or "Monitoramento ZK" in titulo:
                 self.painel_lateral.hide()
             else:
                 self.painel_lateral.show()
@@ -1393,6 +1396,12 @@ class SmartPortariaScanner(QMainWindow):
                 var passField = document.getElementById('password');
                 if (userField) userField.value = '{self.creds['zk_user']}';
                 if (passField) passField.value = '{self.creds['zk_pass']}';
+
+                // Tenta clicar no botão de login automaticamente
+                setTimeout(function() {{
+                    var btn = document.querySelector('input[type="submit"], button, #login_submit');
+                    if (btn) btn.click();
+                }}, 500);
             """
             browser_view.page().runJavaScript(js_login_zk)
 
