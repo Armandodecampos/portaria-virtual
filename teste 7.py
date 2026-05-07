@@ -962,6 +962,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_abrir_camera.clicked.connect(self.abrir_camera)
 
         self.btn_unlock = QPushButton("Destravar")
+        self.btn_unlock.setFixedHeight(32)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
         self.btn_transferir = QPushButton("Transferir")
@@ -1168,10 +1169,8 @@ class SmartPortariaScanner(QMainWindow):
         self.setStyleSheet(style)
         
         # Reaplica estilos específicos que não devem ser sobrescritos pelo genérico
-        self.btn_unlock.setStyleSheet(btn_unlock_style)
         self.btn_open_anon.setStyleSheet(btn_anon_style)
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
-        self.btn_transferir.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
         self.txt_live.setStyleSheet(live_log_style)
@@ -1187,6 +1186,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_config.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 18px;")
+        self.btn_unlock.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 10px;")
         self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 10px;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
