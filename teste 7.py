@@ -937,7 +937,7 @@ class SmartPortariaScanner(QMainWindow):
         layout = QHBoxLayout(self.central)
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # --- PAINEL DIREITO ---
+        # --- PAINEL ESQUERDO ---
         self.painel_lateral = QWidget()
         self.painel_lateral.setFixedWidth(450)
         lat = QVBoxLayout(self.painel_lateral)
@@ -961,6 +961,9 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_abrir_camera.setFixedSize(32, 32)
         self.btn_abrir_camera.clicked.connect(self.abrir_camera)
 
+        self.btn_unlock = QPushButton("Destravar")
+        self.btn_unlock.clicked.connect(self.executar_desbloqueio)
+
         self.btn_transferir = QPushButton("Transferir")
         self.btn_transferir.setFixedHeight(32)
         self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
@@ -973,6 +976,7 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_config)
         header_layout.addWidget(self.btn_instrucao)
         header_layout.addWidget(self.btn_abrir_camera)
+        header_layout.addWidget(self.btn_unlock)
         header_layout.addWidget(self.btn_transferir)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
@@ -1069,9 +1073,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_forward.clicked.connect(self.navegar_avancar)
         self.btn_reload.clicked.connect(self.recarregar_pagina)
         
-        self.btn_unlock = QPushButton("Destravar")
-        self.btn_unlock.clicked.connect(self.executar_desbloqueio)
-
         self.btn_home = QPushButton("🏠")
         self.btn_home.setFixedWidth(60)
         self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;")
@@ -1091,7 +1092,6 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
-        toolbar.addWidget(self.btn_unlock)
         toolbar.addWidget(self.btn_home)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
@@ -1104,8 +1104,8 @@ class SmartPortariaScanner(QMainWindow):
         self.view_worker.setVisible(False)
         self.view_worker.loadFinished.connect(self.on_worker_load_finished)
         
-        splitter.addWidget(container_web)
         splitter.addWidget(self.painel_lateral)
+        splitter.addWidget(container_web)
         layout.addWidget(splitter)
 
     # === LÓGICA DE TEMAS ===
@@ -1374,6 +1374,14 @@ class SmartPortariaScanner(QMainWindow):
         if "portaria-global.governarti.com.br/login" in url_atual:
             js_login = f"document.querySelectorAll('input').forEach(i => {{ if(i.type=='text') i.value='{self.creds['portaria_user']}'; if(i.type=='password') i.value='{self.creds['portaria_pass']}'; }});"
             browser_view.page().runJavaScript(js_login)
+        elif "bioLogin.do" in url_atual:
+            js_login_zk = f"""
+                var userField = document.getElementById('username');
+                var passField = document.getElementById('password');
+                if (userField) userField.value = '{self.creds['zk_user']}';
+                if (passField) passField.value = '{self.creds['zk_pass']}';
+            """
+            browser_view.page().runJavaScript(js_login_zk)
 
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
