@@ -21,7 +21,7 @@ try:
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
         QRadioButton, QButtonGroup, QInputDialog
     )
-    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QDesktopServices
+    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
@@ -1103,18 +1103,12 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.tabCloseRequested.connect(self.fechar_aba)
         self.tabs.currentChanged.connect(self.mudar_aba)
 
-        self.btn_add_tab = QPushButton("➕")
-        self.btn_add_tab.setToolTip("Abrir Guia Externa")
-        self.btn_add_tab.setFixedSize(38, 38)
-        self.btn_add_tab.clicked.connect(self.adicionar_nova_guia_externa)
-
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
         toolbar.addWidget(self.btn_home)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
-        toolbar.addWidget(self.btn_add_tab)
         layout_web.addLayout(toolbar)
 
         self.web_stack = QStackedWidget()
@@ -1207,7 +1201,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 22px;")
         self.btn_unlock.setStyleSheet(header_btn_style + "font-size: 22px;")
         self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 22px;")
-        self.btn_add_tab.setStyleSheet(header_btn_style + "font-size: 22px;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
@@ -1259,9 +1252,6 @@ class SmartPortariaScanner(QMainWindow):
             self.settings.remove("last_db_path")
 
     # === MÉTODOS DE NAVEGAÇÃO ===
-    def adicionar_nova_guia_externa(self):
-        QDesktopServices.openUrl(QUrl("https://www.google.com"))
-
     def navegar_voltar(self):
         view = self.web_stack.currentWidget()
         if view: view.back()
