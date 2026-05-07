@@ -56,7 +56,8 @@ class CustomWebPage(QWebEnginePage):
 
     def createWindow(self, _type):
         for i in range(self.browser_window.tabs.count()):
-            if "Portaria Virtual" in self.browser_window.tabs.tabText(i):
+            tab_text = self.browser_window.tabs.tabText(i)
+            if "Portaria Virtual" in tab_text or "ZK Bio" in tab_text:
                 self.browser_window.tabs.setCurrentIndex(i)
                 view = self.browser_window.web_stack.widget(i)
                 if view:
@@ -918,6 +919,7 @@ class SmartPortariaScanner(QMainWindow):
         
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
+        self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
         
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
@@ -935,10 +937,10 @@ class SmartPortariaScanner(QMainWindow):
         layout = QHBoxLayout(self.central)
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # --- PAINEL ESQUERDO ---
-        painel = QWidget()
-        painel.setFixedWidth(450)
-        lat = QVBoxLayout(painel)
+        # --- PAINEL DIREITO ---
+        self.painel_lateral = QWidget()
+        self.painel_lateral.setFixedWidth(450)
+        lat = QVBoxLayout(self.painel_lateral)
         lat.setSpacing(10)
 
         # === CABEÇALHO DO PAINEL COM BOTÕES DE CONFIG, INSTRUÇÃO E CÂMERA ===
@@ -1102,8 +1104,8 @@ class SmartPortariaScanner(QMainWindow):
         self.view_worker.setVisible(False)
         self.view_worker.loadFinished.connect(self.on_worker_load_finished)
         
-        splitter.addWidget(painel)
         splitter.addWidget(container_web)
+        splitter.addWidget(self.painel_lateral)
         layout.addWidget(splitter)
 
     # === LÓGICA DE TEMAS ===
@@ -1300,8 +1302,14 @@ class SmartPortariaScanner(QMainWindow):
     def ir_para_home(self):
         view = self.web_stack.currentWidget()
         if view:
-            if view.page().profile() == self.profile_anonimo: view.setUrl(QUrl("https://www.google.com"))
-            else: view.setUrl(QUrl("https://portaria-global.governarti.com.br/visita/"))
+            idx = self.web_stack.currentIndex()
+            titulo = self.tabs.tabText(idx)
+            if "ZK Bio" in titulo:
+                view.setUrl(QUrl(f"{ZK_SERVER}/bioLogin.do"))
+            elif view.page().profile() == self.profile_anonimo:
+                view.setUrl(QUrl("https://www.google.com"))
+            else:
+                view.setUrl(QUrl("https://portaria-global.governarti.com.br/visita/"))
 
     def mudar_aba(self, index):
         if index >= 0:
@@ -1311,9 +1319,16 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
+            # Recolher menu na aba ZK Bio
+            titulo = self.tabs.tabText(index)
+            if "ZK Bio" in titulo:
+                self.painel_lateral.hide()
+            else:
+                self.painel_lateral.show()
+
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
-        if "Portaria Virtual" in titulo or "anônima" in titulo.lower(): return
+        if "Portaria Virtual" in titulo or "anônima" in titulo.lower() or "ZK Bio" in titulo: return
         widget = self.web_stack.widget(index)
         if widget:
             self.web_stack.removeWidget(widget)
@@ -1324,7 +1339,7 @@ class SmartPortariaScanner(QMainWindow):
         index = self.web_stack.indexOf(view)
         if index != -1:
             current_text = self.tabs.tabText(index)
-            if "Portaria Virtual" in current_text or "anônima" in current_text.lower(): return
+            if "Portaria Virtual" in current_text or "anônima" in current_text.lower() or "ZK Bio" in current_text: return
             display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
             self.tabs.setTabText(index, display_title)
 
