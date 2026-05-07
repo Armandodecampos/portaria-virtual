@@ -925,13 +925,14 @@ class SmartPortariaScanner(QMainWindow):
         self.central = QWidget()
         self.setCentralWidget(self.central)
         layout = QHBoxLayout(self.central)
+        layout.setContentsMargins(15, 15, 15, 15)
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # --- PAINEL ESQUERDO ---
         painel = QWidget()
         painel.setFixedWidth(450)
         lat = QVBoxLayout(painel)
-        lat.setSpacing(10)
+        lat.setSpacing(12)
 
         # === CABEÇALHO DO PAINEL COM BOTÕES DE CONFIG, INSTRUÇÃO E CÂMERA ===
         header_layout = QHBoxLayout()
@@ -1110,48 +1111,50 @@ class SmartPortariaScanner(QMainWindow):
         self.settings.setValue("theme", modo)
         
         if modo == "dark":
-            # Estilo ESCURO
+            # Estilo ESCURO (Modern Slate)
             style = """
-                QMainWindow, QWidget { background-color: #0f172a; color: #e2e8f0; }
-                QLineEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
-                QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #94a3b8; }
-                QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
-                QLabel { color: #e2e8f0; }
-                QPushButton { background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px; }
-                QPushButton:hover { background-color: #475569; }
-                QTabBar::tab { background: #1e293b; color: #94a3b8; border: 1px solid #475569; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
-                QTabBar::tab:selected { background: #2563eb; color: white; border-color: #2563eb; }
-                QSplitter::handle { background-color: #475569; }
+                QMainWindow, QWidget { background-color: #020617; color: #f8fafc; }
+                QLineEdit { background-color: #0f172a; color: #f8fafc; border: 1px solid #1e293b; padding: 8px; border-radius: 12px; }
+                QTextEdit { background-color: #0f172a; color: #f8fafc; border: 1px solid #1e293b; border-radius: 12px; padding: 8px; }
+                QGroupBox { border: 1px solid #1e293b; border-radius: 12px; margin-top: 15px; font-weight: bold; color: #94a3b8; padding-top: 10px; }
+                QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top center; padding: 0 10px; }
+                QLabel { color: #f8fafc; }
+                QPushButton { background-color: #1e293b; color: white; border: 1px solid #334155; border-radius: 12px; padding: 8px 16px; font-weight: 500; }
+                QPushButton:hover { background-color: #334155; border-color: #475569; }
+                QPushButton:pressed { background-color: #0f172a; }
+                QTabBar::tab { background: #0f172a; color: #94a3b8; border: 1px solid #1e293b; padding: 10px 30px 10px 15px; border-radius: 12px; margin-right: 6px; }
+                QTabBar::tab:selected { background: #2563eb; color: white; border-color: #3b82f6; font-weight: bold; }
+                QSplitter::handle { background-color: #1e293b; width: 2px; }
             """
             # Cores específicas de botões funcionais
-            btn_unlock_style = "background-color: #d97706; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #475569; color: white; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #475569;"
+            btn_unlock_style = "background-color: #ea580c; color: white; font-weight: bold; border-radius: 12px; padding: 8px 16px; border: none;"
+            btn_anon_style = "background-color: #334155; color: white; padding: 8px 16px; border-radius: 12px; border: 1px solid #475569;"
+            btn_qr_style = "background-color: #2563eb; color: white; padding: 8px 16px; border-radius: 12px; font-weight: bold; border: none;"
+            btn_clear_style = "background-color: #dc2626; color: white; padding: 8px 16px; border-radius: 12px; font-weight: bold; border: none;"
+            live_log_style = "background: #020617; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #1e293b; border-radius: 12px; padding: 5px;"
 
         else:
-            # Estilo CLARO (Padrão)
+            # Estilo CLARO (Modern Blue/Slate)
             style = """
-                QMainWindow, QWidget { background-color: #f8fafc; color: #1e293b; }
-                QLineEdit { background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; }
-                QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #1e293b; }
-                QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
-                QLabel { color: #1e293b; }
-                QPushButton { background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; }
-                QPushButton:hover { background-color: #e2e8f0; }
-                QTabBar::tab { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
-                QTabBar::tab:selected { background: #2563eb; color: white; border-color: #2563eb; }
-                QSplitter::handle { background-color: #cbd5e1; }
+                QMainWindow, QWidget { background-color: #f1f5f9; color: #0f172a; }
+                QLineEdit { background-color: #ffffff; color: #0f172a; border: 1px solid #e2e8f0; padding: 8px; border-radius: 12px; }
+                QTextEdit { background-color: #ffffff; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px; }
+                QGroupBox { border: 1px solid #cbd5e1; border-radius: 12px; margin-top: 15px; font-weight: bold; color: #475569; padding-top: 10px; }
+                QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top center; padding: 0 10px; }
+                QLabel { color: #0f172a; }
+                QPushButton { background-color: #ffffff; color: #334155; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 16px; font-weight: 500; }
+                QPushButton:hover { background-color: #f8fafc; border-color: #cbd5e1; }
+                QPushButton:pressed { background-color: #f1f5f9; }
+                QTabBar::tab { background: #ffffff; color: #64748b; border: 1px solid #e2e8f0; padding: 10px 30px 10px 15px; border-radius: 12px; margin-right: 6px; }
+                QTabBar::tab:selected { background: #2563eb; color: white; border-color: #2563eb; font-weight: bold; }
+                QSplitter::handle { background-color: #e2e8f0; width: 2px; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #f59e0b; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #334155; color: white; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px;"
+            btn_unlock_style = "background-color: #f59e0b; color: white; font-weight: bold; border-radius: 12px; padding: 8px 16px; border: none;"
+            btn_anon_style = "background-color: #1e293b; color: white; padding: 8px 16px; border-radius: 12px; border: none;"
+            btn_qr_style = "background-color: #2563eb; color: white; padding: 8px 16px; border-radius: 12px; font-weight: bold; border: none;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 12px; font-weight: bold; border: none;"
+            live_log_style = "background: #0f172a; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border-radius: 12px; padding: 5px;"
 
         self.setStyleSheet(style)
         
@@ -1161,21 +1164,23 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
         self.btn_transferir.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
-        self.btn_limpar_busca.setStyleSheet(f"background-color: {'#334155' if modo=='dark' else '#e2e8f0'}; color: {'#e2e8f0' if modo=='dark' else '#64748b'}; border: none; border-radius: 4px; font-weight: bold;")
+        self.btn_limpar_busca.setStyleSheet(f"background-color: {'#1e293b' if modo=='dark' else '#f8fafc'}; color: {'#94a3b8' if modo=='dark' else '#64748b'}; border: 1px solid {'#334155' if modo=='dark' else '#e2e8f0'}; border-radius: 8px; font-weight: bold;")
         self.txt_live.setStyleSheet(live_log_style)
         self.btn_home.setStyleSheet("font-size: 18px; padding-bottom: 3px;" + ("color: white;" if modo == "dark" else ""))
         
         # Ajusta botões do cabeçalho para parecerem com o tema
-        btn_conf_color = "#334155" if modo == "dark" else "#f1f5f9"
-        btn_conf_border = "#475569" if modo == "dark" else "#cbd5e1"
+        header_btn_bg = "#0f172a" if modo == "dark" else "#ffffff"
+        header_btn_border = "#1e293b" if modo == "dark" else "#e2e8f0"
+        header_btn_hover = "#1e293b" if modo == "dark" else "#f8fafc"
+
         header_btn_style = f"""
-            QPushButton {{ background-color: {btn_conf_color}; color: {'white' if modo=='dark' else '#334155'}; border: 1px solid {btn_conf_border}; border-radius: 6px; }}
-            QPushButton:hover {{ border-color: #94a3b8; background-color: {'#475569' if modo=='dark' else '#e2e8f0'}; }}
+            QPushButton {{ background-color: {header_btn_bg}; color: {'#f8fafc' if modo=='dark' else '#0f172a'}; border: 1px solid {header_btn_border}; border-radius: 10px; }}
+            QPushButton:hover {{ border-color: #3b82f6; background-color: {header_btn_hover}; }}
         """
         self.btn_config.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_instrucao.setStyleSheet(header_btn_style + "font-size: 18px;")
         self.btn_abrir_camera.setStyleSheet(header_btn_style + "font-size: 18px;")
-        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 10px;")
+        self.btn_transferir.setStyleSheet(header_btn_style + "font-size: 14px; font-weight: bold; padding: 0 12px;")
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
@@ -1400,10 +1405,7 @@ class SmartPortariaScanner(QMainWindow):
         dados = self.db.buscar_por_filtro(termos)
         html = ""
         hoje = datetime.date.today()
-        # Define cor do texto baseada no tema
-        text_color = "#e2e8f0" if self.settings.value("theme") == "dark" else "#1e293b"
-        card_bg = "#1e293b" if self.settings.value("theme") == "dark" else "#ffffff"
-        border_color = "#475569" if self.settings.value("theme") == "dark" else "#cbd5e1"
+        is_dark = self.settings.value("theme") == "dark"
         
         for vid, nome, cpf, horario in dados:
             cor_validade = "green"
@@ -1415,13 +1417,24 @@ class SmartPortariaScanner(QMainWindow):
                         if data_fim < hoje: cor_validade = "red"
                 except: pass
             
+            if is_dark:
+                if cor_validade == "green":
+                    card_bg, border_color, text_color, title_color, sub_text_color = "#064e3b", "#059669", "#f8fafc", "#4ade80", "#a7f3d0"
+                else:
+                    card_bg, border_color, text_color, title_color, sub_text_color = "#450a0a", "#b91c1c", "#f8fafc", "#fca5a5", "#fecaca"
+            else:
+                if cor_validade == "green":
+                    card_bg, border_color, text_color, title_color, sub_text_color = "#dcfce7", "#10b981", "#14532d", "#166534", "#15803d"
+                else:
+                    card_bg, border_color, text_color, title_color, sub_text_color = "#fee2e2", "#ef4444", "#7f1d1d", "#991b1b", "#b91c1c"
+
             html += f"""
-            <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
+            <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 12px; padding: 12px; margin-bottom: 8px;'>
                 <div style='color: {text_color}; font-size: 14px;'>
                     <a href="{vid}" style="text-decoration: none; color: inherit;">
-                        <b style='color: #2563eb;'>ID {vid}:</b> <span style='color: #ffffff;'>{nome}</span><br>
-                        <span style='color: #64748b; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                        <span style='color: #64748b; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                        <b style='color: {title_color};'>ID {vid}:</b> <span style='font-weight: bold;'>{nome}</span><br>
+                        <span style='color: {sub_text_color}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                        <span style='color: {sub_text_color}; font-size: 12px;'><b>Validade:</b> <span style='font-weight: bold;'>{horario}</span></span>
                     </a>
                 </div>
             </div>
