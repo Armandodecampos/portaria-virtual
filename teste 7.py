@@ -19,7 +19,7 @@ try:
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
-        QRadioButton, QButtonGroup, QInputDialog
+        QRadioButton, QButtonGroup, QInputDialog, QSizePolicy
     )
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
@@ -1044,15 +1044,16 @@ class SmartPortariaScanner(QMainWindow):
         # Fonte monospace fixa, mas cores geridas pelo tema
         self.txt_live.setStyleSheet("font-family: Consolas, monospace; font-size: 12px;")
         layout_live.addWidget(self.txt_live)
-        lat.addWidget(group_live)
+        lat.addWidget(group_live, 1)
 
 
         # === GRUPO EXTRATOR DE LINK ===
         group_qr = QGroupBox("EXTRATOR DE LINK")
+        group_qr.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout_qr = QVBoxLayout(group_qr)
         self.txt_qr_input = QTextEdit()
         self.txt_qr_input.setPlaceholderText("Cole a mensagem aqui para extrair o link...")
-        self.txt_qr_input.setMaximumHeight(100)
+        self.txt_qr_input.setFixedHeight(65)
         layout_qr.addWidget(self.txt_qr_input)
 
         btns_layout = QHBoxLayout()
