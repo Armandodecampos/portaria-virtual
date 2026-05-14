@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 import sqlite3
 import unicodedata
 import re
@@ -14,7 +13,7 @@ import urllib3
 try:
     from PyQt6.QtCore import (
         Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData,
-        QPropertyAnimation, QEasingCurve, QPoint, QThread, QObject
+        QPropertyAnimation, QEasingCurve, QPoint, QThread
     )
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -29,6 +28,12 @@ try:
     import qrcode
     from PIL.ImageQt import ImageQt
 
+    from selenium import webdriver
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.keys import Keys
 
 except ImportError as e:
     print("\n" + "="*60)
@@ -48,14 +53,6 @@ class CustomWebPage(QWebEnginePage):
     def __init__(self, profile, parent_view, browser_window):
         super().__init__(profile, parent_view)
         self.browser_window = browser_window
-        self._auto_file_path = None
-
-    def chooseFiles(self, mode, old_files, accepted_mimetypes):
-        if self._auto_file_path:
-            file_path = self._auto_file_path
-            self._auto_file_path = None
-            return [file_path]
-        return super().chooseFiles(mode, old_files, accepted_mimetypes)
 
     def createWindow(self, _type):
         for i in range(self.browser_window.tabs.count()):
@@ -616,293 +613,159 @@ os.environ['no_proxy'] = '192.168.7.9'
 
 ZK_SERVER = "http://192.168.7.9:8098"
 
-
-class DownloadWorker(QThread):
-    finished = pyqtSignal(str) # Retorna o path ou None se falhar
-
-    def __init__(self, url, dest_path):
-        super().__init__()
-        self.url = url
-        self.dest_path = dest_path
-
-    def run(self):
-        try:
-            with open(self.dest_path, 'wb') as f:
-                f.write(requests.get(self.url, verify=False, timeout=10).content)
-            self.finished.emit(self.dest_path)
-        except:
-            self.finished.emit(None)
-
-class InternalTransferManager(QObject):
+class TransferThread(QThread):
     success = pyqtSignal(str)
     error = pyqtSignal(str)
     log = pyqtSignal(str)
-    finished = pyqtSignal()
 
-    def __init__(self, parent_window, creds):
+    def __init__(self, id_convite, creds):
         super().__init__()
-        self.parent_window = parent_window
-        self.creds = creds
-        self.id_convite = None
-        self.dados = {}
-        self.temp_foto = None
-        self.view_portaria = None
-        self.view_zk = None
-        self.is_running = False
-
-    def start(self, id_convite):
         self.id_convite = id_convite
-        self.is_running = True
-        self.log.emit(f"🚀 Iniciando transferência interna para ID {self.id_convite}...")
+        self.creds = creds
+        self.driver = None
 
-        self.view_portaria = self.parent_window.get_tab_view("Portaria Virtual")
-        self.view_zk = self.parent_window.get_tab_view("ZK Bio")
+    def run(self):
+        try:
+            self.log.emit(f"🚀 Iniciando transferência para ID {self.id_convite}...")
+            options = Options()
+            options.add_experimental_option("detach", True)
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            self.driver = webdriver.Chrome(options=options)
+            driver = self.driver
+            wait = WebDriverWait(driver, 35)
 
-        if not self.view_portaria or not self.view_zk:
-            self.error.emit("Abas 'Portaria Virtual' ou 'ZK Bio' não encontradas.")
-            self.finished.emit()
-            return
+            # PORTARIA
+            self.log.emit("🌐 Acessando Portaria...")
+            driver.get("https://portaria-global.governarti.com.br/login")
+            wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(self.creds['portaria_user'])
+            driver.find_element(By.NAME, "password").send_keys(self.creds['portaria_pass'] + Keys.ENTER)
 
-        self.navegar_portaria()
+            # EXTRAIR DADOS
+            self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
+            url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
+            driver.get(url_detalhes)
+            wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
+            time.sleep(3)
+
+            # 1. Nome e CPF
+            try:
+                label_visitante = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(., 'Visitante')]/following::label[1]"))).text
+                texto_limpo = " ".join(label_visitante.split())
+                cpf_match = re.search(r'(\d{3}\.\d{3}\.\d{3}-\d{2})|(\d{11})', texto_limpo)
+                cpf_numeros = re.sub(r'\D', '', cpf_match.group(0)) if cpf_match else ""
+                nome_completo = texto_limpo.split("-")[0].strip()
+            except:
+                nome_completo = "Visitante"
+                cpf_numeros = ""
+
+            partes_nome = nome_completo.split(" ")
+            primeiro_nome = partes_nome[0]
+            sobrenome = " ".join(partes_nome[1:]) if len(partes_nome) > 1 else " "
+
+            # 2. Captura de Telefone
+            try:
+                tel_raw = driver.find_element(By.XPATH, "//div[contains(text(), 'Telefone')]/following::label[1] | //label[contains(text(), '(')]").text
+                telefone_limpo = re.sub(r'\D', '', tel_raw).strip()
+            except:
+                telefone_limpo = ""
+
+            # 3. Captura de Email
+            try:
+                email_raw = driver.find_element(By.XPATH, "//div[contains(text(), 'Email')]/following::label[1] | //label[contains(text(), '@')]").text
+                email_limpo = email_raw.strip()
+                if "unidade" in email_limpo.lower():
+                     email_raw = driver.find_element(By.XPATH, "//label[contains(., '@')]").text
+                     email_limpo = email_raw.strip()
+            except:
+                email_limpo = ""
+
+            img_url = driver.find_element(By.ID, "img-preview").get_attribute("src")
+            path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
+            with open(path_foto, 'wb') as f:
+                f.write(requests.get(img_url, verify=False).content)
+
+            dados = {
+                "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
+                "cpf": cpf_numeros, "telefone": telefone_limpo,
+                "email": email_limpo, "path_foto": path_foto
+            }
+
+            # ZK LOGIN
+            self.log.emit("🔐 Acessando ZK Server...")
+            driver.get(f"{ZK_SERVER}/bioLogin.do")
+            wait.until(EC.element_to_be_clickable((By.ID, "username"))).send_keys(self.creds['zk_user'])
+            driver.find_element(By.ID, "password").send_keys(self.creds['zk_pass'] + Keys.ENTER)
+
+            # NAVEGAÇÃO
+            time.sleep(5)
+            driver.get(f"{ZK_SERVER}/main.do?home#basePerson")
+            time.sleep(7)
+
+            self.log.emit("➕ Criando novo registro no ZK...")
+            btn_novo = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]")))
+            btn_novo.click()
+            time.sleep(6)
+
+            # PREENCHIMENTO VIA JAVASCRIPT
+            script_preencher = """
+                function triggerEvents(el) {
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    el.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+                var inputs = document.getElementsByTagName('input');
+                var d = arguments[0];
+                for (var i = 0; i < inputs.length; i++) {
+                    if (inputs[i].name == 'name') { inputs[i].value = d.p_nome; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'lastName') { inputs[i].value = d.s_nome; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') { inputs[i].value = d.tel; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'email') { inputs[i].value = d.eml; triggerEvents(inputs[i]); }
+                }
+            """
+            driver.execute_script(script_preencher, {
+                'p_nome': dados['primeiro_nome'],
+                's_nome': dados['sobrenome'],
+                'tel': dados['telefone'],
+                'eml': dados['email']
+            })
+            time.sleep(1)
+
+            # CPF/PIN
+            pin_field = driver.find_element(By.ID, "pers_pin_register_id")
+            driver.execute_script("""
+                arguments[0].removeAttribute('readonly');
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));
+            """, pin_field, dados['cpf'])
+            time.sleep(1)
+
+            # FOTO
+            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+            time.sleep(2)
+
+            self.success.emit("Dados transferidos")
+
+            # Remove foto temporária com pequeno delay para garantir o envio
+            time.sleep(3)
+            try: os.remove(path_foto)
+            except: pass
+
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            # Não fechamos o driver no finally para permitir que o browser continue aberto após o sucesso.
+            # O driver será fechado apenas se stop() for chamado ou se houver erro antes da inicialização completa.
+            self.driver = None
 
     def stop(self):
-        self.is_running = False
-        # Desconecta sinais para evitar múltiplas execuções se reiniciar
-        if self.view_portaria:
-            try: self.view_portaria.loadFinished.disconnect(self.on_portaria_loaded)
-            except: pass
-        if self.view_zk:
-            try: self.view_zk.loadFinished.disconnect(self.on_zk_loaded)
-            except: pass
-        self.finished.emit()
-
-    def navegar_portaria(self):
-        if not self.is_running: return
-        self.log.emit("🌐 Acessando detalhes do convite na Portaria...")
-        url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
-
-        # Conecta sinal de carga terminada para extração
-        self.view_portaria.loadFinished.connect(self.on_portaria_loaded)
-        self.view_portaria.setUrl(QUrl(url_detalhes))
-
-    def on_portaria_loaded(self, ok):
-        if not self.is_running: return
-        self.view_portaria.loadFinished.disconnect(self.on_portaria_loaded)
-        if ok:
-            # Aguarda um pouco para garantir que o JS renderizou o que precisa (ex: img-preview)
-            QTimer.singleShot(3000, self.extrair_dados_portaria)
-        else:
-            self.error.emit("Falha ao carregar página da Portaria.")
-            self.stop()
-
-    def extrair_dados_portaria(self):
-        if not self.is_running: return
-        self.log.emit("📄 Extraindo dados da Portaria...")
-
-        js_extract = r"""
-        (function() {
-            let dados = {};
-            try {
-                let img = document.getElementById('img-preview');
-                dados.img_url = img ? img.src : null;
-
-                // Visitante e CPF
-                let labels = document.querySelectorAll('label');
-                for (let lbl of labels) {
-                    let txt = lbl.innerText;
-                    if (lbl.previousElementSibling && lbl.previousElementSibling.innerText.includes('Visitante')) {
-                        dados.visitante_raw = txt;
-                    }
-                    if (lbl.previousElementSibling && lbl.previousElementSibling.innerText.includes('Telefone')) {
-                        dados.telefone = txt;
-                    }
-                    if (lbl.previousElementSibling && lbl.previousElementSibling.innerText.includes('Email')) {
-                        dados.email = txt;
-                    }
-                }
-
-                // Fallback para CPF se não achou no Visitante raw
-                if (dados.visitante_raw) {
-                    let cpf_match = dados.visitante_raw.match(/(\d{3}\.\d{3}\.\d{3}-\d{2})|(\d{11})/);
-                    dados.cpf = cpf_match ? cpf_match[0] : "";
-                    dados.nome_completo = dados.visitante_raw.split("-")[0].trim();
-                }
-
-                // Fallback email se tiver @ em algum label
-                if (!dados.email) {
-                    for (let lbl of labels) {
-                        if (lbl.innerText.includes('@')) { dados.email = lbl.innerText.trim(); break; }
-                    }
-                }
-
-            } catch (e) { dados.error = e.toString(); }
-            return dados;
-        })()
-        """
-        self.view_portaria.page().runJavaScript(js_extract, self.on_dados_extraidos)
-
-    def on_dados_extraidos(self, result):
-        if not self.is_running: return
-        if not result or 'error' in result:
-            self.error.emit(f"Erro ao extrair dados: {result.get('error') if result else 'Vazio'}")
-            self.stop()
-            return
-
-        # Processamento similar ao original
-        nome_completo = result.get('nome_completo', 'Visitante')
-        partes_nome = nome_completo.split(" ")
-        self.dados = {
-            'p_nome': partes_nome[0],
-            's_nome': " ".join(partes_nome[1:]) if len(partes_nome) > 1 else " ",
-            'tel': re.sub(r'\D', '', result.get('telefone', '')).strip(),
-            'eml': result.get('email', '').strip(),
-            'cpf': re.sub(r'\D', '', result.get('cpf', '')),
-            'img_url': result.get('img_url')
-        }
-
-        self.log.emit(f"✅ Dados extraídos: {nome_completo}")
-        self.baixar_foto()
-
-    def baixar_foto(self):
-        if not self.is_running: return
-        img_url = self.dados.get('img_url')
-        if not img_url:
-            self.log.emit("⚠️ Foto não encontrada, prosseguindo sem foto.")
-            self.navegar_zk()
-            return
-
-        self.log.emit("📥 Baixando foto...")
-        self.temp_foto = os.path.abspath(f"temp_internal_{self.id_convite}.jpg")
-
-        self.download_worker = DownloadWorker(img_url, self.temp_foto)
-        self.download_worker.finished.connect(self.on_foto_baixada)
-        self.download_worker.start()
-
-    def on_foto_baixada(self, path):
-        if not self.is_running: return
-        if path:
-            self.log.emit("✅ Foto baixada.")
-            self.temp_foto = path
-        else:
-            self.log.emit("⚠️ Erro ao baixar foto. Prosseguindo sem foto.")
-            self.temp_foto = None
-        self.navegar_zk()
-
-    def navegar_zk(self):
-        if not self.is_running: return
-        self.log.emit("🔐 Acessando ZK Bio...")
-        url_zk_person = f"{ZK_SERVER}/main.do?home#basePerson"
-
-        # Verifica se já está logado e na página certa
-        self.view_zk.loadFinished.connect(self.on_zk_loaded)
-        self.view_zk.setUrl(QUrl(url_zk_person))
-
-    def on_zk_loaded(self, ok):
-        if not self.is_running: return
-        self.view_zk.loadFinished.disconnect(self.on_zk_loaded)
-        if ok:
-            # Aguarda renderização do ZK (pode ser lento)
-            QTimer.singleShot(7000, self.clicar_novo_zk)
-        else:
-            self.error.emit("Falha ao carregar ZK Bio.")
-            self.stop()
-
-    def clicar_novo_zk(self):
-        if not self.is_running: return
-        self.log.emit("➕ Criando novo registro no ZK...")
-
-        js_novo = """
-        (function() {
-            let btns = document.querySelectorAll('.dhxtoolbar_text');
-            for (let b of btns) {
-                if (b.innerText.includes('Novo')) {
-                    b.click();
-                    return true;
-                }
-            }
-            return false;
-        })()
-        """
-        self.view_zk.page().runJavaScript(js_novo, self.on_novo_clicado)
-
-    def on_novo_clicado(self, sucesso):
-        if not self.is_running: return
-        if sucesso:
-            # Aguarda o formulário abrir
-            QTimer.singleShot(6000, self.preencher_formulario_zk)
-        else:
-            self.error.emit("Botão 'Novo' não encontrado no ZK.")
-            self.stop()
-
-    def preencher_formulario_zk(self):
-        if not self.is_running: return
-        self.log.emit("✍️ Preenchendo formulário ZK...")
-
-        # Formata os dados para o JavaScript
-        dados_json = json.dumps(self.dados)
-
-        script_preencher = f"""
-            (function(d) {{
-                function triggerEvents(el) {{
-                    el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    el.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
-                }}
-                var inputs = document.getElementsByTagName('input');
-                for (var i = 0; i < inputs.length; i++) {{
-                    if (inputs[i].name == 'name') {{ inputs[i].value = d.p_nome; triggerEvents(inputs[i]); }}
-                    if (inputs[i].name == 'lastName') {{ inputs[i].value = d.s_nome; triggerEvents(inputs[i]); }}
-                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') {{ inputs[i].value = d.tel; triggerEvents(inputs[i]); }}
-                    if (inputs[i].name == 'email') {{ inputs[i].value = d.eml; triggerEvents(inputs[i]); }}
-                }}
-
-                // CPF/PIN
-                let pin_field = document.getElementById('pers_pin_register_id');
-                if (pin_field) {{
-                    pin_field.removeAttribute('readonly');
-                    pin_field.value = d.cpf;
-                    triggerEvents(pin_field);
-                }}
-                return true;
-            }})({dados_json})
-        """
-        self.view_zk.page().runJavaScript(script_preencher, self.on_form_preenchido)
-
-    def on_form_preenchido(self, ok):
-        if not self.is_running: return
-        if self.temp_foto:
-            self.log.emit("📸 Realizando upload da foto...")
-            self.view_zk.page()._auto_file_path = self.temp_foto
-
-            js_upload = """
-            (function() {
-                let fileInput = document.querySelector("input[type='file']");
-                if (fileInput) {
-                    fileInput.click();
-                    return true;
-                }
-                return false;
-            })()
-            """
-            self.view_zk.page().runJavaScript(js_upload, self.on_upload_trigger)
-        else:
-            self.finalizar_sucesso()
-
-    def on_upload_trigger(self, ok):
-        if not self.is_running: return
-        # Aguarda o upload processar
-        QTimer.singleShot(3000, self.finalizar_sucesso)
-
-    def finalizar_sucesso(self):
-        if not self.is_running: return
-        self.success.emit("Dados transferidos com sucesso!")
-
-        # Limpa foto temporária
-        if self.temp_foto and os.path.exists(self.temp_foto):
-            try: os.remove(self.temp_foto)
-            except: pass
-
-        self.stop()
+        if self.driver:
+            try:
+                self.driver.quit()
+            except:
+                pass
+        self.driver = None
 
 class DatabaseHandler:
     @staticmethod
@@ -1410,12 +1273,6 @@ class SmartPortariaScanner(QMainWindow):
         view = self.web_stack.currentWidget()
         if view: view.reload()
 
-    def get_tab_view(self, title_contains):
-        for i in range(self.tabs.count()):
-            if title_contains in self.tabs.tabText(i):
-                return self.web_stack.widget(i)
-        return None
-
     def add_new_tab(self, qurl, title, closable=True, profile=None):
         view = QWebEngineView()
         target_profile = profile if profile else QWebEngineProfile.defaultProfile()
@@ -1756,13 +1613,13 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_transferir.setEnabled(False)
         self.btn_transferir.setText("⏳")
 
-        self.transfer_manager = InternalTransferManager(self, self.creds)
-        self.transfer_manager.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
-        self.transfer_manager.success.connect(self.on_transfer_success)
-        self.transfer_manager.error.connect(self.on_transfer_error)
-        self.transfer_manager.finished.connect(lambda: self.btn_transferir.setEnabled(True))
-        self.transfer_manager.finished.connect(lambda: self.btn_transferir.setText("🚀"))
-        self.transfer_manager.start(id_convite)
+        self.transfer_thread = TransferThread(id_convite, self.creds)
+        self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
+        self.transfer_thread.success.connect(self.on_transfer_success)
+        self.transfer_thread.error.connect(self.on_transfer_error)
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setEnabled(True))
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("🚀"))
+        self.transfer_thread.start()
 
     def on_transfer_success(self, msg):
         self.txt_live.append(f"✅ Transferência concluída: {msg.splitlines()[0]}")
@@ -1773,8 +1630,9 @@ class SmartPortariaScanner(QMainWindow):
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
     def closeEvent(self, event):
-        if hasattr(self, 'transfer_manager'):
-            self.transfer_manager.stop()
+        if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
+            self.transfer_thread.stop()
+            self.transfer_thread.wait()
         event.accept()
 
 if __name__ == "__main__":
