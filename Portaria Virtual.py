@@ -8,6 +8,7 @@ import traceback
 import time
 import requests
 import urllib3
+import base64
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
@@ -926,6 +927,9 @@ class SmartPortariaScanner(QMainWindow):
         self.timer_busca = QTimer()
         self.timer_busca.setSingleShot(True)
         self.timer_busca.timeout.connect(self.executar_busca_local)
+
+        self.timer_download_img = QTimer()
+        self.timer_download_img.timeout.connect(self.verificar_imagem_capturada)
         
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
@@ -984,6 +988,11 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_transferir.setFixedSize(38, 38)
         self.btn_transferir.clicked.connect(lambda: self.iniciar_transferencia())
 
+        self.btn_download_img = QPushButton("📥")
+        self.btn_download_img.setToolTip("Baixar Imagem")
+        self.btn_download_img.setFixedSize(38, 38)
+        self.btn_download_img.clicked.connect(self.ativar_modo_download_imagem)
+
         self.input_transfer_id = QLineEdit()
         self.input_transfer_id.setPlaceholderText("ID...")
         self.input_transfer_id.setFixedWidth(80)
@@ -993,6 +1002,7 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_instrucao)
         header_layout.addWidget(self.btn_abrir_camera)
         header_layout.addWidget(self.btn_transferir)
+        header_layout.addWidget(self.btn_download_img)
         header_layout.addWidget(self.btn_unlock)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
@@ -1206,6 +1216,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
         self.btn_unlock.setStyleSheet(header_btn_style)
         self.btn_transferir.setStyleSheet(header_btn_style)
+        self.btn_download_img.setStyleSheet(header_btn_style)
         self.btn_back.setStyleSheet(header_btn_style)
         self.btn_forward.setStyleSheet(header_btn_style)
         self.btn_reload.setStyleSheet(header_btn_style)
@@ -1565,6 +1576,111 @@ class SmartPortariaScanner(QMainWindow):
 
         dlg = CameraDialog(self, camera_device=camera_selecionada)
         dlg.exec()
+
+    def ativar_modo_download_imagem(self):
+        view = self.web_stack.currentWidget()
+        if not view: return
+
+        self.txt_live.append("🎯 [Imagem] Clique em uma imagem para baixar...")
+
+        js_hook = """
+        (function() {
+            window.__last_captured_img = null;
+            window.__download_img_cancel = false;
+
+            var style = document.createElement('style');
+            style.id = 'img-selector-style';
+            style.innerHTML = 'img { cursor: crosshair !important; outline: 2px solid #2563eb !important; }';
+            document.head.appendChild(style);
+
+            function onClick(e) {
+                var el = e.target;
+                if (el.tagName === 'IMG') {
+                    window.__last_captured_img = el.src;
+                    cleanup();
+                } else {
+                    window.__download_img_cancel = true;
+                    cleanup();
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            function cleanup() {
+                document.removeEventListener('click', onClick, true);
+                var s = document.getElementById('img-selector-style');
+                if (s) s.remove();
+            }
+
+            document.addEventListener('click', onClick, true);
+        })();
+        """
+        view.page().runJavaScript(js_hook)
+        self.timer_download_img.start(500)
+
+    def verificar_imagem_capturada(self):
+        view = self.web_stack.currentWidget()
+        if not view:
+            self.timer_download_img.stop()
+            return
+
+        js_check = "({url: window.__last_captured_img, cancel: window.__download_img_cancel})"
+        view.page().runJavaScript(js_check, self.processar_imagem_capturada)
+
+    def processar_imagem_capturada(self, result):
+        if not result: return
+
+        url = result.get('url')
+        cancel = result.get('cancel')
+
+        if url or cancel:
+            self.timer_download_img.stop()
+            if url:
+                self.baixar_imagem(url)
+            else:
+                self.txt_live.append("❌ [Imagem] Cancelado (clicou fora de uma imagem).")
+
+    def baixar_imagem(self, url_data):
+        try:
+            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+            agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"imagem_baixada_{agora}.jpg"
+            filepath = os.path.join(downloads_path, filename)
+
+            if url_data.startswith("data:image"):
+                # Handle Data URI
+                header, encoded = url_data.split(",", 1)
+                ext = header.split(";")[0].split("/")[1]
+                filename = f"imagem_baixada_{agora}.{ext}"
+                filepath = os.path.join(downloads_path, filename)
+
+                with open(filepath, "wb") as f:
+                    f.write(base64.b64decode(encoded))
+                self.txt_live.append(f"✅ [Imagem] Salva como Data URI: {filename}")
+            else:
+                # Handle URL
+                response = requests.get(url_data, verify=False, timeout=10)
+                if response.status_code == 200:
+                    # Tenta descobrir a extensão correta
+                    content_type = response.headers.get('content-type', '')
+                    if 'png' in content_type: filename = filename.replace('.jpg', '.png')
+                    elif 'webp' in content_type: filename = filename.replace('.jpg', '.webp')
+
+                    filepath = os.path.join(downloads_path, filename)
+                    with open(filepath, "wb") as f:
+                        f.write(response.content)
+                    self.txt_live.append(f"✅ [Imagem] Baixada com sucesso: {filename}")
+                else:
+                    self.txt_live.append(f"❌ [Imagem] Erro HTTP {response.status_code}")
+                    return
+
+            # Notifica o usuário
+            self.active_toast = NotificationToast(f"Imagem salva!\n{filename}", self)
+            self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
+            self.active_toast.show_notification()
+
+        except Exception as e:
+            self.txt_live.append(f"❌ [Imagem] Erro: {str(e)}")
 
     def iniciar_transferencia(self, id_convite=None):
         if not id_convite:
