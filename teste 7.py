@@ -644,7 +644,7 @@ class TransferThread(QThread):
             self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
             url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
             driver.get(url_detalhes)
-            wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
+            wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(., 'Visitante')] | //label[contains(., 'Visitante')]")))
             time.sleep(3)
 
             # 1. Nome e CPF
@@ -684,11 +684,10 @@ class TransferThread(QThread):
             with open(path_foto, 'wb') as f:
                 f.write(requests.get(img_url, verify=False).content)
 
-            # Redimensionar para 817x860
+            # Redimensionar para 817x860 e otimizar para evitar travamentos no ZK Bio
             img_qt = QImage(path_foto)
             if not img_qt.isNull():
                 img_qt = img_qt.scaled(817, 860, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                # Salva com qualidade 60 para evitar arquivos excessivamente grandes que travam o ZK Bio
                 img_qt.save(path_foto, "JPG", 60)
                 self.log.emit("📸 Foto redimensionada para 817x860 (otimizada).")
 
@@ -750,14 +749,17 @@ class TransferThread(QThread):
             time.sleep(1)
 
             # FOTO
-            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
-            time.sleep(2)
+            if dados.get('path_foto'):
+                driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+                time.sleep(2)
 
             self.success.emit("Dados transferidos")
 
             # Remove foto temporária com pequeno delay para garantir o envio
             time.sleep(3)
-            try: os.remove(path_foto)
+            try:
+                if dados.get('path_foto'):
+                    os.remove(dados['path_foto'])
             except: pass
 
         except Exception as e:
