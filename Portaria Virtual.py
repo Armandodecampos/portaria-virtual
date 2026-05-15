@@ -4,7 +4,6 @@ import sys
 # --- CONFIGURAÇÃO DE SEGURANÇA CHROMIUM (DEVE SER ANTES DE QUALQUER IMPORT PYQT/WEBENGINE) ---
 os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --allow-running-insecure-content --disable-site-isolation-trials --no-sandbox --disable-features=IsolateOrigins,site-per-process'
 
-import json
 import sqlite3
 import unicodedata
 import re
@@ -630,7 +629,6 @@ class TransferThread(QThread):
     success = pyqtSignal(str)
     error = pyqtSignal(str)
     log = pyqtSignal(str)
-    data_extracted = pyqtSignal(dict)
 
     def __init__(self, id_convite, creds):
         super().__init__()
@@ -716,12 +714,73 @@ class TransferThread(QThread):
                 "email": email_limpo, "path_foto": path_foto
             }
 
-            self.log.emit("✅ Dados extraídos com sucesso. Iniciando preenchimento interno no ZK Bio...")
-            self.data_extracted.emit(dados)
-            self.success.emit(f"Dados de {dados['primeiro_nome']} extraídos")
+            # ZK LOGIN
+            self.log.emit("🔐 Acessando ZK Server...")
+            driver.get(f"{ZK_SERVER}/bioLogin.do")
 
-            # Mantemos o driver vivo para depuração se necessário, mas marcamos como sucesso.
-            # O navegador Selenium NÃO será fechado aqui para evitar o problema relatado.
+            try:
+                wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(self.creds['zk_user'])
+                driver.find_element(By.ID, "password").send_keys(self.creds['zk_pass'] + Keys.ENTER)
+            except:
+                self.log.emit("⚠️ Login ZK: Usuário/Senha não encontrados ou já logado.")
+
+            # NAVEGAÇÃO E CADASTRO
+            time.sleep(5)
+            driver.get(f"{ZK_SERVER}/main.do?home#basePerson")
+            time.sleep(6)
+
+            self.log.emit("➕ Criando novo registro no ZK...")
+            try:
+                btn_novo = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]")))
+                btn_novo.click()
+            except:
+                self.log.emit("⚠️ Botão 'Novo' não encontrado via XPath padrão. Tentando alternativa...")
+                driver.execute_script("if(typeof add === 'function') add();")
+
+            time.sleep(5)
+
+            # PREENCHIMENTO VIA JAVASCRIPT NO SELENIUM (Mais estável para ZK)
+            script_preencher = """
+                function triggerEvents(el) {
+                    if(!el) return;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    el.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+                var d = arguments[0];
+                var inputs = document.getElementsByTagName('input');
+                for (var i = 0; i < inputs.length; i++) {
+                    if (inputs[i].name == 'name') { inputs[i].value = d.p_nome; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'lastName') { inputs[i].value = d.s_nome; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') { inputs[i].value = d.tel; triggerEvents(inputs[i]); }
+                    if (inputs[i].name == 'email') { inputs[i].value = d.eml; triggerEvents(inputs[i]); }
+                }
+                var pin = document.getElementById('pers_pin_register_id');
+                if(pin) { pin.removeAttribute('readonly'); pin.value = d.cpf; triggerEvents(pin); }
+            """
+            driver.execute_script(script_preencher, {
+                'p_nome': dados['primeiro_nome'],
+                's_nome': dados['sobrenome'],
+                'tel': dados['telefone'],
+                'eml': dados['email'],
+                'cpf': dados['cpf']
+            })
+
+            # UPLOAD DE FOTO NO SELENIUM
+            try:
+                file_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='file']")))
+                file_input.send_keys(dados['path_foto'])
+                self.log.emit("📸 Foto enviada para o ZK.")
+            except:
+                self.log.emit("❌ Falha ao localizar campo de upload de foto no ZK.")
+
+            self.log.emit(f"✅ Transferência de {dados['primeiro_nome']} concluída no Selenium.")
+            self.success.emit(f"Transferência concluída: {dados['primeiro_nome']}")
+
+            # Cleanup
+            time.sleep(5)
+            try: os.remove(path_foto)
+            except: pass
 
         except Exception as e:
             self.error.emit(str(e))
@@ -900,7 +959,6 @@ class SmartPortariaScanner(QMainWindow):
         
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
-        self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
         
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
@@ -1368,27 +1426,7 @@ class SmartPortariaScanner(QMainWindow):
             js_login = f"document.querySelectorAll('input').forEach(i => {{ if(i.type=='text') i.value='{self.creds['portaria_user']}'; if(i.type=='password') i.value='{self.creds['portaria_pass']}'; }});"
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
-            js_login_zk = f"""
-                (function() {{
-                    console.log('Iniciando login ZK Bio...');
-                    var userField = document.getElementById('username');
-                    var passField = document.getElementById('password');
-                    if (userField) userField.value = '{self.creds['zk_user']}';
-                    if (passField) passField.value = '{self.creds['zk_pass']}';
-
-                    setTimeout(function() {{
-                        var loginBtn = document.querySelector("button[type='submit']") ||
-                                       document.getElementById('login_submit') ||
-                                       document.querySelector(".login_btn");
-                        if (loginBtn) {{
-                            console.log('Botão de login encontrado, clicando...');
-                            loginBtn.click();
-                        }} else {{
-                            console.error('Botão de login não encontrado');
-                        }}
-                    }}, 600);
-                }})();
-            """
+            js_login_zk = f"var userField = document.getElementById('username'); var passField = document.getElementById('password'); if (userField) userField.value = '{self.creds['zk_user']}'; if (passField) passField.value = '{self.creds['zk_pass']}';"
             browser_view.page().runJavaScript(js_login_zk)
 
     def on_tab_load_finished(self, ok, view):
@@ -1599,94 +1637,13 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_transferir.setEnabled(False)
         self.btn_transferir.setText("⏳")
 
-        # Muda para a aba do ZK Bio imediatamente para feedback visual
-        for i in range(self.tabs.count()):
-            if "ZK Bio" in self.tabs.tabText(i):
-                self.tabs.setCurrentIndex(i)
-                break
-
         self.transfer_thread = TransferThread(id_convite, self.creds)
         self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
-        self.transfer_thread.data_extracted.connect(self.processar_dados_transferidos)
         self.transfer_thread.success.connect(self.on_transfer_success)
         self.transfer_thread.error.connect(self.on_transfer_error)
         self.transfer_thread.finished.connect(lambda: self.btn_transferir.setEnabled(True))
         self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("🚀"))
         self.transfer_thread.start()
-
-    def processar_dados_transferidos(self, dados):
-        zk_index = -1
-        for i in range(self.tabs.count()):
-            if "ZK Bio" in self.tabs.tabText(i):
-                zk_index = i
-                break
-
-        if zk_index != -1:
-            self.tabs.setCurrentIndex(zk_index)
-            view = self.web_stack.widget(zk_index)
-            if view:
-                # Armazena o caminho para ser usado pelo chooseFiles interceptado
-                view.page()._auto_file_path = dados.get('path_foto')
-
-                js_preencher = f"""
-                (function() {{
-                    console.log('Iniciando preenchimento automático ZK Bio...');
-                    function triggerEvents(el) {{
-                        if (!el) return;
-                        el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                        el.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
-                    }}
-
-                    var d = {json.dumps(dados)};
-
-                    // 1. Clicar em "Novo" se necessário (pode já estar na tela de cadastro)
-                    var btnNovo = document.querySelector(".dhxtoolbar_text") || Array.from(document.querySelectorAll('div')).find(el => el.textContent.trim() === 'Novo');
-                    if (btnNovo && !document.querySelector('input[name="name"]')) {{
-                        console.log('Clicando em Novo...');
-                        btnNovo.click();
-                    }}
-
-                    // Função de preenchimento principal
-                    function preencher() {{
-                        var inputs = document.getElementsByTagName('input');
-                        var preenchidos = 0;
-                        for (var i = 0; i < inputs.length; i++) {{
-                            var input = inputs[i];
-                            if (input.name == 'name') {{ input.value = d.primeiro_nome; triggerEvents(input); preenchidos++; }}
-                            if (input.name == 'lastName') {{ input.value = d.sobrenome; triggerEvents(input); preenchidos++; }}
-                            if (input.name == 'mobile' || input.name == 'mobilePhone') {{ input.value = d.telefone; triggerEvents(input); preenchidos++; }}
-                            if (input.name == 'email') {{ input.value = d.email; triggerEvents(input); preenchidos++; }}
-                        }}
-
-                        var pinField = document.getElementById('pers_pin_register_id');
-                        if (pinField) {{
-                            pinField.removeAttribute('readonly');
-                            pinField.value = d.cpf;
-                            triggerEvents(pinField);
-                            preenchidos++;
-                        }}
-
-                        console.log('Campos preenchidos: ' + preenchidos);
-
-                        // Upload de Foto
-                        setTimeout(function() {{
-                            var fileInput = document.querySelector("input[type='file']");
-                            if (fileInput) {{
-                                console.log('Acionando upload de foto...');
-                                fileInput.click();
-                            }} else {{
-                                console.warn('Input de arquivo não encontrado para foto');
-                            }}
-                        }}, 1500);
-                    }}
-
-                    // Tenta preencher agora e novamente em 2 segundos para garantir
-                    preencher();
-                    setTimeout(preencher, 2500);
-                }})();
-                """
-                view.page().runJavaScript(js_preencher)
 
     def on_transfer_success(self, msg):
         self.txt_live.append(f"✅ Transferência concluída: {msg.splitlines()[0]}")
