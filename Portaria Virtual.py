@@ -1,9 +1,5 @@
-import os
 import sys
-
-# --- CONFIGURAÇÃO DE SEGURANÇA CHROMIUM (DEVE SER ANTES DE QUALQUER IMPORT PYQT/WEBENGINE) ---
-os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --allow-running-insecure-content --disable-site-isolation-trials --no-sandbox --disable-features=IsolateOrigins,site-per-process'
-
+import os
 import sqlite3
 import unicodedata
 import re
@@ -57,14 +53,6 @@ class CustomWebPage(QWebEnginePage):
     def __init__(self, profile, parent_view, browser_window):
         super().__init__(profile, parent_view)
         self.browser_window = browser_window
-        self._auto_file_path = None
-
-    def chooseFiles(self, mode, old_files, accept_types):
-        if self._auto_file_path:
-            path = self._auto_file_path
-            self._auto_file_path = None
-            return [path]
-        return super().chooseFiles(mode, old_files, accept_types)
 
     def createWindow(self, _type):
         for i in range(self.browser_window.tabs.count()):
@@ -642,10 +630,6 @@ class TransferThread(QThread):
             options = Options()
             options.add_experimental_option("detach", True)
             options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--disable-web-security")
-            options.add_argument("--allow-running-insecure-content")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
             self.driver = webdriver.Chrome(options=options)
             driver = self.driver
             wait = WebDriverWait(driver, 35)
@@ -697,16 +681,8 @@ class TransferThread(QThread):
 
             img_url = driver.find_element(By.ID, "img-preview").get_attribute("src")
             path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
-
-            # Download e Otimização da Foto
-            foto_bytes = requests.get(img_url, verify=False).content
-            img_temp = QImage.fromData(foto_bytes)
-            if not img_temp.isNull():
-                img_otimizada = img_temp.scaled(817, 860, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                img_otimizada.save(path_foto, "JPG", 60)
-            else:
-                with open(path_foto, 'wb') as f:
-                    f.write(foto_bytes)
+            with open(path_foto, 'wb') as f:
+                f.write(requests.get(img_url, verify=False).content)
 
             dados = {
                 "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
@@ -717,68 +693,62 @@ class TransferThread(QThread):
             # ZK LOGIN
             self.log.emit("🔐 Acessando ZK Server...")
             driver.get(f"{ZK_SERVER}/bioLogin.do")
+            wait.until(EC.element_to_be_clickable((By.ID, "username"))).send_keys(self.creds['zk_user'])
+            driver.find_element(By.ID, "password").send_keys(self.creds['zk_pass'] + Keys.ENTER)
 
-            try:
-                wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(self.creds['zk_user'])
-                driver.find_element(By.ID, "password").send_keys(self.creds['zk_pass'] + Keys.ENTER)
-            except:
-                self.log.emit("⚠️ Login ZK: Usuário/Senha não encontrados ou já logado.")
-
-            # NAVEGAÇÃO E CADASTRO
+            # NAVEGAÇÃO
             time.sleep(5)
             driver.get(f"{ZK_SERVER}/main.do?home#basePerson")
-            time.sleep(6)
+            time.sleep(7)
 
             self.log.emit("➕ Criando novo registro no ZK...")
-            try:
-                btn_novo = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]")))
-                btn_novo.click()
-            except:
-                self.log.emit("⚠️ Botão 'Novo' não encontrado via XPath padrão. Tentando alternativa...")
-                driver.execute_script("if(typeof add === 'function') add();")
+            btn_novo = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]")))
+            btn_novo.click()
+            time.sleep(6)
 
-            time.sleep(5)
-
-            # PREENCHIMENTO VIA JAVASCRIPT NO SELENIUM (Mais estável para ZK)
+            # PREENCHIMENTO VIA JAVASCRIPT
             script_preencher = """
                 function triggerEvents(el) {
-                    if(!el) return;
                     el.dispatchEvent(new Event('input', { bubbles: true }));
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                     el.dispatchEvent(new Event('blur', { bubbles: true }));
                 }
-                var d = arguments[0];
                 var inputs = document.getElementsByTagName('input');
+                var d = arguments[0];
                 for (var i = 0; i < inputs.length; i++) {
                     if (inputs[i].name == 'name') { inputs[i].value = d.p_nome; triggerEvents(inputs[i]); }
                     if (inputs[i].name == 'lastName') { inputs[i].value = d.s_nome; triggerEvents(inputs[i]); }
                     if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') { inputs[i].value = d.tel; triggerEvents(inputs[i]); }
                     if (inputs[i].name == 'email') { inputs[i].value = d.eml; triggerEvents(inputs[i]); }
                 }
-                var pin = document.getElementById('pers_pin_register_id');
-                if(pin) { pin.removeAttribute('readonly'); pin.value = d.cpf; triggerEvents(pin); }
             """
             driver.execute_script(script_preencher, {
                 'p_nome': dados['primeiro_nome'],
                 's_nome': dados['sobrenome'],
                 'tel': dados['telefone'],
-                'eml': dados['email'],
-                'cpf': dados['cpf']
+                'eml': dados['email']
             })
+            time.sleep(1)
 
-            # UPLOAD DE FOTO NO SELENIUM
-            try:
-                file_input = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='file']")))
-                file_input.send_keys(dados['path_foto'])
-                self.log.emit("📸 Foto enviada para o ZK.")
-            except:
-                self.log.emit("❌ Falha ao localizar campo de upload de foto no ZK.")
+            # CPF/PIN
+            pin_field = driver.find_element(By.ID, "pers_pin_register_id")
+            driver.execute_script("""
+                arguments[0].removeAttribute('readonly');
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));
+            """, pin_field, dados['cpf'])
+            time.sleep(1)
 
-            self.log.emit(f"✅ Transferência de {dados['primeiro_nome']} concluída no Selenium.")
-            self.success.emit(f"Transferência concluída: {dados['primeiro_nome']}")
+            # FOTO
+            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+            time.sleep(2)
 
-            # Cleanup
-            time.sleep(5)
+            self.success.emit("Dados transferidos")
+
+            # Remove foto temporária com pequeno delay para garantir o envio
+            time.sleep(3)
             try: os.remove(path_foto)
             except: pass
 
@@ -959,6 +929,7 @@ class SmartPortariaScanner(QMainWindow):
         
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
+        self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
         
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
@@ -1370,9 +1341,9 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
-            # Recolher menu na aba ZK Bio ou Monitoramento
+            # Recolher menu na aba ZK Bio
             titulo = self.tabs.tabText(index)
-            if "ZK" in titulo or "Monitoramento" in titulo:
+            if "ZK Bio" in titulo:
                 self.painel_lateral.hide()
             else:
                 self.painel_lateral.show()
@@ -1426,7 +1397,12 @@ class SmartPortariaScanner(QMainWindow):
             js_login = f"document.querySelectorAll('input').forEach(i => {{ if(i.type=='text') i.value='{self.creds['portaria_user']}'; if(i.type=='password') i.value='{self.creds['portaria_pass']}'; }});"
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
-            js_login_zk = f"var userField = document.getElementById('username'); var passField = document.getElementById('password'); if (userField) userField.value = '{self.creds['zk_user']}'; if (passField) passField.value = '{self.creds['zk_pass']}';"
+            js_login_zk = f"""
+                var userField = document.getElementById('username');
+                var passField = document.getElementById('password');
+                if (userField) userField.value = '{self.creds['zk_user']}';
+                if (passField) passField.value = '{self.creds['zk_pass']}';
+            """
             browser_view.page().runJavaScript(js_login_zk)
 
     def on_tab_load_finished(self, ok, view):
