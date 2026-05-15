@@ -630,6 +630,14 @@ class TransferThread(QThread):
             options = Options()
             options.add_experimental_option("detach", True)
             options.add_argument("--disable-blink-features=AutomationControlled")
+
+            # Opções para evitar SecurityError de Cross-Origin
+            options.add_argument("--disable-web-security")
+            options.add_argument("--allow-running-insecure-content")
+            # user-data-dir é necessário para o disable-web-security funcionar em algumas versões
+            temp_profile = os.path.join(os.getcwd(), "chrome_temp_profile")
+            options.add_argument(f"--user-data-dir={temp_profile}")
+
             self.driver = webdriver.Chrome(options=options)
             driver = self.driver
             wait = WebDriverWait(driver, 35)
@@ -644,7 +652,8 @@ class TransferThread(QThread):
             self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
             url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
             driver.get(url_detalhes)
-            wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(., 'Visitante')] | //label[contains(., 'Visitante')]")))
+            # Aguarda especificamente o preview da imagem para garantir carregamento completo
+            wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
             time.sleep(3)
 
             # 1. Nome e CPF
