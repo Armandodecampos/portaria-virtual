@@ -2,7 +2,7 @@ import os
 import sys
 
 # --- CONFIGURAÇÃO DE SEGURANÇA CHROMIUM (DEVE SER ANTES DE QUALQUER IMPORT PYQT/WEBENGINE) ---
-os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --allow-running-insecure-content --disable-site-isolation-trials --no-sandbox'
+os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --allow-running-insecure-content --disable-site-isolation-trials --no-sandbox --disable-features=IsolateOrigins,site-per-process'
 
 import json
 import sqlite3
@@ -716,12 +716,12 @@ class TransferThread(QThread):
                 "email": email_limpo, "path_foto": path_foto
             }
 
-            self.log.emit("✅ Dados extraídos. Iniciando automação interna...")
+            self.log.emit("✅ Dados extraídos com sucesso. Iniciando preenchimento interno no ZK Bio...")
             self.data_extracted.emit(dados)
+            self.success.emit(f"Dados de {dados['primeiro_nome']} extraídos")
 
-            # No fluxo híbrido, o Selenium para aqui e a UI assume o ZK Bio
-            time.sleep(1)
-            driver.quit()
+            # Mantemos o driver vivo para depuração se necessário, mas marcamos como sucesso.
+            # O navegador Selenium NÃO será fechado aqui para evitar o problema relatado.
 
         except Exception as e:
             self.error.emit(str(e))
@@ -1369,14 +1369,25 @@ class SmartPortariaScanner(QMainWindow):
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
             js_login_zk = f"""
-                var userField = document.getElementById('username');
-                var passField = document.getElementById('password');
-                if (userField) userField.value = '{self.creds['zk_user']}';
-                if (passField) passField.value = '{self.creds['zk_pass']}';
-                setTimeout(function() {{
-                    var loginBtn = document.querySelector("button[type='submit']") || document.getElementById('login_submit');
-                    if (loginBtn) loginBtn.click();
-                }}, 500);
+                (function() {{
+                    console.log('Iniciando login ZK Bio...');
+                    var userField = document.getElementById('username');
+                    var passField = document.getElementById('password');
+                    if (userField) userField.value = '{self.creds['zk_user']}';
+                    if (passField) passField.value = '{self.creds['zk_pass']}';
+
+                    setTimeout(function() {{
+                        var loginBtn = document.querySelector("button[type='submit']") ||
+                                       document.getElementById('login_submit') ||
+                                       document.querySelector(".login_btn");
+                        if (loginBtn) {{
+                            console.log('Botão de login encontrado, clicando...');
+                            loginBtn.click();
+                        }} else {{
+                            console.error('Botão de login não encontrado');
+                        }}
+                    }}, 600);
+                }})();
             """
             browser_view.page().runJavaScript(js_login_zk)
 
@@ -1614,34 +1625,65 @@ class SmartPortariaScanner(QMainWindow):
             self.tabs.setCurrentIndex(zk_index)
             view = self.web_stack.widget(zk_index)
             if view:
+                # Armazena o caminho para ser usado pelo chooseFiles interceptado
                 view.page()._auto_file_path = dados.get('path_foto')
 
                 js_preencher = f"""
                 (function() {{
+                    console.log('Iniciando preenchimento automático ZK Bio...');
                     function triggerEvents(el) {{
+                        if (!el) return;
                         el.dispatchEvent(new Event('input', {{ bubbles: true }}));
                         el.dispatchEvent(new Event('change', {{ bubbles: true }}));
                         el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
                     }}
+
                     var d = {json.dumps(dados)};
-                    var inputs = document.getElementsByTagName('input');
-                    for (var i = 0; i < inputs.length; i++) {{
-                        if (inputs[i].name == 'name') {{ inputs[i].value = d.primeiro_nome; triggerEvents(inputs[i]); }}
-                        if (inputs[i].name == 'lastName') {{ inputs[i].value = d.sobrenome; triggerEvents(inputs[i]); }}
-                        if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') {{ inputs[i].value = d.telefone; triggerEvents(inputs[i]); }}
-                        if (inputs[i].name == 'email') {{ inputs[i].value = d.email; triggerEvents(inputs[i]); }}
-                    }}
-                    var pinField = document.getElementById('pers_pin_register_id');
-                    if (pinField) {{
-                        pinField.removeAttribute('readonly');
-                        pinField.value = d.cpf;
-                        triggerEvents(pinField);
+
+                    // 1. Clicar em "Novo" se necessário (pode já estar na tela de cadastro)
+                    var btnNovo = document.querySelector(".dhxtoolbar_text") || Array.from(document.querySelectorAll('div')).find(el => el.textContent.trim() === 'Novo');
+                    if (btnNovo && !document.querySelector('input[name="name"]')) {{
+                        console.log('Clicando em Novo...');
+                        btnNovo.click();
                     }}
 
-                    setTimeout(function() {{
-                        var fileInput = document.querySelector("input[type='file']");
-                        if (fileInput) fileInput.click();
-                    }}, 1000);
+                    // Função de preenchimento principal
+                    function preencher() {{
+                        var inputs = document.getElementsByTagName('input');
+                        var preenchidos = 0;
+                        for (var i = 0; i < inputs.length; i++) {{
+                            var input = inputs[i];
+                            if (input.name == 'name') {{ input.value = d.primeiro_nome; triggerEvents(input); preenchidos++; }}
+                            if (input.name == 'lastName') {{ input.value = d.sobrenome; triggerEvents(input); preenchidos++; }}
+                            if (input.name == 'mobile' || input.name == 'mobilePhone') {{ input.value = d.telefone; triggerEvents(input); preenchidos++; }}
+                            if (input.name == 'email') {{ input.value = d.email; triggerEvents(input); preenchidos++; }}
+                        }}
+
+                        var pinField = document.getElementById('pers_pin_register_id');
+                        if (pinField) {{
+                            pinField.removeAttribute('readonly');
+                            pinField.value = d.cpf;
+                            triggerEvents(pinField);
+                            preenchidos++;
+                        }}
+
+                        console.log('Campos preenchidos: ' + preenchidos);
+
+                        // Upload de Foto
+                        setTimeout(function() {{
+                            var fileInput = document.querySelector("input[type='file']");
+                            if (fileInput) {{
+                                console.log('Acionando upload de foto...');
+                                fileInput.click();
+                            }} else {{
+                                console.warn('Input de arquivo não encontrado para foto');
+                            }}
+                        }}, 1500);
+                    }}
+
+                    // Tenta preencher agora e novamente em 2 segundos para garantir
+                    preencher();
+                    setTimeout(preencher, 2500);
                 }})();
                 """
                 view.page().runJavaScript(js_preencher)
