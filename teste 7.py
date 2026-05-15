@@ -688,8 +688,9 @@ class TransferThread(QThread):
             img_qt = QImage(path_foto)
             if not img_qt.isNull():
                 img_qt = img_qt.scaled(817, 860, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                img_qt.save(path_foto)
-                self.log.emit("📸 Foto redimensionada para 817x860.")
+                # Salva com qualidade 60 para evitar arquivos excessivamente grandes que travam o ZK Bio
+                img_qt.save(path_foto, "JPG", 60)
+                self.log.emit("📸 Foto redimensionada para 817x860 (otimizada).")
 
             dados = {
                 "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
