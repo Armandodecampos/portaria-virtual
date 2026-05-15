@@ -644,7 +644,7 @@ class TransferThread(QThread):
             self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
             url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
             driver.get(url_detalhes)
-            wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
+            # wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
             time.sleep(3)
 
             # 1. Nome e CPF
@@ -679,15 +679,15 @@ class TransferThread(QThread):
             except:
                 email_limpo = ""
 
-            img_url = driver.find_element(By.ID, "img-preview").get_attribute("src")
-            path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
-            with open(path_foto, 'wb') as f:
-                f.write(requests.get(img_url, verify=False).content)
+            # img_url = driver.find_element(By.ID, "img-preview").get_attribute("src")
+            # path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
+            # with open(path_foto, 'wb') as f:
+            #     f.write(requests.get(img_url, verify=False).content)
 
             dados = {
                 "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
                 "cpf": cpf_numeros, "telefone": telefone_limpo,
-                "email": email_limpo, "path_foto": path_foto
+                "email": email_limpo
             }
 
             # ZK LOGIN
@@ -742,15 +742,15 @@ class TransferThread(QThread):
             time.sleep(1)
 
             # FOTO
-            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
-            time.sleep(2)
+            # driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+            # time.sleep(2)
 
             self.success.emit("Dados transferidos")
 
             # Remove foto temporária com pequeno delay para garantir o envio
-            time.sleep(3)
-            try: os.remove(path_foto)
-            except: pass
+            # time.sleep(3)
+            # try: os.remove(path_foto)
+            # except: pass
 
         except Exception as e:
             self.error.emit(str(e))
