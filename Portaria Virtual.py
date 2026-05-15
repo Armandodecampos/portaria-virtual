@@ -1,5 +1,7 @@
-import sys
 import os
+os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--disable-web-security --allow-running-insecure-content --disable-site-isolation-trials --no-sandbox'
+import json
+import sys
 import sqlite3
 import unicodedata
 import re
@@ -53,6 +55,14 @@ class CustomWebPage(QWebEnginePage):
     def __init__(self, profile, parent_view, browser_window):
         super().__init__(profile, parent_view)
         self.browser_window = browser_window
+        self._auto_file_path = None
+
+    def chooseFiles(self, mode, old_files, suggested_files):
+        if self._auto_file_path:
+            path = self._auto_file_path
+            self._auto_file_path = None # Limpa para não afetar uploads manuais futuros
+            return [path]
+        return super().chooseFiles(mode, old_files, suggested_files)
 
     def createWindow(self, _type):
         for i in range(self.browser_window.tabs.count()):
@@ -617,6 +627,7 @@ class TransferThread(QThread):
     success = pyqtSignal(str)
     error = pyqtSignal(str)
     log = pyqtSignal(str)
+    data_extracted = pyqtSignal(dict)
 
     def __init__(self, id_convite, creds):
         super().__init__()
@@ -681,8 +692,18 @@ class TransferThread(QThread):
 
             img_url = driver.find_element(By.ID, "img-preview").get_attribute("src")
             path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
-            with open(path_foto, 'wb') as f:
-                f.write(requests.get(img_url, verify=False).content)
+
+            # Download da foto
+            img_data = requests.get(img_url, verify=False).content
+
+            # Processamento de imagem: Redimensionar para 817x860 e salvar com qualidade 60
+            image = QImage.fromData(img_data)
+            if not image.isNull():
+                image = image.scaled(817, 860, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                image.save(path_foto, "JPG", 60)
+            else:
+                with open(path_foto, 'wb') as f:
+                    f.write(img_data)
 
             dados = {
                 "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
@@ -690,67 +711,12 @@ class TransferThread(QThread):
                 "email": email_limpo, "path_foto": path_foto
             }
 
-            # ZK LOGIN
-            self.log.emit("🔐 Acessando ZK Server...")
-            driver.get(f"{ZK_SERVER}/bioLogin.do")
-            wait.until(EC.element_to_be_clickable((By.ID, "username"))).send_keys(self.creds['zk_user'])
-            driver.find_element(By.ID, "password").send_keys(self.creds['zk_pass'] + Keys.ENTER)
+            self.log.emit("✅ Dados extraídos. Iniciando preenchimento no ZK Bio...")
+            self.data_extracted.emit(dados)
+            self.success.emit("Dados extraídos com sucesso")
 
-            # NAVEGAÇÃO
-            time.sleep(5)
-            driver.get(f"{ZK_SERVER}/main.do?home#basePerson")
-            time.sleep(7)
-
-            self.log.emit("➕ Criando novo registro no ZK...")
-            btn_novo = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]")))
-            btn_novo.click()
-            time.sleep(6)
-
-            # PREENCHIMENTO VIA JAVASCRIPT
-            script_preencher = """
-                function triggerEvents(el) {
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.dispatchEvent(new Event('change', { bubbles: true }));
-                    el.dispatchEvent(new Event('blur', { bubbles: true }));
-                }
-                var inputs = document.getElementsByTagName('input');
-                var d = arguments[0];
-                for (var i = 0; i < inputs.length; i++) {
-                    if (inputs[i].name == 'name') { inputs[i].value = d.p_nome; triggerEvents(inputs[i]); }
-                    if (inputs[i].name == 'lastName') { inputs[i].value = d.s_nome; triggerEvents(inputs[i]); }
-                    if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') { inputs[i].value = d.tel; triggerEvents(inputs[i]); }
-                    if (inputs[i].name == 'email') { inputs[i].value = d.eml; triggerEvents(inputs[i]); }
-                }
-            """
-            driver.execute_script(script_preencher, {
-                'p_nome': dados['primeiro_nome'],
-                's_nome': dados['sobrenome'],
-                'tel': dados['telefone'],
-                'eml': dados['email']
-            })
-            time.sleep(1)
-
-            # CPF/PIN
-            pin_field = driver.find_element(By.ID, "pers_pin_register_id")
-            driver.execute_script("""
-                arguments[0].removeAttribute('readonly');
-                arguments[0].value = arguments[1];
-                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
-                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
-                arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));
-            """, pin_field, dados['cpf'])
-            time.sleep(1)
-
-            # FOTO
-            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
-            time.sleep(2)
-
-            self.success.emit("Dados transferidos")
-
-            # Remove foto temporária com pequeno delay para garantir o envio
-            time.sleep(3)
-            try: os.remove(path_foto)
-            except: pass
+            # Deixa o arquivo para ser lido pelo navegador.
+            # A remoção imediata causava erro de arquivo não encontrado no upload asíncrono.
 
         except Exception as e:
             self.error.emit(str(e))
@@ -1402,6 +1368,10 @@ class SmartPortariaScanner(QMainWindow):
                 var passField = document.getElementById('password');
                 if (userField) userField.value = '{self.creds['zk_user']}';
                 if (passField) passField.value = '{self.creds['zk_pass']}';
+                setTimeout(function() {{
+                    var btn = document.querySelector("input[type='submit'], #login, .login_btn");
+                    if (btn) btn.click();
+                }}, 500);
             """
             browser_view.page().runJavaScript(js_login_zk)
 
@@ -1617,9 +1587,16 @@ class SmartPortariaScanner(QMainWindow):
         self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
         self.transfer_thread.success.connect(self.on_transfer_success)
         self.transfer_thread.error.connect(self.on_transfer_error)
+        self.transfer_thread.data_extracted.connect(self.finalizar_transferencia_zk)
         self.transfer_thread.finished.connect(lambda: self.btn_transferir.setEnabled(True))
         self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("🚀"))
         self.transfer_thread.start()
+
+        # Muda para a aba do ZK Bio imediatamente
+        for i in range(self.tabs.count()):
+            if "ZK Bio" in self.tabs.tabText(i):
+                self.tabs.setCurrentIndex(i)
+                break
 
     def on_transfer_success(self, msg):
         self.txt_live.append(f"✅ Transferência concluída: {msg.splitlines()[0]}")
@@ -1628,6 +1605,58 @@ class SmartPortariaScanner(QMainWindow):
     def on_transfer_error(self, err):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
+
+    def finalizar_transferencia_zk(self, dados):
+        """Finaliza a transferência injetando dados na aba interna do ZK Bio"""
+        # Localiza a aba do ZK Bio
+        view_zk = None
+        for i in range(self.tabs.count()):
+            if "ZK Bio" in self.tabs.tabText(i):
+                view_zk = self.web_stack.widget(i)
+                break
+
+        if not view_zk:
+            self.txt_live.append("❌ Erro: Aba ZK Bio não encontrada para finalizar transferência.")
+            return
+
+        # Configura o bypass de upload de arquivo
+        view_zk.page()._auto_file_path = dados['path_foto']
+
+        # Script para preencher os campos e clicar no upload
+        script_final = f"""
+        (function() {{
+            function triggerEvents(el) {{
+                el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
+            }}
+
+            var d = {json.dumps(dados)};
+            var inputs = document.getElementsByTagName('input');
+
+            for (var i = 0; i < inputs.length; i++) {{
+                if (inputs[i].name == 'name') {{ inputs[i].value = d.primeiro_nome; triggerEvents(inputs[i]); }}
+                if (inputs[i].name == 'lastName') {{ inputs[i].value = d.sobrenome; triggerEvents(inputs[i]); }}
+                if (inputs[i].name == 'mobile' || inputs[i].name == 'mobilePhone') {{ inputs[i].value = d.telefone; triggerEvents(inputs[i]); }}
+                if (inputs[i].name == 'email') {{ inputs[i].value = d.email; triggerEvents(inputs[i]); }}
+            }}
+
+            var pinField = document.getElementById('pers_pin_register_id');
+            if (pinField) {{
+                pinField.removeAttribute('readonly');
+                pinField.value = d.cpf;
+                triggerEvents(pinField);
+            }}
+
+            // Ativa o upload de foto (que será interceptado pelo chooseFiles do CustomWebPage)
+            var fileInput = document.querySelector("input[type='file']");
+            if (fileInput) fileInput.click();
+
+            console.log("Transferência para ZK Bio via JS concluída localmente.");
+        }})();
+        """
+        view_zk.page().runJavaScript(script_final)
+        self.txt_live.append("✅ Dados injetados na aba ZK Bio.")
 
     def closeEvent(self, event):
         if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
