@@ -630,14 +630,6 @@ class TransferThread(QThread):
             options = Options()
             options.add_experimental_option("detach", True)
             options.add_argument("--disable-blink-features=AutomationControlled")
-
-            # Opções para evitar SecurityError de Cross-Origin
-            options.add_argument("--disable-web-security")
-            options.add_argument("--allow-running-insecure-content")
-            # user-data-dir é necessário para o disable-web-security funcionar em algumas versões
-            temp_profile = os.path.join(os.getcwd(), "chrome_temp_profile")
-            options.add_argument(f"--user-data-dir={temp_profile}")
-
             self.driver = webdriver.Chrome(options=options)
             driver = self.driver
             wait = WebDriverWait(driver, 35)
@@ -652,7 +644,6 @@ class TransferThread(QThread):
             self.log.emit(f"📄 Extraindo dados do convite {self.id_convite}...")
             url_detalhes = f"https://portaria-global.governarti.com.br/visita/{self.id_convite}/detalhes"
             driver.get(url_detalhes)
-            # Aguarda especificamente o preview da imagem para garantir carregamento completo
             wait.until(EC.presence_of_element_located((By.ID, "img-preview")))
             time.sleep(3)
 
@@ -692,13 +683,6 @@ class TransferThread(QThread):
             path_foto = os.path.abspath(f"temp_visitante_{self.id_convite}.jpg")
             with open(path_foto, 'wb') as f:
                 f.write(requests.get(img_url, verify=False).content)
-
-            # Redimensionar para 817x860 e otimizar para evitar travamentos no ZK Bio
-            img_qt = QImage(path_foto)
-            if not img_qt.isNull():
-                img_qt = img_qt.scaled(817, 860, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
-                img_qt.save(path_foto, "JPG", 60)
-                self.log.emit("📸 Foto redimensionada para 817x860 (otimizada).")
 
             dados = {
                 "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
@@ -758,17 +742,14 @@ class TransferThread(QThread):
             time.sleep(1)
 
             # FOTO
-            if dados.get('path_foto'):
-                driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
-                time.sleep(2)
+            driver.find_element(By.CSS_SELECTOR, "input[type='file']").send_keys(dados['path_foto'])
+            time.sleep(2)
 
             self.success.emit("Dados transferidos")
 
             # Remove foto temporária com pequeno delay para garantir o envio
             time.sleep(3)
-            try:
-                if dados.get('path_foto'):
-                    os.remove(dados['path_foto'])
+            try: os.remove(path_foto)
             except: pass
 
         except Exception as e:
