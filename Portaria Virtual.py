@@ -610,6 +610,7 @@ class InstrucoesDialog(QDialog):
 # --- CONFIGURAÇÕES AMBEV ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ['no_proxy'] = '192.168.7.9'
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-web-security --allow-running-insecure-content"
 
 ZK_SERVER = "http://192.168.7.9:8098"
 
@@ -1277,10 +1278,6 @@ class SmartPortariaScanner(QMainWindow):
 
     def add_new_tab(self, qurl, title, closable=True, profile=None):
         view = QWebEngineView()
-        settings = view.settings()
-        settings.setAttribute(QWebEngineSettings.WebAttribute.WebSecurityEnabled, False)
-        settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
-
         target_profile = profile if profile else QWebEngineProfile.defaultProfile()
         page = CustomWebPage(target_profile, view, self)
         view.setPage(page)
@@ -1380,8 +1377,6 @@ class SmartPortariaScanner(QMainWindow):
         s_worker = self.view_worker.settings()
         s_worker.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, False)
         s_worker.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-        s_worker.setAttribute(QWebEngineSettings.WebAttribute.WebSecurityEnabled, False)
-        s_worker.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
 
     def carregar_ultimo_id(self):
         if not self.db: return
