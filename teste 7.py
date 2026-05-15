@@ -684,6 +684,13 @@ class TransferThread(QThread):
             with open(path_foto, 'wb') as f:
                 f.write(requests.get(img_url, verify=False).content)
 
+            # Redimensionar para 817x860
+            img_qt = QImage(path_foto)
+            if not img_qt.isNull():
+                img_qt = img_qt.scaled(817, 860, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                img_qt.save(path_foto)
+                self.log.emit("📸 Foto redimensionada para 817x860.")
+
             dados = {
                 "primeiro_nome": primeiro_nome, "sobrenome": sobrenome,
                 "cpf": cpf_numeros, "telefone": telefone_limpo,
