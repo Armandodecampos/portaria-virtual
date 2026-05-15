@@ -630,6 +630,8 @@ class TransferThread(QThread):
             options = Options()
             options.add_experimental_option("detach", True)
             options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-web-security")
+            options.add_argument("--allow-running-insecure-content")
             self.driver = webdriver.Chrome(options=options)
             driver = self.driver
             wait = WebDriverWait(driver, 35)
@@ -1275,6 +1277,10 @@ class SmartPortariaScanner(QMainWindow):
 
     def add_new_tab(self, qurl, title, closable=True, profile=None):
         view = QWebEngineView()
+        settings = view.settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.WebSecurityEnabled, False)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
+
         target_profile = profile if profile else QWebEngineProfile.defaultProfile()
         page = CustomWebPage(target_profile, view, self)
         view.setPage(page)
@@ -1374,6 +1380,8 @@ class SmartPortariaScanner(QMainWindow):
         s_worker = self.view_worker.settings()
         s_worker.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, False)
         s_worker.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        s_worker.setAttribute(QWebEngineSettings.WebAttribute.WebSecurityEnabled, False)
+        s_worker.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True)
 
     def carregar_ultimo_id(self):
         if not self.db: return
