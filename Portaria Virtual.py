@@ -1039,12 +1039,11 @@ class SmartPortariaScanner(QMainWindow):
         
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setOpenExternalLinks(False)
-        self.txt_res_busca.setMaximumHeight(400)
         # O estilo base transparente é bom, mas vamos deixar o tema controlar a cor do texto
         self.txt_res_busca.setStyleSheet("border: none; background: transparent;")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
-        lat.addWidget(group_busca)
+        lat.addWidget(group_busca, 3)
 
         # === GRUPO LOG ===
         group_live = QGroupBox("LOG DO SISTEMA")
@@ -1054,7 +1053,7 @@ class SmartPortariaScanner(QMainWindow):
         # Fonte monospace fixa, mas cores geridas pelo tema
         self.txt_live.setStyleSheet("font-family: Consolas, monospace; font-size: 12px;")
         layout_live.addWidget(self.txt_live)
-        lat.addWidget(group_live, 1)
+        lat.addWidget(group_live, 2)
 
 
         # === GRUPO EXTRATOR DE LINK ===
