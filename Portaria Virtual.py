@@ -15,7 +15,7 @@ import json
 try:
     from PyQt6.QtCore import (
         Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData,
-        QPropertyAnimation, QEasingCurve, QPoint, QThread
+        QPropertyAnimation, QEasingCurve, QPoint, QThread, QEvent
     )
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -1368,6 +1368,9 @@ class SmartPortariaScanner(QMainWindow):
         self.setup_ui()
         self.configurar_navegadores()
 
+        # Filtro de eventos global para fechar container ZK ao clicar fora
+        QApplication.instance().installEventFilter(self)
+
         # Carrega credenciais e tema
         self.carregar_credenciais()
         saved_theme = self.settings.value("theme", "light")
@@ -2264,6 +2267,7 @@ class SmartPortariaScanner(QMainWindow):
             metrics = QFontMetrics(fonte)
             if metrics.horizontalAdvance(texto) > largura_disponivel:
                 tamanho -= 1
+                fonte.setPointSize(tamanho)
                 break
 
         self.btn_zk_count.setFont(fonte)
@@ -2273,6 +2277,29 @@ class SmartPortariaScanner(QMainWindow):
             self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
         self.ajustar_fonte_botao_zk()
         super().resizeEvent(event)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
+                # Obter a posição global do clique
+                pos = event.globalPosition().toPoint()
+
+                # Geometria do container
+                rect_zk = self.container_pesquisa_zk.geometry()
+                rect_zk.moveTo(self.container_pesquisa_zk.mapToGlobal(QPoint(0,0)))
+
+                # Geometria do botão de ativação (para não fechar ao clicar nele)
+                rect_btn = self.btn_zk_count.geometry()
+                rect_btn.moveTo(self.btn_zk_count.mapToGlobal(QPoint(0,0)))
+
+                # Geometria do input de busca (para não fechar ao clicar nele)
+                rect_busca = self.input_busca.geometry()
+                rect_busca.moveTo(self.input_busca.mapToGlobal(QPoint(0,0)))
+
+                if not rect_zk.contains(pos) and not rect_btn.contains(pos) and not rect_busca.contains(pos):
+                    self.container_pesquisa_zk.hide()
+
+        return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
         if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
