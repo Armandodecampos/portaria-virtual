@@ -773,7 +773,7 @@ class ExcelRecordsWidget(QWidget):
                 text-align: left;
             }
         """)
-        layout.addWidget(self.btn_toggle_filter)
+        # layout.addWidget(self.btn_toggle_filter)
 
         self.filter_container = QWidget()
         self.filter_lay = QVBoxLayout(self.filter_container)
@@ -792,7 +792,7 @@ class ExcelRecordsWidget(QWidget):
 
         self.filter_container.hide()
         self.btn_toggle_filter.clicked.connect(lambda: self.filter_container.setVisible(not self.filter_container.isVisible()))
-        layout.addWidget(self.filter_container)
+        # layout.addWidget(self.filter_container)
 
         # Pesquisa
         search_lay = QHBoxLayout()
@@ -813,7 +813,7 @@ class ExcelRecordsWidget(QWidget):
 
         search_lay.addWidget(self.input_search)
         search_lay.addWidget(self.btn_clear)
-        layout.addLayout(search_lay)
+        # layout.addLayout(search_lay)
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
@@ -1007,8 +1007,9 @@ class ExcelRecordsWidget(QWidget):
         if self.parent_window:
             self.parent_window.abrir_dialogo_excel()
 
-    def filter_and_render(self):
-        search_text_raw = self.input_search.text().strip()
+    def filter_and_render(self, search_text_raw=None):
+        if search_text_raw is None:
+            search_text_raw = self.input_search.text().strip()
         search_query = self.normalize_text(search_text_raw)
 
         visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
@@ -1952,12 +1953,14 @@ class SmartPortariaScanner(QMainWindow):
             self.timer_retry.start(10000)
 
     def realizar_busca_local(self):
-        if not self.db: return
         self.timer_busca.start(300)
 
     def executar_busca_local(self):
+        termo_raw = self.input_busca.text().strip()
+        self.container_pesquisa_zk.filter_and_render(termo_raw)
+
         if not self.db: return
-        termo = self.input_busca.text().strip().lower()
+        termo = termo_raw.lower()
         if not termo: 
             self.txt_res_busca.clear()
             return
