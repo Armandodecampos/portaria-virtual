@@ -769,10 +769,19 @@ class ExcelRecordsDialog(QDialog):
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("DROP TABLE IF EXISTS zk_records")
+            cursor.execute("DROP TABLE IF EXISTS zk_records_fts")
             cursor.execute("""
                 CREATE TABLE zk_records (
                     id TEXT, nome TEXT, sobrenome TEXT, dept TEXT,
                     celular TEXT, cartao TEXT, email TEXT, search_text TEXT
+                )
+            """)
+            # FTS5 com trigram para busca ultra rápida parcial
+            cursor.execute("""
+                CREATE VIRTUAL TABLE zk_records_fts USING fts5(
+                    search_text,
+                    content='zk_records',
+                    tokenize='trigram'
                 )
             """)
 
@@ -785,7 +794,7 @@ class ExcelRecordsDialog(QDialog):
                     ))
 
             cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?)", records)
-            cursor.execute("CREATE INDEX idx_zk_search ON zk_records(search_text)")
+            cursor.execute("INSERT INTO zk_records_fts(rowid, search_text) SELECT rowid, search_text FROM zk_records")
             cursor.execute("CREATE INDEX idx_zk_dept ON zk_records(dept)")
             conn.commit()
             conn.close()
@@ -879,8 +888,7 @@ class ExcelRecordsDialog(QDialog):
         db_file = "zk_cache.db"
         if not os.path.exists(db_file): return
 
-        search_query = self.normalize_text(self.input_search.text())
-        search_words = search_query.split()
+        search_query = self.normalize_text(self.input_search.text().strip())
 
         visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
         if not visible_depts:
@@ -893,17 +901,26 @@ class ExcelRecordsDialog(QDialog):
             cursor = conn.cursor()
             cursor.execute("PRAGMA query_only = ON")
 
-            # Conta o total primeiro
-            base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(visible_depts)))
-            params = list(visible_depts)
-            for word in search_words:
-                base_query += " AND search_text LIKE ?"
-                params.append(f"%{word}%")
+            if search_query:
+                # Usar FTS5 para busca ultra rápida
+                # Escapar aspas para segurança no FTS
+                safe_query = search_query.replace('"', '""')
+                # Busca por palavras
+                fts_query = ' AND '.join([f'"{w}"' for w in safe_query.split()])
+
+                base_query = """
+                    FROM zk_records
+                    JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
+                    WHERE zk_records.dept IN ({}) AND zk_records_fts MATCH ?
+                """.format(",".join(["?"] * len(visible_depts)))
+                params = list(visible_depts) + [fts_query]
+            else:
+                base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(visible_depts)))
+                params = list(visible_depts)
 
             cursor.execute("SELECT COUNT(*) " + base_query, params)
             total_count = cursor.fetchone()[0]
 
-            # Busca todos os resultados conforme solicitado pelo usuário
             query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome"
             cursor.execute(query, params)
             rows = cursor.fetchall()
