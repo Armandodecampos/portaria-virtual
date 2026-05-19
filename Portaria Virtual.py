@@ -634,12 +634,12 @@ class SearchThread(QThread):
         if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
         if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
         extra_str = " | ".join(extra)
+        full_extra = f" | {extra_str}" if extra_str else ""
 
         return f"""
-        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-radius: 6px; padding: 8px; margin-bottom: 5px; word-wrap: break-word;'>
+        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
             <div style='font-size: 13px; color: {self.td["text_color"]};'>
-                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']})<br>
-                <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'>{extra_str}</span>
+                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
             </div>
         </div>
         """
@@ -1050,12 +1050,12 @@ class ExcelRecordsWidget(QWidget):
         if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
         if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
         extra_str = " | ".join(extra)
+        full_extra = f" | {extra_str}" if extra_str else ""
 
         return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 6px; padding: 8px; margin-bottom: 5px; word-wrap: break-word;'>
+        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
             <div style='font-size: 13px; color: {self.text_color};'>
-                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']})<br>
-                <span style='color: {self.sub_text_color}; font-size: 12px;'>{extra_str}</span>
+                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
             </div>
         </div>
         """
