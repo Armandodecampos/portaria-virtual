@@ -756,6 +756,30 @@ class ExcelRecordsWidget(QWidget):
     def load_from_cache(self):
         db_file = "zk_cache.db"
         if os.path.exists(db_file):
+            # Verifica integridade do FTS
+            try:
+                conn = sqlite3.connect(db_file)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='zk_records_fts'")
+                if not cursor.fetchone():
+                    # Se não tem FTS, tenta criar a partir dos dados existentes
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='zk_records'")
+                    if cursor.fetchone():
+                        print("🛠️ Migrando banco de dados para suporte FTS5...")
+                        cursor.execute("DROP TABLE IF EXISTS zk_records_fts")
+                        cursor.execute("""
+                            CREATE VIRTUAL TABLE zk_records_fts USING fts5(
+                                search_text,
+                                content='zk_records',
+                                tokenize='trigram'
+                            )
+                        """)
+                        cursor.execute("INSERT INTO zk_records_fts(rowid, search_text) SELECT rowid, search_text FROM zk_records")
+                        conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Erro ao verificar integridade do cache: {e}")
+
             self.lbl_file_name.setText("Dados carregados do cache (.db).")
             self.render_department_filters()
             self.filter_and_render()
@@ -954,7 +978,7 @@ class ExcelRecordsWidget(QWidget):
         card_html = f"<span style='margin-right: 15px;'><b style='color: #10b981;'>🪪 Cartão:</b> {item['cartao']}</span>" if item['cartao'] != "-" else ""
 
         return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 8px; padding: 12px; margin-bottom: 10px;'>
+        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 8px; padding: 12px; margin-bottom: 10px; word-wrap: break-word;'>
             <div style='font-size: 14px; color: {self.text_color};'>
                 <div style='margin-bottom: 5px;'>
                     <b style='color: #3b82f6; font-size: 16px;'>👤 {item['nome']} {item['sobrenome']}</b>
@@ -1357,7 +1381,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_zk_count = QPushButton("0 registros no Zk Bio")
         self.btn_zk_count.setToolTip("Ver registros do Zk Bio")
         self.btn_zk_count.setFixedHeight(38)
-        self.btn_zk_count.setMinimumWidth(180) # Garante que o texto caiba
+        self.btn_zk_count.setMinimumWidth(240) # Garante que o texto caiba sem cortar
         self.btn_zk_count.clicked.connect(self.abrir_dialogo_excel)
 
         self.btn_transferir = QPushButton("🚀")
