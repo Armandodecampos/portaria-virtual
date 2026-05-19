@@ -756,6 +756,22 @@ class ExcelRecordsWidget(QWidget):
         self.lbl_file_name.setStyleSheet("font-style: italic; color: #94a3b8;")
         header_lay.addWidget(self.lbl_file_name)
         header_lay.addStretch()
+
+        # Botão Fechar no cabeçalho
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setFixedSize(30, 30)
+        self.btn_close.clicked.connect(self.fechar_ou_ocultar)
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                font-weight: bold;
+                border-radius: 15px;
+            }
+            QPushButton:hover { background-color: #dc2626; }
+        """)
+        header_lay.addWidget(self.btn_close)
+
         layout.addLayout(header_lay)
 
         self.lbl_count = QLabel("Total de pessoas: 0")
@@ -820,21 +836,6 @@ class ExcelRecordsWidget(QWidget):
         self.browser.setOpenExternalLinks(True)
         self.browser.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.browser)
-
-        # Botão Fechar
-        self.btn_close = QPushButton("Fechar")
-        self.btn_close.clicked.connect(self.fechar_ou_ocultar)
-        self.btn_close.setStyleSheet("""
-            QPushButton {
-                background-color: #ef4444;
-                color: white;
-                font-weight: bold;
-                padding: 10px;
-                border-radius: 8px;
-                margin-top: 10px;
-            }
-        """)
-        layout.addWidget(self.btn_close)
 
     def normalize_text(self, text):
         if not text: return ""
@@ -1598,10 +1599,8 @@ class SmartPortariaScanner(QMainWindow):
         self.web_stack = QStackedWidget()
         self.stack_central.addWidget(self.web_stack)
 
-        # Adiciona o container de pesquisa no stack central
-        self.stack_central.addWidget(self.container_pesquisa_zk)
-
-        layout_web.addWidget(self.stack_central)
+        layout_web.addWidget(self.stack_central, 1)
+        layout_web.addWidget(self.container_pesquisa_zk)
 
         self.view_worker = QWebEngineView()
         self.view_worker.setVisible(False)
@@ -1854,10 +1853,9 @@ class SmartPortariaScanner(QMainWindow):
     def abrir_dialogo_excel(self):
         if self.container_pesquisa_zk.isVisible():
             self.container_pesquisa_zk.hide()
-            self.stack_central.setCurrentIndex(0)
         else:
+            self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
             self.container_pesquisa_zk.show()
-            self.stack_central.setCurrentIndex(1)
 
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
@@ -2246,6 +2244,11 @@ class SmartPortariaScanner(QMainWindow):
     def on_transfer_error(self, err):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
+
+    def resizeEvent(self, event):
+        if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
+            self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
+        super().resizeEvent(event)
 
     def closeEvent(self, event):
         if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
