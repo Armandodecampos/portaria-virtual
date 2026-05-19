@@ -9,6 +9,7 @@ import time
 import requests
 import urllib3
 import base64
+import json
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
@@ -20,13 +21,14 @@ try:
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
-        QRadioButton, QButtonGroup, QInputDialog, QSizePolicy
+        QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox
     )
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
     import qrcode
+    import openpyxl
     from PIL.ImageQt import ImageQt
 
     from selenium import webdriver
@@ -42,7 +44,7 @@ except ImportError as e:
     print("="*60)
     print(f"Erro detalhado: {e}")
     print("\nPara corrigir, abra o terminal e digite:")
-    print("pip install PyQt6 PyQt6-WebEngine pillow qrcode selenium requests")
+    print("pip install PyQt6 PyQt6-WebEngine pillow qrcode selenium requests openpyxl")
     print("="*60 + "\n")
     sys.exit(1)
 
@@ -608,6 +610,279 @@ class InstrucoesDialog(QDialog):
 
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
+class ExcelRecordsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.setWindowTitle("Pesquisa de todas as pessoas no sistema")
+        self.setMinimumSize(800, 600)
+
+        # Tema
+        self.theme = parent.settings.value("theme", "light") if parent else "light"
+        self.setup_ui()
+        self.all_items = {} # {dept: [items]}
+        self.department_checkboxes = {}
+        self.load_from_cache()
+
+    def setup_ui(self):
+        if self.theme == "dark":
+            self.setStyleSheet("background-color: #0f172a; color: #e2e8f0;")
+            self.card_bg = "#1e293b"
+            self.card_border = "#334155"
+            self.text_color = "#f8fafc"
+            self.sub_text_color = "#94a3b8"
+        else:
+            self.setStyleSheet("background-color: #f8fafc; color: #1e293b;")
+            self.card_bg = "#ffffff"
+            self.card_border = "#cbd5e1"
+            self.text_color = "#1e293b"
+            self.sub_text_color = "#64748b"
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # Cabeçalho: Selecionar Arquivo
+        header_lay = QHBoxLayout()
+        self.btn_upload = QPushButton("Selecionar arquivo Excel")
+        self.btn_upload.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                font-weight: bold;
+                padding: 10px 15px;
+                border-radius: 5px;
+            }
+            QPushButton:hover { background-color: #2563eb; }
+        """)
+        self.btn_upload.clicked.connect(self.import_excel)
+        header_lay.addWidget(self.btn_upload)
+
+        self.lbl_file_name = QLabel("")
+        self.lbl_file_name.setStyleSheet("font-style: italic; color: #94a3b8;")
+        header_lay.addWidget(self.lbl_file_name)
+        header_lay.addStretch()
+        layout.addLayout(header_lay)
+
+        self.lbl_count = QLabel("Total de pessoas: 0")
+        self.lbl_count.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        layout.addWidget(self.lbl_count)
+
+        # Filtro de Departamento
+        self.btn_toggle_filter = QPushButton("🔍 Filtrar por Departamento")
+        self.btn_toggle_filter.setStyleSheet("""
+            QPushButton {
+                background-color: #475569;
+                color: white;
+                padding: 8px 12px;
+                border-radius: 5px;
+                text-align: left;
+            }
+        """)
+        layout.addWidget(self.btn_toggle_filter)
+
+        self.filter_container = QWidget()
+        self.filter_lay = QVBoxLayout(self.filter_container)
+
+        self.cb_all = QCheckBox("Marcar Todos/Desmarcar Todos")
+        self.cb_all.clicked.connect(self.toggle_all_departments)
+        self.filter_lay.addWidget(self.cb_all)
+
+        self.scroll_depts = QScrollArea()
+        self.scroll_depts.setWidgetResizable(True)
+        self.scroll_depts.setFixedHeight(150)
+        self.depts_widget = QWidget()
+        self.depts_layout = QVBoxLayout(self.depts_widget)
+        self.scroll_depts.setWidget(self.depts_widget)
+        self.filter_lay.addWidget(self.scroll_depts)
+
+        self.filter_container.hide()
+        self.btn_toggle_filter.clicked.connect(lambda: self.filter_container.setVisible(not self.filter_container.isVisible()))
+        layout.addWidget(self.filter_container)
+
+        # Pesquisa
+        search_lay = QHBoxLayout()
+        self.input_search = QLineEdit()
+        self.input_search.setPlaceholderText("🔍 Pesquisar...")
+        self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
+        self.input_search.textChanged.connect(self.filter_and_render)
+
+        self.btn_clear = QPushButton("Apagar")
+        self.btn_clear.setStyleSheet("background-color: #ef4444; color: white; padding: 8px 15px; border-radius: 20px;")
+        self.btn_clear.clicked.connect(self.input_search.clear)
+        self.btn_clear.hide()
+        self.input_search.textChanged.connect(lambda t: self.btn_clear.setVisible(len(t)>0))
+
+        search_lay.addWidget(self.input_search)
+        search_lay.addWidget(self.btn_clear)
+        layout.addLayout(search_lay)
+
+        # Lista de resultados
+        self.browser = QTextBrowser()
+        self.browser.setOpenExternalLinks(True)
+        self.browser.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(self.browser)
+
+        # Botão Fechar
+        self.btn_close = QPushButton("Fechar")
+        self.btn_close.clicked.connect(self.accept)
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                font-weight: bold;
+                padding: 10px;
+                border-radius: 8px;
+                margin-top: 10px;
+            }
+        """)
+        layout.addWidget(self.btn_close)
+
+    def normalize_text(self, text):
+        if not text: return ""
+        return "".join(
+            c for c in unicodedata.normalize('NFD', str(text))
+            if unicodedata.category(c) != 'Mn'
+        ).lower()
+
+    def toggle_all_departments(self):
+        checked = self.cb_all.isChecked()
+        for cb in self.department_checkboxes.values():
+            cb.setChecked(checked)
+        self.filter_and_render()
+
+    def load_from_cache(self):
+        cache_file = "zk_cache.json"
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.all_items = data.get("items", {})
+                    self.lbl_file_name.setText("Dados carregados do cache.")
+                    self.render_department_filters()
+                    self.filter_and_render()
+            except Exception as e:
+                print(f"Erro ao carregar cache: {e}")
+
+    def save_to_cache(self):
+        cache_file = "zk_cache.json"
+        try:
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump({"items": self.all_items}, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Erro ao salvar cache: {e}")
+
+    def render_department_filters(self):
+        # Limpa layout anterior
+        for i in reversed(range(self.depts_layout.count())):
+            self.depts_layout.itemAt(i).widget().setParent(None)
+
+        self.department_checkboxes = {}
+        for dept in sorted(self.all_items.keys()):
+            count = len(self.all_items[dept])
+            cb = QCheckBox(f"{dept} ({count})")
+            cb.setChecked(True)
+            cb.clicked.connect(self.filter_and_render)
+            self.depts_layout.addWidget(cb)
+            self.department_checkboxes[dept] = cb
+        self.cb_all.setChecked(True)
+
+    def import_excel(self):
+        fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Excel", "", "Excel Files (*.xls *.xlsx)")
+        if not fname: return
+
+        try:
+            self.lbl_file_name.setText(f"📂 {os.path.basename(fname)}")
+            wb = openpyxl.load_workbook(fname, data_only=True)
+            ws = wb.active
+
+            new_items = {}
+            # Mapping: ID(0), Nome(1), Sobrenome(2), Departamento(4), Celular(7), Cartão(8), Email(9)
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if not any(row): continue
+
+                # Use safely indices with get() or similar logic to avoid IndexError
+                # or check length
+                row_len = len(row)
+                vid = str(row[0]) if row_len > 0 and row[0] is not None else "-"
+                nome = str(row[1]).strip() if row_len > 1 and row[1] else "-"
+                sobrenome = str(row[2]).strip() if row_len > 2 and row[2] else "-"
+                dept = str(row[4]).strip() if row_len > 4 and row[4] else "Portaria Virtual"
+                celular = str(row[7]) if row_len > 7 and row[7] is not None else "-"
+                cartao = str(row[8]) if row_len > 8 and row[8] is not None else "-"
+                email = str(row[9]) if row_len > 9 and row[9] is not None else "-"
+
+                if vid == "-" and nome == "-": continue
+
+                search_text = self.normalize_text(f"{nome} {sobrenome} {vid} {email} {celular} {cartao}")
+
+                item = {
+                    "id": vid, "nome": nome, "sobrenome": sobrenome,
+                    "dept": dept, "celular": celular, "cartao": cartao,
+                    "email": email, "search_text": search_text
+                }
+
+                if dept not in new_items: new_items[dept] = []
+                new_items[dept].append(item)
+
+            self.all_items = new_items
+            self.save_to_cache()
+            self.render_department_filters()
+            self.filter_and_render()
+
+            if self.parent_window:
+                self.parent_window.update_zk_count()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {e}")
+
+    def filter_and_render(self):
+        search_query = self.normalize_text(self.input_search.text())
+        search_words = search_query.split()
+
+        visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
+
+        html = f"<div style='font-family: sans-serif;'>"
+        total = 0
+
+        for dept in sorted(self.all_items.keys()):
+            if dept not in visible_depts: continue
+
+            filtered_items = []
+            for item in self.all_items[dept]:
+                if all(word in item["search_text"] for word in search_words):
+                    filtered_items.append(item)
+
+            if filtered_items:
+                html += f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.card_border}; margin-top: 20px;'>{dept}</h3>"
+                for item in filtered_items:
+                    total += 1
+                    html += self.render_item_card(item)
+
+        html += "</div>"
+        self.browser.setHtml(html)
+        self.lbl_count.setText(f"Total de pessoas: {total}")
+
+    def render_item_card(self, item):
+        email_html = f"<span style='margin-right: 15px;'><b style='color: #ef4444;'>📧 Email:</b> {item['email']}</span>" if item['email'] != "-" else ""
+        tel_html = f"<span style='margin-right: 15px;'><b style='color: #a855f7;'>📱 Celular:</b> {item['celular']}</span>" if item['celular'] != "-" else ""
+        card_html = f"<span style='margin-right: 15px;'><b style='color: #10b981;'>🪪 Cartão:</b> {item['cartao']}</span>" if item['cartao'] != "-" else ""
+
+        return f"""
+        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 8px; padding: 12px; margin-bottom: 10px;'>
+            <div style='font-size: 14px; color: {self.text_color};'>
+                <div style='margin-bottom: 5px;'>
+                    <b style='color: #3b82f6; font-size: 16px;'>👤 {item['nome']} {item['sobrenome']}</b>
+                </div>
+                <div style='color: {self.sub_text_color};'>
+                    <span style='margin-right: 15px;'><b>🪪 CPF (ID):</b> {item['id']}</span>
+                    {email_html}
+                    {tel_html}
+                    {card_html}
+                </div>
+            </div>
+        </div>
+        """
+
 # --- CONFIGURAÇÕES AMBEV ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 os.environ['no_proxy'] = '192.168.7.9'
@@ -942,6 +1217,7 @@ class SmartPortariaScanner(QMainWindow):
         
         # Tenta carregar automaticamente o último banco usado
         self.carregar_ultimo_banco()
+        self.update_zk_count()
 
         self.active_toast = None
 
@@ -983,6 +1259,16 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setFixedSize(38, 38)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
+        self.btn_upload_excel = QPushButton("📁")
+        self.btn_upload_excel.setToolTip("Importar Excel")
+        self.btn_upload_excel.setFixedSize(38, 38)
+        self.btn_upload_excel.clicked.connect(self.importar_excel_zk)
+
+        self.btn_zk_count = QPushButton("0 registros no Zk Bio")
+        self.btn_zk_count.setToolTip("Ver registros do Zk Bio")
+        self.btn_zk_count.setFixedHeight(38)
+        self.btn_zk_count.clicked.connect(self.abrir_dialogo_excel)
+
         self.btn_transferir = QPushButton("🚀")
         self.btn_transferir.setToolTip("Transferir")
         self.btn_transferir.setFixedSize(38, 38)
@@ -1004,6 +1290,8 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_transferir)
         header_layout.addWidget(self.btn_download_img)
         header_layout.addWidget(self.btn_unlock)
+        header_layout.addWidget(self.btn_upload_excel)
+        header_layout.addWidget(self.btn_zk_count)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
         header_layout.addStretch()
@@ -1214,6 +1502,8 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
         self.btn_unlock.setStyleSheet(header_btn_style)
+        self.btn_upload_excel.setStyleSheet(header_btn_style)
+        self.btn_zk_count.setStyleSheet(header_btn_style + "padding: 0 10px; font-size: 14px;")
         self.btn_transferir.setStyleSheet(header_btn_style)
         self.btn_download_img.setStyleSheet(header_btn_style)
         self.btn_back.setStyleSheet(header_btn_style)
@@ -1357,6 +1647,27 @@ class SmartPortariaScanner(QMainWindow):
                 self.painel_lateral.hide()
             else:
                 self.painel_lateral.show()
+
+    def update_zk_count(self):
+        cache_file = "zk_cache.json"
+        count = 0
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    items = data.get("items", {})
+                    for dept in items:
+                        count += len(items[dept])
+            except: pass
+        self.btn_zk_count.setText(f"{count} registros no Zk Bio")
+
+    def importar_excel_zk(self):
+        dlg = ExcelRecordsDialog(self)
+        dlg.import_excel()
+
+    def abrir_dialogo_excel(self):
+        dlg = ExcelRecordsDialog(self)
+        dlg.exec()
 
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
