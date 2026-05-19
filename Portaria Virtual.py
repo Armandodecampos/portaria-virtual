@@ -611,12 +611,10 @@ class InstrucoesDialog(QDialog):
 
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
-class ExcelRecordsDialog(QDialog):
+class ExcelRecordsWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_window = parent
-        self.setWindowTitle("Pesquisa de todas as pessoas no sistema")
-        self.setMinimumSize(800, 600)
 
         # Tema
         self.theme = parent.settings.value("theme", "light") if parent else "light"
@@ -729,7 +727,7 @@ class ExcelRecordsDialog(QDialog):
 
         # Botão Fechar
         self.btn_close = QPushButton("Fechar")
-        self.btn_close.clicked.connect(self.accept)
+        self.btn_close.clicked.connect(self.fechar_ou_ocultar)
         self.btn_close.setStyleSheet("""
             QPushButton {
                 background-color: #ef4444;
@@ -884,6 +882,10 @@ class ExcelRecordsDialog(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {e}")
 
+    def fechar_ou_ocultar(self):
+        if self.parent_window:
+            self.parent_window.abrir_dialogo_excel()
+
     def filter_and_render(self):
         db_file = "zk_cache.db"
         if not os.path.exists(db_file): return
@@ -902,18 +904,17 @@ class ExcelRecordsDialog(QDialog):
             cursor.execute("PRAGMA query_only = ON")
 
             if search_query:
-                # Usar FTS5 para busca ultra rápida
-                # Escapar aspas para segurança no FTS
-                safe_query = search_query.replace('"', '""')
-                # Busca por palavras
-                fts_query = ' AND '.join([f'"{w}"' for w in safe_query.split()])
-
+                # Use LIKE on trigram index for maximum flexibility (works with any length)
                 base_query = """
                     FROM zk_records
                     JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
-                    WHERE zk_records.dept IN ({}) AND zk_records_fts MATCH ?
+                    WHERE zk_records.dept IN ({})
                 """.format(",".join(["?"] * len(visible_depts)))
-                params = list(visible_depts) + [fts_query]
+                params = list(visible_depts)
+
+                for word in search_query.split():
+                    base_query += " AND zk_records_fts.search_text LIKE ?"
+                    params.append(f"%{word}%")
             else:
                 base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(visible_depts)))
                 params = list(visible_depts)
@@ -1276,6 +1277,10 @@ class SmartPortariaScanner(QMainWindow):
         self.profile_anonimo = QWebEngineProfile(self) 
         self.profile_anonimo.setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
+        # Janela de pesquisa integrada (deve ser criada antes do setup_ui para ser adicionada ao layout)
+        self.container_pesquisa_zk = ExcelRecordsWidget(self)
+        self.container_pesquisa_zk.hide()
+
         self.setup_ui()
         self.configurar_navegadores()
 
@@ -1500,8 +1505,16 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.tabs)
         layout_web.addLayout(toolbar)
 
+        # Stack para navegação e pesquisa
+        self.stack_central = QStackedWidget()
+
         self.web_stack = QStackedWidget()
-        layout_web.addWidget(self.web_stack)
+        self.stack_central.addWidget(self.web_stack)
+
+        # Adiciona o container de pesquisa no stack central
+        self.stack_central.addWidget(self.container_pesquisa_zk)
+
+        layout_web.addWidget(self.stack_central)
 
         self.view_worker = QWebEngineView()
         self.view_worker.setVisible(False)
@@ -1748,12 +1761,16 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_zk_count.setText(f"{count} registros no Zk Bio")
 
     def importar_excel_zk(self):
-        dlg = ExcelRecordsDialog(self)
-        dlg.import_excel()
+        # Abre como diálogo apenas para importação se necessário, ou usa o widget integrado
+        self.container_pesquisa_zk.import_excel()
 
     def abrir_dialogo_excel(self):
-        dlg = ExcelRecordsDialog(self)
-        dlg.exec()
+        if self.container_pesquisa_zk.isVisible():
+            self.container_pesquisa_zk.hide()
+            self.stack_central.setCurrentIndex(0)
+        else:
+            self.container_pesquisa_zk.show()
+            self.stack_central.setCurrentIndex(1)
 
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
