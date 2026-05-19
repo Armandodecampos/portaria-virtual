@@ -29,6 +29,7 @@ try:
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
     import qrcode
     import openpyxl
+    import xlrd
     from PIL.ImageQt import ImageQt
 
     from selenium import webdriver
@@ -44,7 +45,7 @@ except ImportError as e:
     print("="*60)
     print(f"Erro detalhado: {e}")
     print("\nPara corrigir, abra o terminal e digite:")
-    print("pip install PyQt6 PyQt6-WebEngine pillow qrcode selenium requests openpyxl")
+    print("pip install PyQt6 PyQt6-WebEngine pillow qrcode selenium requests openpyxl xlrd")
     print("="*60 + "\n")
     sys.exit(1)
 
@@ -792,12 +793,22 @@ class ExcelRecordsDialog(QDialog):
 
         try:
             self.lbl_file_name.setText(f"📂 {os.path.basename(fname)}")
-            wb = openpyxl.load_workbook(fname, data_only=True)
-            ws = wb.active
+
+            rows = []
+            if fname.lower().endswith(".xls"):
+                wb = xlrd.open_workbook(fname)
+                ws = wb.sheet_by_index(0)
+                for row_idx in range(1, ws.nrows):
+                    rows.append(ws.row_values(row_idx))
+            else:
+                wb = openpyxl.load_workbook(fname, data_only=True)
+                ws = wb.active
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    rows.append(row)
 
             new_items = {}
             # Mapping: ID(0), Nome(1), Sobrenome(2), Departamento(4), Celular(7), Cartão(8), Email(9)
-            for row in ws.iter_rows(min_row=2, values_only=True):
+            for row in rows:
                 if not any(row): continue
 
                 # Use safely indices with get() or similar logic to avoid IndexError
@@ -1267,6 +1278,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_zk_count = QPushButton("0 registros no Zk Bio")
         self.btn_zk_count.setToolTip("Ver registros do Zk Bio")
         self.btn_zk_count.setFixedHeight(38)
+        self.btn_zk_count.setMinimumWidth(180) # Garante que o texto caiba
         self.btn_zk_count.clicked.connect(self.abrir_dialogo_excel)
 
         self.btn_transferir = QPushButton("🚀")
