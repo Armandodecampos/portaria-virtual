@@ -677,8 +677,6 @@ class SearchThread(QThread):
             rows = cursor.fetchall()
 
             html_parts = ["<div style='font-family: sans-serif;'>"]
-            if total_count > 300:
-                html_parts.append(f"<p style='color: #ef4444; font-weight: bold; background: #fee2e2; padding: 10px; border-radius: 5px;'>⚠️ Exibindo 300 de {total_count} resultados. Refine a busca.</p>")
 
             current_dept = None
             for r in rows:
@@ -1012,6 +1010,11 @@ class ExcelRecordsWidget(QWidget):
         if search_text_raw is None:
             search_text_raw = self.input_search.text().strip()
         search_query = self.normalize_text(search_text_raw)
+
+        if not search_query:
+            self.browser.clear()
+            self.lbl_count.setText("Total de pessoas: 0")
+            return
 
         visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
         if not visible_depts:
