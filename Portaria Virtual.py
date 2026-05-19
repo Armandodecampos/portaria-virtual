@@ -705,7 +705,11 @@ class ExcelRecordsDialog(QDialog):
         self.input_search = QLineEdit()
         self.input_search.setPlaceholderText("🔍 Pesquisar...")
         self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
-        self.input_search.textChanged.connect(self.filter_and_render)
+
+        self.timer_busca = QTimer()
+        self.timer_busca.setSingleShot(True)
+        self.timer_busca.timeout.connect(self.filter_and_render)
+        self.input_search.textChanged.connect(lambda: self.timer_busca.start(300))
 
         self.btn_clear = QPushButton("Apagar")
         self.btn_clear.setStyleSheet("background-color: #ef4444; color: white; padding: 8px 15px; border-radius: 20px;")
@@ -763,6 +767,7 @@ class ExcelRecordsDialog(QDialog):
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("DROP TABLE IF EXISTS zk_records")
             cursor.execute("""
                 CREATE TABLE zk_records (
@@ -799,6 +804,7 @@ class ExcelRecordsDialog(QDialog):
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
+            cursor.execute("PRAGMA query_only = ON")
             cursor.execute("SELECT dept, COUNT(*) FROM zk_records GROUP BY dept ORDER BY dept")
             rows = cursor.fetchall()
             for dept, count in rows:
@@ -885,26 +891,29 @@ class ExcelRecordsDialog(QDialog):
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
+            cursor.execute("PRAGMA query_only = ON")
 
-            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email FROM zk_records WHERE dept IN ({})".format(
-                ",".join(["?"] * len(visible_depts))
-            )
+            # Conta o total primeiro
+            base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(visible_depts)))
             params = list(visible_depts)
-
             for word in search_words:
-                query += " AND search_text LIKE ?"
+                base_query += " AND search_text LIKE ?"
                 params.append(f"%{word}%")
 
-            query += " ORDER BY dept, nome"
+            cursor.execute("SELECT COUNT(*) " + base_query, params)
+            total_count = cursor.fetchone()[0]
+
+            # Busca apenas os primeiros 100 resultados para performance de renderização
+            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome LIMIT 100"
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
             html = f"<div style='font-family: sans-serif;'>"
-            current_dept = None
-            total = 0
+            if total_count > 100:
+                html += f"<p style='color: #ef4444; font-weight: bold;'>⚠️ Exibindo apenas os primeiros 100 de {total_count} resultados. Refine sua busca.</p>"
 
+            current_dept = None
             for r in rows:
-                total += 1
                 item = {
                     "id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3],
                     "celular": r[4], "cartao": r[5], "email": r[6]
@@ -918,7 +927,7 @@ class ExcelRecordsDialog(QDialog):
 
             html += "</div>"
             self.browser.setHtml(html)
-            self.lbl_count.setText(f"Total de pessoas: {total}")
+            self.lbl_count.setText(f"Total de pessoas: {total_count}")
             conn.close()
         except Exception as e:
             print(f"Erro ao filtrar DB: {e}")
