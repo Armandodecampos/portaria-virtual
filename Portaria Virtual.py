@@ -772,10 +772,6 @@ class ExcelRecordsWidget(QWidget):
 
         layout.addLayout(header_lay)
 
-        self.lbl_count = QLabel("Total de pessoas: 0")
-        self.lbl_count.setStyleSheet("font-weight: bold; margin-top: 10px;")
-        layout.addWidget(self.lbl_count)
-
         # Filtro de Departamento
         self.btn_toggle_filter = QPushButton("🔍 Filtrar por Departamento")
         self.btn_toggle_filter.setStyleSheet("""
@@ -1013,13 +1009,11 @@ class ExcelRecordsWidget(QWidget):
 
         if not search_query:
             self.browser.clear()
-            self.lbl_count.setText("Total de pessoas: 0")
             return
 
         visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
         if not visible_depts:
             self.browser.clear()
-            self.lbl_count.setText("Total de pessoas: 0")
             return
 
         # Cancela busca anterior se existir
@@ -1040,7 +1034,6 @@ class ExcelRecordsWidget(QWidget):
 
     def on_search_finished(self, html, total_count):
         self.browser.setHtml(html)
-        self.lbl_count.setText(f"Total de pessoas: {total_count}")
 
     def render_item_card(self, item):
         # Este método agora é usado principalmente para importação imediata,
@@ -1440,11 +1433,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setFixedSize(38, 38)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
-        self.btn_upload_excel = QPushButton("📁")
-        self.btn_upload_excel.setToolTip("Importar Excel")
-        self.btn_upload_excel.setFixedSize(38, 38)
-        self.btn_upload_excel.clicked.connect(self.importar_excel_zk)
-
         self.btn_zk_count = QPushButton("0 registros no Zk Bio")
         self.btn_zk_count.setToolTip("Ver registros do Zk Bio")
         self.btn_zk_count.setFixedHeight(38)
@@ -1472,7 +1460,6 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_transferir)
         header_layout.addWidget(self.btn_download_img)
         header_layout.addWidget(self.btn_unlock)
-        header_layout.addWidget(self.btn_upload_excel)
         header_layout.addWidget(self.btn_zk_count)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
@@ -1690,7 +1677,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
         self.btn_unlock.setStyleSheet(header_btn_style)
-        self.btn_upload_excel.setStyleSheet(header_btn_style)
         self.btn_zk_count.setStyleSheet(header_btn_style + "padding: 0 10px; font-size: 14px;")
         self.btn_transferir.setStyleSheet(header_btn_style)
         self.btn_download_img.setStyleSheet(header_btn_style)
@@ -1959,6 +1945,9 @@ class SmartPortariaScanner(QMainWindow):
     def executar_busca_local(self):
         termo_raw = self.input_busca.text().strip()
         self.container_pesquisa_zk.filter_and_render(termo_raw)
+
+        if termo_raw and not self.container_pesquisa_zk.isVisible():
+            self.abrir_dialogo_excel()
 
         if not self.db: return
         termo = termo_raw.lower()
