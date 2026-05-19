@@ -24,7 +24,7 @@ try:
         QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox,
         QListWidget, QListWidgetItem
     )
-    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage
+    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
@@ -1433,10 +1433,10 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setFixedSize(38, 38)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
-        self.btn_zk_count = QPushButton("0 registros no Zk Bio")
+        self.btn_zk_count = QPushButton("Registros ZK Bio")
         self.btn_zk_count.setToolTip("Ver registros do Zk Bio")
         self.btn_zk_count.setFixedHeight(38)
-        self.btn_zk_count.setMinimumWidth(240) # Garante que o texto caiba sem cortar
+        self.btn_zk_count.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_zk_count.clicked.connect(self.abrir_dialogo_excel)
 
         self.btn_transferir = QPushButton("🚀")
@@ -1677,7 +1677,8 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
         self.btn_unlock.setStyleSheet(header_btn_style)
-        self.btn_zk_count.setStyleSheet(header_btn_style + "padding: 0 10px; font-size: 14px;")
+        self.btn_zk_count.setStyleSheet(header_btn_style + "padding: 0 10px;")
+        self.ajustar_fonte_botao_zk()
         self.btn_transferir.setStyleSheet(header_btn_style)
         self.btn_download_img.setStyleSheet(header_btn_style)
         self.btn_back.setStyleSheet(header_btn_style)
@@ -1833,7 +1834,6 @@ class SmartPortariaScanner(QMainWindow):
                 count = cursor.fetchone()[0]
                 conn.close()
             except: pass
-        self.btn_zk_count.setText(f"{count} registros no Zk Bio")
 
     def importar_excel_zk(self):
         # Abre como diálogo apenas para importação se necessário, ou usa o widget integrado
@@ -2237,9 +2237,41 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
+    def ajustar_fonte_botao_zk(self):
+        """Ajusta o tamanho da fonte do botão ZK Bio para caber no espaço disponível."""
+        if not hasattr(self, 'btn_zk_count'): return
+
+        texto = self.btn_zk_count.text()
+        if not texto: return
+
+        largura_disponivel = self.btn_zk_count.width() - 20 # Desconto do padding
+        if largura_disponivel <= 0: return
+
+        fonte = self.btn_zk_count.font()
+        tamanho = 14 # Tamanho base
+        fonte.setPointSize(tamanho)
+
+        metrics = QFontMetrics(fonte)
+        while metrics.horizontalAdvance(texto) > largura_disponivel and tamanho > 6:
+            tamanho -= 1
+            fonte.setPointSize(tamanho)
+            metrics = QFontMetrics(fonte)
+
+        # Opcional: aumentar se sobrar muito espaço, mas limitado ao header
+        while metrics.horizontalAdvance(texto) < largura_disponivel - 10 and tamanho < 18:
+            tamanho += 1
+            fonte.setPointSize(tamanho)
+            metrics = QFontMetrics(fonte)
+            if metrics.horizontalAdvance(texto) > largura_disponivel:
+                tamanho -= 1
+                break
+
+        self.btn_zk_count.setFont(fonte)
+
     def resizeEvent(self, event):
         if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
             self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
+        self.ajustar_fonte_botao_zk()
         super().resizeEvent(event)
 
     def closeEvent(self, event):
