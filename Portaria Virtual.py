@@ -752,25 +752,40 @@ class ExcelRecordsDialog(QDialog):
         self.filter_and_render()
 
     def load_from_cache(self):
-        cache_file = "zk_cache.json"
-        if os.path.exists(cache_file):
-            try:
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.all_items = data.get("items", {})
-                    self.lbl_file_name.setText("Dados carregados do cache.")
-                    self.render_department_filters()
-                    self.filter_and_render()
-            except Exception as e:
-                print(f"Erro ao carregar cache: {e}")
+        db_file = "zk_cache.db"
+        if os.path.exists(db_file):
+            self.lbl_file_name.setText("Dados carregados do cache (.db).")
+            self.render_department_filters()
+            self.filter_and_render()
 
-    def save_to_cache(self):
-        cache_file = "zk_cache.json"
+    def save_to_cache_db(self, new_items):
+        db_file = "zk_cache.db"
         try:
-            with open(cache_file, 'w', encoding='utf-8') as f:
-                json.dump({"items": self.all_items}, f, ensure_ascii=False, indent=4)
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS zk_records")
+            cursor.execute("""
+                CREATE TABLE zk_records (
+                    id TEXT, nome TEXT, sobrenome TEXT, dept TEXT,
+                    celular TEXT, cartao TEXT, email TEXT, search_text TEXT
+                )
+            """)
+
+            records = []
+            for dept in new_items:
+                for item in new_items[dept]:
+                    records.append((
+                        item["id"], item["nome"], item["sobrenome"], item["dept"],
+                        item["celular"], item["cartao"], item["email"], item["search_text"]
+                    ))
+
+            cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?)", records)
+            cursor.execute("CREATE INDEX idx_zk_search ON zk_records(search_text)")
+            cursor.execute("CREATE INDEX idx_zk_dept ON zk_records(dept)")
+            conn.commit()
+            conn.close()
         except Exception as e:
-            print(f"Erro ao salvar cache: {e}")
+            print(f"Erro ao salvar cache DB: {e}")
 
     def render_department_filters(self):
         # Limpa layout anterior
@@ -778,13 +793,22 @@ class ExcelRecordsDialog(QDialog):
             self.depts_layout.itemAt(i).widget().setParent(None)
 
         self.department_checkboxes = {}
-        for dept in sorted(self.all_items.keys()):
-            count = len(self.all_items[dept])
-            cb = QCheckBox(f"{dept} ({count})")
-            cb.setChecked(True)
-            cb.clicked.connect(self.filter_and_render)
-            self.depts_layout.addWidget(cb)
-            self.department_checkboxes[dept] = cb
+        db_file = "zk_cache.db"
+        if not os.path.exists(db_file): return
+
+        try:
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute("SELECT dept, COUNT(*) FROM zk_records GROUP BY dept ORDER BY dept")
+            rows = cursor.fetchall()
+            for dept, count in rows:
+                cb = QCheckBox(f"{dept} ({count})")
+                cb.setChecked(True)
+                cb.clicked.connect(self.filter_and_render)
+                self.depts_layout.addWidget(cb)
+                self.department_checkboxes[dept] = cb
+            conn.close()
+        except: pass
         self.cb_all.setChecked(True)
 
     def import_excel(self):
@@ -835,8 +859,7 @@ class ExcelRecordsDialog(QDialog):
                 if dept not in new_items: new_items[dept] = []
                 new_items[dept].append(item)
 
-            self.all_items = new_items
-            self.save_to_cache()
+            self.save_to_cache_db(new_items)
             self.render_department_filters()
             self.filter_and_render()
 
@@ -847,31 +870,58 @@ class ExcelRecordsDialog(QDialog):
             QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {e}")
 
     def filter_and_render(self):
+        db_file = "zk_cache.db"
+        if not os.path.exists(db_file): return
+
         search_query = self.normalize_text(self.input_search.text())
         search_words = search_query.split()
 
         visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
+        if not visible_depts:
+            self.browser.clear()
+            self.lbl_count.setText("Total de pessoas: 0")
+            return
 
-        html = f"<div style='font-family: sans-serif;'>"
-        total = 0
+        try:
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
 
-        for dept in sorted(self.all_items.keys()):
-            if dept not in visible_depts: continue
+            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email FROM zk_records WHERE dept IN ({})".format(
+                ",".join(["?"] * len(visible_depts))
+            )
+            params = list(visible_depts)
 
-            filtered_items = []
-            for item in self.all_items[dept]:
-                if all(word in item["search_text"] for word in search_words):
-                    filtered_items.append(item)
+            for word in search_words:
+                query += " AND search_text LIKE ?"
+                params.append(f"%{word}%")
 
-            if filtered_items:
-                html += f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.card_border}; margin-top: 20px;'>{dept}</h3>"
-                for item in filtered_items:
-                    total += 1
-                    html += self.render_item_card(item)
+            query += " ORDER BY dept, nome"
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
 
-        html += "</div>"
-        self.browser.setHtml(html)
-        self.lbl_count.setText(f"Total de pessoas: {total}")
+            html = f"<div style='font-family: sans-serif;'>"
+            current_dept = None
+            total = 0
+
+            for r in rows:
+                total += 1
+                item = {
+                    "id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3],
+                    "celular": r[4], "cartao": r[5], "email": r[6]
+                }
+
+                if item["dept"] != current_dept:
+                    current_dept = item["dept"]
+                    html += f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.card_border}; margin-top: 20px;'>{current_dept}</h3>"
+
+                html += self.render_item_card(item)
+
+            html += "</div>"
+            self.browser.setHtml(html)
+            self.lbl_count.setText(f"Total de pessoas: {total}")
+            conn.close()
+        except Exception as e:
+            print(f"Erro ao filtrar DB: {e}")
 
     def render_item_card(self, item):
         email_html = f"<span style='margin-right: 15px;'><b style='color: #ef4444;'>📧 Email:</b> {item['email']}</span>" if item['email'] != "-" else ""
@@ -1661,15 +1711,15 @@ class SmartPortariaScanner(QMainWindow):
                 self.painel_lateral.show()
 
     def update_zk_count(self):
-        cache_file = "zk_cache.json"
+        db_file = "zk_cache.db"
         count = 0
-        if os.path.exists(cache_file):
+        if os.path.exists(db_file):
             try:
-                with open(cache_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    items = data.get("items", {})
-                    for dept in items:
-                        count += len(items[dept])
+                conn = sqlite3.connect(db_file)
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM zk_records")
+                count = cursor.fetchone()[0]
+                conn.close()
             except: pass
         self.btn_zk_count.setText(f"{count} registros no Zk Bio")
 
