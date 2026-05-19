@@ -21,7 +21,8 @@ try:
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
-        QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox
+        QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox,
+        QListWidget, QListWidgetItem
     )
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
@@ -611,17 +612,112 @@ class InstrucoesDialog(QDialog):
 
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
+class SearchThread(QThread):
+    results_ready = pyqtSignal(str, int)
+
+    def __init__(self, search_query, visible_depts, theme_data):
+        super().__init__()
+        self.search_query = search_query
+        self.visible_depts = visible_depts
+        self.td = theme_data # card_bg, card_border, text_color, sub_text_color
+
+    def normalize_text(self, text):
+        if not text: return ""
+        return "".join(
+            c for c in unicodedata.normalize('NFD', str(text))
+            if unicodedata.category(c) != 'Mn'
+        ).lower()
+
+    def render_item_card(self, item):
+        extra = []
+        if item['email'] != "-": extra.append(f"📧 {item['email']}")
+        if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
+        if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
+        extra_str = " | ".join(extra)
+
+        return f"""
+        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-radius: 6px; padding: 8px; margin-bottom: 5px; word-wrap: break-word;'>
+            <div style='font-size: 13px; color: {self.td["text_color"]};'>
+                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']})<br>
+                <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'>{extra_str}</span>
+            </div>
+        </div>
+        """
+
+    def run(self):
+        db_file = "zk_cache.db"
+        if not os.path.exists(db_file): return
+
+        try:
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA query_only = ON")
+            cursor.execute("PRAGMA cache_size = -10000")
+
+            if self.search_query:
+                base_query = """
+                    FROM zk_records
+                    JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
+                    WHERE zk_records.dept IN ({})
+                """.format(",".join(["?"] * len(self.visible_depts)))
+                params = list(self.visible_depts)
+                for word in self.search_query.split():
+                    base_query += " AND zk_records_fts.search_text LIKE ?"
+                    params.append(f"%{word}%")
+            else:
+                base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(self.visible_depts)))
+                params = list(self.visible_depts)
+
+            cursor.execute("SELECT COUNT(*) " + base_query, params)
+            total_count = cursor.fetchone()[0]
+
+            # Limitamos para 300 para performance máxima
+            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome LIMIT 300"
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+            html_parts = ["<div style='font-family: sans-serif;'>"]
+            if total_count > 300:
+                html_parts.append(f"<p style='color: #ef4444; font-weight: bold; background: #fee2e2; padding: 10px; border-radius: 5px;'>⚠️ Exibindo 300 de {total_count} resultados. Refine a busca.</p>")
+
+            current_dept = None
+            for r in rows:
+                item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6]}
+                if item_data["dept"] != current_dept:
+                    current_dept = item_data["dept"]
+                    html_parts.append(f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.td['card_border']}; margin-top: 15px; margin-bottom: 10px;'>{current_dept}</h3>")
+                html_parts.append(self.render_item_card(item_data))
+
+            html_parts.append("</div>")
+            self.results_ready.emit("".join(html_parts), total_count)
+            conn.close()
+        except Exception as e:
+            print(f"Erro na thread de busca: {e}")
+
 class ExcelRecordsWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_window = parent
+        self.db_conn = None
+        self.search_thread = None
 
         # Tema
         self.theme = parent.settings.value("theme", "light") if parent else "light"
         self.setup_ui()
-        self.all_items = {} # {dept: [items]}
         self.department_checkboxes = {}
         self.load_from_cache()
+
+    def get_db_conn(self):
+        db_file = "zk_cache.db"
+        if not self.db_conn:
+            try:
+                self.db_conn = sqlite3.connect(db_file, check_same_thread=False)
+                c = self.db_conn.cursor()
+                c.execute("PRAGMA journal_mode=WAL")
+                c.execute("PRAGMA cache_size = -10000") # 10MB cache
+                c.execute("PRAGMA temp_store = MEMORY")
+            except: pass
+        return self.db_conn
 
     def setup_ui(self):
         if self.theme == "dark":
@@ -707,7 +803,7 @@ class ExcelRecordsWidget(QWidget):
         self.timer_busca = QTimer()
         self.timer_busca.setSingleShot(True)
         self.timer_busca.timeout.connect(self.filter_and_render)
-        self.input_search.textChanged.connect(lambda: self.timer_busca.start(300))
+        self.input_search.textChanged.connect(lambda: self.timer_busca.start(500))
 
         self.btn_clear = QPushButton("Apagar")
         self.btn_clear.setStyleSheet("background-color: #ef4444; color: white; padding: 8px 15px; border-radius: 20px;")
@@ -719,7 +815,7 @@ class ExcelRecordsWidget(QWidget):
         search_lay.addWidget(self.btn_clear)
         layout.addLayout(search_lay)
 
-        # Lista de resultados
+        # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
         self.browser.setOpenExternalLinks(True)
         self.browser.setStyleSheet("border: none; background: transparent;")
@@ -758,11 +854,11 @@ class ExcelRecordsWidget(QWidget):
         if os.path.exists(db_file):
             # Verifica integridade do FTS
             try:
-                conn = sqlite3.connect(db_file)
+                conn = self.get_db_conn()
+                if not conn: return
                 cursor = conn.cursor()
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='zk_records_fts'")
                 if not cursor.fetchone():
-                    # Se não tem FTS, tenta criar a partir dos dados existentes
                     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='zk_records'")
                     if cursor.fetchone():
                         print("🛠️ Migrando banco de dados para suporte FTS5...")
@@ -776,7 +872,6 @@ class ExcelRecordsWidget(QWidget):
                         """)
                         cursor.execute("INSERT INTO zk_records_fts(rowid, search_text) SELECT rowid, search_text FROM zk_records")
                         conn.commit()
-                conn.close()
             except Exception as e:
                 print(f"Erro ao verificar integridade do cache: {e}")
 
@@ -789,7 +884,8 @@ class ExcelRecordsWidget(QWidget):
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA journal_mode=OFF")
+            cursor.execute("PRAGMA synchronous=OFF")
             cursor.execute("DROP TABLE IF EXISTS zk_records")
             cursor.execute("DROP TABLE IF EXISTS zk_records_fts")
             cursor.execute("""
@@ -798,7 +894,6 @@ class ExcelRecordsWidget(QWidget):
                     celular TEXT, cartao TEXT, email TEXT, search_text TEXT
                 )
             """)
-            # FTS5 com trigram para busca ultra rápida parcial
             cursor.execute("""
                 CREATE VIRTUAL TABLE zk_records_fts USING fts5(
                     search_text,
@@ -817,9 +912,11 @@ class ExcelRecordsWidget(QWidget):
 
             cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?)", records)
             cursor.execute("INSERT INTO zk_records_fts(rowid, search_text) SELECT rowid, search_text FROM zk_records")
-            cursor.execute("CREATE INDEX idx_zk_dept ON zk_records(dept)")
+            cursor.execute("CREATE INDEX idx_zk_dept_nome ON zk_records(dept, nome)")
             conn.commit()
             conn.close()
+            # Reinicia conexão persistente para refletir mudanças
+            self.db_conn = None
         except Exception as e:
             print(f"Erro ao salvar cache DB: {e}")
 
@@ -911,10 +1008,8 @@ class ExcelRecordsWidget(QWidget):
             self.parent_window.abrir_dialogo_excel()
 
     def filter_and_render(self):
-        db_file = "zk_cache.db"
-        if not os.path.exists(db_file): return
-
-        search_query = self.normalize_text(self.input_search.text().strip())
+        search_text_raw = self.input_search.text().strip()
+        search_query = self.normalize_text(search_text_raw)
 
         visible_depts = [dept for dept, cb in self.department_checkboxes.items() if cb.isChecked()]
         if not visible_depts:
@@ -922,73 +1017,40 @@ class ExcelRecordsWidget(QWidget):
             self.lbl_count.setText("Total de pessoas: 0")
             return
 
-        try:
-            conn = sqlite3.connect(db_file)
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA query_only = ON")
+        # Cancela busca anterior se existir
+        if self.search_thread and self.search_thread.isRunning():
+            self.search_thread.terminate()
+            self.search_thread.wait()
 
-            if search_query:
-                # Use LIKE on trigram index for maximum flexibility (works with any length)
-                base_query = """
-                    FROM zk_records
-                    JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
-                    WHERE zk_records.dept IN ({})
-                """.format(",".join(["?"] * len(visible_depts)))
-                params = list(visible_depts)
+        theme_data = {
+            "card_bg": self.card_bg,
+            "card_border": self.card_border,
+            "text_color": self.text_color,
+            "sub_text_color": self.sub_text_color
+        }
 
-                for word in search_query.split():
-                    base_query += " AND zk_records_fts.search_text LIKE ?"
-                    params.append(f"%{word}%")
-            else:
-                base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(visible_depts)))
-                params = list(visible_depts)
+        self.search_thread = SearchThread(search_query, visible_depts, theme_data)
+        self.search_thread.results_ready.connect(self.on_search_finished)
+        self.search_thread.start()
 
-            cursor.execute("SELECT COUNT(*) " + base_query, params)
-            total_count = cursor.fetchone()[0]
-
-            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome"
-            cursor.execute(query, params)
-            rows = cursor.fetchall()
-
-            html = f"<div style='font-family: sans-serif;'>"
-
-            current_dept = None
-            for r in rows:
-                item = {
-                    "id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3],
-                    "celular": r[4], "cartao": r[5], "email": r[6]
-                }
-
-                if item["dept"] != current_dept:
-                    current_dept = item["dept"]
-                    html += f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.card_border}; margin-top: 20px;'>{current_dept}</h3>"
-
-                html += self.render_item_card(item)
-
-            html += "</div>"
-            self.browser.setHtml(html)
-            self.lbl_count.setText(f"Total de pessoas: {total_count}")
-            conn.close()
-        except Exception as e:
-            print(f"Erro ao filtrar DB: {e}")
+    def on_search_finished(self, html, total_count):
+        self.browser.setHtml(html)
+        self.lbl_count.setText(f"Total de pessoas: {total_count}")
 
     def render_item_card(self, item):
-        email_html = f"<span style='margin-right: 15px;'><b style='color: #ef4444;'>📧 Email:</b> {item['email']}</span>" if item['email'] != "-" else ""
-        tel_html = f"<span style='margin-right: 15px;'><b style='color: #a855f7;'>📱 Celular:</b> {item['celular']}</span>" if item['celular'] != "-" else ""
-        card_html = f"<span style='margin-right: 15px;'><b style='color: #10b981;'>🪪 Cartão:</b> {item['cartao']}</span>" if item['cartao'] != "-" else ""
+        # Este método agora é usado principalmente para importação imediata,
+        # mas a thread tem sua própria versão. Mantemos para consistência.
+        extra = []
+        if item['email'] != "-": extra.append(f"📧 {item['email']}")
+        if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
+        if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
+        extra_str = " | ".join(extra)
 
         return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 8px; padding: 12px; margin-bottom: 10px; word-wrap: break-word;'>
-            <div style='font-size: 14px; color: {self.text_color};'>
-                <div style='margin-bottom: 5px;'>
-                    <b style='color: #3b82f6; font-size: 16px;'>👤 {item['nome']} {item['sobrenome']}</b>
-                </div>
-                <div style='color: {self.sub_text_color};'>
-                    <span style='margin-right: 15px;'><b>🪪 CPF (ID):</b> {item['id']}</span>
-                    {email_html}
-                    {tel_html}
-                    {card_html}
-                </div>
+        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 6px; padding: 8px; margin-bottom: 5px; word-wrap: break-word;'>
+            <div style='font-size: 13px; color: {self.text_color};'>
+                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']})<br>
+                <span style='color: {self.sub_text_color}; font-size: 12px;'>{extra_str}</span>
             </div>
         </div>
         """
