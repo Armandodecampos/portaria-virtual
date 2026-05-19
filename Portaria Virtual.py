@@ -903,14 +903,12 @@ class ExcelRecordsDialog(QDialog):
             cursor.execute("SELECT COUNT(*) " + base_query, params)
             total_count = cursor.fetchone()[0]
 
-            # Busca apenas os primeiros 100 resultados para performance de renderização
-            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome LIMIT 100"
+            # Busca todos os resultados conforme solicitado pelo usuário
+            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome"
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
             html = f"<div style='font-family: sans-serif;'>"
-            if total_count > 100:
-                html += f"<p style='color: #ef4444; font-weight: bold;'>⚠️ Exibindo apenas os primeiros 100 de {total_count} resultados. Refine sua busca.</p>"
 
             current_dept = None
             for r in rows:
