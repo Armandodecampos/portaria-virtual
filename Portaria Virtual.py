@@ -296,10 +296,10 @@ class NotificationToast(QFrame):
             border_color = "#334155"
             close_hover = "#475569"
         elif mode == "sepia":
-            bg_color = "#faf3e0"
-            text_color = "#433422"
-            border_color = "#d2b48c"
-            close_hover = "#f4ecd8"
+            bg_color = "#e6d5b8"
+            text_color = "#2d1f12"
+            border_color = "#b09b7c"
+            close_hover = "#d6c5a8"
         else:
             bg_color = "#ffffff"
             text_color = "#1e293b"
@@ -378,7 +378,7 @@ class ConfigDialog(QDialog):
         if theme == "dark":
             border_color = "#475569"
         elif theme == "sepia":
-            border_color = "#d2b48c"
+            border_color = "#b09b7c"
         else:
             border_color = "#cbd5e1"
 
@@ -541,8 +541,8 @@ class InstrucoesDialog(QDialog):
             self.setStyleSheet("background-color: #1e293b; color: #e2e8f0;")
             link_color = "#38bdf8"
         elif theme == "sepia":
-            self.setStyleSheet("background-color: #f4ecd8; color: #433422;")
-            link_color = "#a67c52"
+            self.setStyleSheet("background-color: #d6c5a8; color: #2d1f12;")
+            link_color = "#8c6239"
         else:
             self.setStyleSheet("background-color: #ffffff; color: #1e293b;")
             link_color = "#2563eb"
@@ -780,12 +780,12 @@ class ExcelRecordsWidget(QWidget):
             self.sub_text_color = "#94a3b8"
             self.accent_color = "#3b82f6"
         elif modo == "sepia":
-            self.setStyleSheet("background-color: #f4ecd8; color: #433422;")
-            self.card_bg = "#faf3e0"
-            self.card_border = "#d2b48c"
-            self.text_color = "#433422"
-            self.sub_text_color = "#705d49"
-            self.accent_color = "#a67c52"
+            self.setStyleSheet("background-color: #d6c5a8; color: #2d1f12;")
+            self.card_bg = "#e6d5b8"
+            self.card_border = "#b09b7c"
+            self.text_color = "#2d1f12"
+            self.sub_text_color = "#554433"
+            self.accent_color = "#8c6239"
         else:
             self.setStyleSheet("background-color: #f8fafc; color: #1e293b;")
             self.card_bg = "#ffffff"
@@ -1787,24 +1787,24 @@ class SmartPortariaScanner(QMainWindow):
         elif modo == "sepia":
             # Estilo SEPIA
             style = """
-                QMainWindow, QWidget { background-color: #f4ecd8; color: #433422; }
-                QLineEdit { background-color: #faf3e0; color: #433422; border: 1px solid #d2b48c; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #faf3e0; color: #433422; border: 1px solid #d2b48c; border-radius: 4px; }
-                QGroupBox { border: 1px solid #d2b48c; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #705d49; }
+                QMainWindow, QWidget { background-color: #d6c5a8; color: #2d1f12; }
+                QLineEdit { background-color: #e6d5b8; color: #2d1f12; border: 1px solid #b09b7c; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #e6d5b8; color: #2d1f12; border: 1px solid #b09b7c; border-radius: 4px; }
+                QGroupBox { border: 1px solid #b09b7c; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #554433; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
-                QLabel { color: #433422; }
-                QPushButton { background-color: #faf3e0; color: #433422; border: 1px solid #d2b48c; border-radius: 4px; padding: 6px; }
-                QPushButton:hover { background-color: #f4ecd8; }
-                QTabBar::tab { background: #faf3e0; color: #705d49; border: 1px solid #d2b48c; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
-                QTabBar::tab:selected { background: #a67c52; color: white; border-color: #a67c52; }
-                QSplitter::handle { background-color: #d2b48c; }
+                QLabel { color: #2d1f12; }
+                QPushButton { background-color: #e6d5b8; color: #2d1f12; border: 1px solid #b09b7c; border-radius: 4px; padding: 6px; }
+                QPushButton:hover { background-color: #d6c5a8; }
+                QTabBar::tab { background: #e6d5b8; color: #554433; border: 1px solid #b09b7c; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab:selected { background: #8c6239; color: white; border-color: #8c6239; }
+                QSplitter::handle { background-color: #b09b7c; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #8b5e3c; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #705d49; color: white; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #a67c52; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #734d26; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #554433; color: white; padding: 8px; border-radius: 4px;"
+            btn_qr_style = "background-color: #8c6239; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #faf3e0; color: #433422; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #d2b48c;"
+            live_log_style = "background: #e6d5b8; color: #2d1f12; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b09b7c;"
 
         else:
             # Estilo CLARO (Padrão)
@@ -1844,8 +1844,8 @@ class SmartPortariaScanner(QMainWindow):
             btn_conf_color = "#334155"
             btn_conf_border = "#475569"
         elif modo == "sepia":
-            btn_conf_color = "#faf3e0"
-            btn_conf_border = "#d2b48c"
+            btn_conf_color = "#e6d5b8"
+            btn_conf_border = "#b09b7c"
         else:
             btn_conf_color = "#f1f5f9"
             btn_conf_border = "#cbd5e1"
@@ -2192,11 +2192,11 @@ class SmartPortariaScanner(QMainWindow):
             accent_color = "#2563eb"
             name_color = "#ffffff"
         elif current_theme == "sepia":
-            text_color = "#433422"
-            card_bg = "#faf3e0"
-            border_color = "#d2b48c"
-            accent_color = "#a67c52"
-            name_color = "#433422"
+            text_color = "#2d1f12"
+            card_bg = "#e6d5b8"
+            border_color = "#b09b7c"
+            accent_color = "#8c6239"
+            name_color = "#2d1f12"
         else:
             text_color = "#1e293b"
             card_bg = "#ffffff"
