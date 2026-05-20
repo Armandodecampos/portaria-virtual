@@ -1544,6 +1544,7 @@ class SmartPortariaScanner(QMainWindow):
         # === GRUPO BUSCA NO BANCO ===
         group_busca = QGroupBox("BUSCA NO BANCO DE DADOS")
         layout_busca = QVBoxLayout(group_busca)
+        layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout_busca.setSpacing(0)
         layout_busca.setContentsMargins(5, 2, 5, 5)
         
@@ -1554,6 +1555,7 @@ class SmartPortariaScanner(QMainWindow):
         layout_busca.addWidget(self.btn_toggle_busca)
 
         self.stack_busca = QStackedWidget()
+        self.stack_busca.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         # Página 0: Busca normal
         container_normal = QWidget()
@@ -1594,6 +1596,7 @@ class SmartPortariaScanner(QMainWindow):
         layout_busca.addWidget(self.stack_busca)
         
         self.txt_res_busca = QTextBrowser()
+        self.txt_res_busca.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.txt_res_busca.setOpenExternalLinks(False)
         self.txt_res_busca.setOpenLinks(False)
         self.txt_res_busca.document().setDocumentMargin(0)
