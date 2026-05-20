@@ -762,6 +762,14 @@ class ExcelRecordsWidget(QWidget):
 
         # Cabeçalho: Selecionar Arquivo
         header_lay = QHBoxLayout()
+
+        # Container para o título e o botão de upload
+        upload_container = QVBoxLayout()
+        upload_container.setSpacing(2)
+        self.lbl_title = QLabel("Registros ZK Bio")
+        self.lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #3b82f6;")
+        upload_container.addWidget(self.lbl_title)
+
         self.btn_upload = QPushButton("Selecionar arquivo Excel")
         self.btn_upload.setStyleSheet("""
             QPushButton {
@@ -774,7 +782,8 @@ class ExcelRecordsWidget(QWidget):
             QPushButton:hover { background-color: #2563eb; }
         """)
         self.btn_upload.clicked.connect(self.import_excel)
-        header_lay.addWidget(self.btn_upload)
+        upload_container.addWidget(self.btn_upload)
+        header_lay.addLayout(upload_container)
 
         self.lbl_file_name = QLabel("")
         self.lbl_file_name.setStyleSheet("""
@@ -2101,6 +2110,12 @@ class SmartPortariaScanner(QMainWindow):
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
+        if url_str.startswith("copy:"):
+            text_to_copy = urllib.parse.unquote(url_str[5:])
+            QApplication.clipboard().setText(text_to_copy)
+            self.txt_live.append(f"📋 Copiado: {text_to_copy}")
+            return
+
         if url_str.startswith("transfer:"):
             visita_id = url_str.split(":")[1]
             self.iniciar_transferencia(visita_id)
