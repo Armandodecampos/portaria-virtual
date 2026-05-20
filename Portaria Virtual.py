@@ -1488,13 +1488,14 @@ class SmartPortariaScanner(QMainWindow):
         group_busca = QGroupBox("BUSCA NO BANCO DE DADOS")
         layout_busca = QVBoxLayout(group_busca)
         
+        # Busca normal
         busca_input_layout = QHBoxLayout()
         busca_input_layout.setContentsMargins(0, 0, 0, 0)
         busca_input_layout.setSpacing(5)
 
         self.input_busca = QLineEdit()
-        self.input_busca.setPlaceholderText("Digite para buscar...")
-        self.input_busca.textChanged.connect(self.realizar_busca_local)
+        self.input_busca.setPlaceholderText("Nome ou ID...")
+        self.input_busca.textChanged.connect(self.realizar_busca_normal)
         
         self.btn_limpar_busca = QPushButton("Apagar")
         self.btn_limpar_busca.setFixedWidth(70)
@@ -1502,8 +1503,24 @@ class SmartPortariaScanner(QMainWindow):
 
         busca_input_layout.addWidget(self.input_busca)
         busca_input_layout.addWidget(self.btn_limpar_busca)
-        
         layout_busca.addLayout(busca_input_layout)
+
+        # Busca por CPF
+        busca_cpf_layout = QHBoxLayout()
+        busca_cpf_layout.setContentsMargins(0, 0, 0, 0)
+        busca_cpf_layout.setSpacing(5)
+
+        self.input_busca_cpf = QLineEdit()
+        self.input_busca_cpf.setPlaceholderText("CPF (somente números)...")
+        self.input_busca_cpf.textChanged.connect(self.realizar_busca_cpf)
+
+        self.btn_limpar_busca_cpf = QPushButton("Apagar")
+        self.btn_limpar_busca_cpf.setFixedWidth(70)
+        self.btn_limpar_busca_cpf.clicked.connect(self.input_busca_cpf.clear)
+
+        busca_cpf_layout.addWidget(self.input_busca_cpf)
+        busca_cpf_layout.addWidget(self.btn_limpar_busca_cpf)
+        layout_busca.addLayout(busca_cpf_layout)
         
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setOpenExternalLinks(False)
@@ -1675,6 +1692,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(btn_clear_style)
+        self.btn_limpar_busca_cpf.setStyleSheet(btn_clear_style)
         self.txt_live.setStyleSheet(live_log_style)
         
         # Ajusta botões do cabeçalho para parecerem com o tema
@@ -1936,22 +1954,63 @@ class SmartPortariaScanner(QMainWindow):
         else:
             self.timer_retry.start(10000)
 
+    def formatar_cpf(self, texto):
+        """Formata uma string numérica para o padrão 000.000.000-00"""
+        numeros = re.sub(r'\D', '', texto)
+        if len(numeros) > 11:
+            numeros = numeros[:11]
+
+        if len(numeros) <= 3:
+            return numeros
+        elif len(numeros) <= 6:
+            return f"{numeros[:3]}.{numeros[3:]}"
+        elif len(numeros) <= 9:
+            return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:]}"
+        else:
+            return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:9]}-{numeros[9:]}"
+
+    def realizar_busca_normal(self):
+        if self.input_busca.text():
+            self.input_busca_cpf.blockSignals(True)
+            self.input_busca_cpf.clear()
+            self.input_busca_cpf.blockSignals(False)
+        self.timer_busca.start(300)
+
+    def realizar_busca_cpf(self):
+        if self.input_busca_cpf.text():
+            self.input_busca.blockSignals(True)
+            self.input_busca.clear()
+            self.input_busca.blockSignals(False)
+        self.timer_busca.start(300)
+
     def realizar_busca_local(self):
         self.timer_busca.start(300)
 
     def executar_busca_local(self):
-        termo_raw = self.input_busca.text().strip()
-        self.container_pesquisa_zk.filter_and_render(termo_raw)
+        # Prioridade para o CPF se preenchido
+        cpf_raw = self.input_busca_cpf.text().strip()
+        termo_normal = self.input_busca.text().strip()
 
-        if termo_raw and not self.container_pesquisa_zk.isVisible():
+        if cpf_raw:
+            # Para o Relatório ZK Bio (ExcelRecordsWidget), busca-se sem pontos
+            self.container_pesquisa_zk.filter_and_render(re.sub(r'\D', '', cpf_raw))
+            termo_db = self.formatar_cpf(cpf_raw)
+            termo_para_check = cpf_raw
+        else:
+            self.container_pesquisa_zk.filter_and_render(termo_normal)
+            termo_db = termo_normal
+            termo_para_check = termo_normal
+
+        if termo_para_check and not self.container_pesquisa_zk.isVisible():
             self.abrir_dialogo_excel()
 
         if not self.db: return
-        termo = termo_raw.lower()
-        if not termo: 
+
+        if not termo_db:
             self.txt_res_busca.clear()
             return
-        termos = termo.split()
+
+        termos = termo_db.lower().split()
         dados = self.db.buscar_por_filtro(termos)
         html = ""
         hoje = datetime.date.today()
@@ -2249,11 +2308,14 @@ class SmartPortariaScanner(QMainWindow):
                 rect_zk = self.container_pesquisa_zk.geometry()
                 rect_zk.moveTo(self.container_pesquisa_zk.mapToGlobal(QPoint(0,0)))
 
-                # Geometria do input de busca (para não fechar ao clicar nele)
+                # Geometria dos inputs de busca (para não fechar ao clicar neles)
                 rect_busca = self.input_busca.geometry()
                 rect_busca.moveTo(self.input_busca.mapToGlobal(QPoint(0,0)))
 
-                if not rect_zk.contains(pos) and not rect_busca.contains(pos):
+                rect_busca_cpf = self.input_busca_cpf.geometry()
+                rect_busca_cpf.moveTo(self.input_busca_cpf.mapToGlobal(QPoint(0,0)))
+
+                if not rect_zk.contains(pos) and not rect_busca.contains(pos) and not rect_busca_cpf.contains(pos):
                     self.container_pesquisa_zk.hide()
 
         return super().eventFilter(obj, event)
