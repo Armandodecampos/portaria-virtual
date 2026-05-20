@@ -636,10 +636,12 @@ class SearchThread(QThread):
         extra_str = " | ".join(extra)
         full_extra = f" | {extra_str}" if extra_str else ""
 
+        data_badge = f"<span style='color: #3b82f6; font-size: 11px;'>📅 {item['data_upload']}</span> " if item.get('data_upload') else ""
+
         return f"""
         <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
             <div style='font-size: 13px; color: {self.td["text_color"]};'>
-                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
+                {data_badge}<b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
             </div>
         </div>
         """
@@ -672,7 +674,7 @@ class SearchThread(QThread):
             total_count = cursor.fetchone()[0]
 
             # Limitamos para 300 para performance máxima
-            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome LIMIT 300"
+            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email, data_upload " + base_query + " ORDER BY dept, nome LIMIT 300"
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
@@ -680,7 +682,7 @@ class SearchThread(QThread):
 
             current_dept = None
             for r in rows:
-                item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6]}
+                item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6], "data_upload": r[7]}
                 if item_data["dept"] != current_dept:
                     current_dept = item_data["dept"]
                     html_parts.append(f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.td['card_border']}; margin-top: 15px; margin-bottom: 10px;'>{current_dept}</h3>")
@@ -870,11 +872,23 @@ class ExcelRecordsWidget(QWidget):
             except Exception as e:
                 print(f"Erro ao verificar integridade do cache: {e}")
 
-            self.lbl_file_name.setText("Dados carregados do cache (.db).")
+            # Recupera a data de upload do cache
+            try:
+                conn = self.get_db_conn()
+                cursor = conn.cursor()
+                cursor.execute("SELECT data_upload FROM zk_records LIMIT 1")
+                res = cursor.fetchone()
+                if res and res[0]:
+                    self.lbl_file_name.setText(f"Dados do cache <span style='color: #3b82f6;'>📅 {res[0]}</span>")
+                else:
+                    self.lbl_file_name.setText("Dados carregados do cache (.db).")
+            except:
+                self.lbl_file_name.setText("Dados carregados do cache (.db).")
+
             self.render_department_filters()
             self.filter_and_render()
 
-    def save_to_cache_db(self, new_items):
+    def save_to_cache_db(self, new_items, upload_date=None):
         db_file = "zk_cache.db"
         try:
             conn = sqlite3.connect(db_file)
@@ -886,7 +900,8 @@ class ExcelRecordsWidget(QWidget):
             cursor.execute("""
                 CREATE TABLE zk_records (
                     id TEXT, nome TEXT, sobrenome TEXT, dept TEXT,
-                    celular TEXT, cartao TEXT, email TEXT, search_text TEXT
+                    celular TEXT, cartao TEXT, email TEXT, search_text TEXT,
+                    data_upload TEXT
                 )
             """)
             cursor.execute("""
@@ -902,10 +917,11 @@ class ExcelRecordsWidget(QWidget):
                 for item in new_items[dept]:
                     records.append((
                         item["id"], item["nome"], item["sobrenome"], item["dept"],
-                        item["celular"], item["cartao"], item["email"], item["search_text"]
+                        item["celular"], item["cartao"], item["email"], item["search_text"],
+                        upload_date
                     ))
 
-            cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?)", records)
+            cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?,?)", records)
             cursor.execute("INSERT INTO zk_records_fts(rowid, search_text) SELECT rowid, search_text FROM zk_records")
             cursor.execute("CREATE INDEX idx_zk_dept_nome ON zk_records(dept, nome)")
             conn.commit()
@@ -945,7 +961,8 @@ class ExcelRecordsWidget(QWidget):
         if not fname: return
 
         try:
-            self.lbl_file_name.setText(f"📂 {os.path.basename(fname)}")
+            now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+            self.lbl_file_name.setText(f"📂 {os.path.basename(fname)} <span style='color: #3b82f6;'>📅 {now_str}</span>")
 
             rows = []
             if fname.lower().endswith(".xls"):
@@ -988,12 +1005,9 @@ class ExcelRecordsWidget(QWidget):
                 if dept not in new_items: new_items[dept] = []
                 new_items[dept].append(item)
 
-            self.save_to_cache_db(new_items)
+            self.save_to_cache_db(new_items, upload_date=now_str)
             self.render_department_filters()
             self.filter_and_render()
-
-            if self.parent_window:
-                self.parent_window.update_zk_count()
 
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {e}")
@@ -1045,10 +1059,12 @@ class ExcelRecordsWidget(QWidget):
         extra_str = " | ".join(extra)
         full_extra = f" | {extra_str}" if extra_str else ""
 
+        data_badge = f"<span style='color: #3b82f6; font-size: 11px;'>📅 {item['data_upload']}</span> " if item.get('data_upload') else ""
+
         return f"""
         <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
             <div style='font-size: 13px; color: {self.text_color};'>
-                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
+                {data_badge}<b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
             </div>
         </div>
         """
@@ -1394,7 +1410,6 @@ class SmartPortariaScanner(QMainWindow):
         
         # Tenta carregar automaticamente o último banco usado
         self.carregar_ultimo_banco()
-        self.update_zk_count()
 
         self.active_toast = None
 
@@ -1436,12 +1451,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setFixedSize(38, 38)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
-        self.btn_zk_count = QPushButton("Registros ZK Bio")
-        self.btn_zk_count.setToolTip("Ver registros do Zk Bio")
-        self.btn_zk_count.setFixedHeight(38)
-        self.btn_zk_count.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.btn_zk_count.clicked.connect(self.abrir_dialogo_excel)
-
         self.btn_transferir = QPushButton("🚀")
         self.btn_transferir.setToolTip("Transferir")
         self.btn_transferir.setFixedSize(38, 38)
@@ -1463,7 +1472,6 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_transferir)
         header_layout.addWidget(self.btn_download_img)
         header_layout.addWidget(self.btn_unlock)
-        header_layout.addWidget(self.btn_zk_count)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
         header_layout.addStretch()
@@ -1680,8 +1688,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
         self.btn_unlock.setStyleSheet(header_btn_style)
-        self.btn_zk_count.setStyleSheet(header_btn_style + "padding: 0 10px;")
-        self.ajustar_fonte_botao_zk()
         self.btn_transferir.setStyleSheet(header_btn_style)
         self.btn_download_img.setStyleSheet(header_btn_style)
         self.btn_back.setStyleSheet(header_btn_style)
@@ -1825,18 +1831,6 @@ class SmartPortariaScanner(QMainWindow):
                 self.painel_lateral.hide()
             else:
                 self.painel_lateral.show()
-
-    def update_zk_count(self):
-        db_file = "zk_cache.db"
-        count = 0
-        if os.path.exists(db_file):
-            try:
-                conn = sqlite3.connect(db_file)
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM zk_records")
-                count = cursor.fetchone()[0]
-                conn.close()
-            except: pass
 
     def importar_excel_zk(self):
         # Abre como diálogo apenas para importação se necessário, ou usa o widget integrado
@@ -2240,42 +2234,9 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
-    def ajustar_fonte_botao_zk(self):
-        """Ajusta o tamanho da fonte do botão ZK Bio para caber no espaço disponível."""
-        if not hasattr(self, 'btn_zk_count'): return
-
-        texto = self.btn_zk_count.text()
-        if not texto: return
-
-        largura_disponivel = self.btn_zk_count.width() - 20 # Desconto do padding
-        if largura_disponivel <= 0: return
-
-        fonte = self.btn_zk_count.font()
-        tamanho = 14 # Tamanho base
-        fonte.setPointSize(tamanho)
-
-        metrics = QFontMetrics(fonte)
-        while metrics.horizontalAdvance(texto) > largura_disponivel and tamanho > 6:
-            tamanho -= 1
-            fonte.setPointSize(tamanho)
-            metrics = QFontMetrics(fonte)
-
-        # Opcional: aumentar se sobrar muito espaço, mas limitado ao header
-        while metrics.horizontalAdvance(texto) < largura_disponivel - 10 and tamanho < 18:
-            tamanho += 1
-            fonte.setPointSize(tamanho)
-            metrics = QFontMetrics(fonte)
-            if metrics.horizontalAdvance(texto) > largura_disponivel:
-                tamanho -= 1
-                fonte.setPointSize(tamanho)
-                break
-
-        self.btn_zk_count.setFont(fonte)
-
     def resizeEvent(self, event):
         if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
             self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
-        self.ajustar_fonte_botao_zk()
         super().resizeEvent(event)
 
     def eventFilter(self, obj, event):
@@ -2288,15 +2249,11 @@ class SmartPortariaScanner(QMainWindow):
                 rect_zk = self.container_pesquisa_zk.geometry()
                 rect_zk.moveTo(self.container_pesquisa_zk.mapToGlobal(QPoint(0,0)))
 
-                # Geometria do botão de ativação (para não fechar ao clicar nele)
-                rect_btn = self.btn_zk_count.geometry()
-                rect_btn.moveTo(self.btn_zk_count.mapToGlobal(QPoint(0,0)))
-
                 # Geometria do input de busca (para não fechar ao clicar nele)
                 rect_busca = self.input_busca.geometry()
                 rect_busca.moveTo(self.input_busca.mapToGlobal(QPoint(0,0)))
 
-                if not rect_zk.contains(pos) and not rect_btn.contains(pos) and not rect_busca.contains(pos):
+                if not rect_zk.contains(pos) and not rect_busca.contains(pos):
                     self.container_pesquisa_zk.hide()
 
         return super().eventFilter(obj, event)
