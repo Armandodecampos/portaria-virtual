@@ -629,8 +629,8 @@ def render_zk_card(item, card_bg, card_border, sub_text_color):
         <span style='font-size: 13px; color: {sub_text_color};'><b>Nome:</b> {item['nome']} {item['sobrenome']} {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}</span>
     """
 
-    if item['cartao'] != "-":
-        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Documento:</b> {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
+    if item['id'] != "-":
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Documento:</b> {item['id']} {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
 
     if item['email'] != "-":
         html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Email:</b> {item['email']} {copy_btn.format(urllib.parse.quote(item['email']))}</span>"
@@ -638,7 +638,7 @@ def render_zk_card(item, card_bg, card_border, sub_text_color):
     if item['celular'] != "-":
         html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Telefone:</b> {item['celular']} {copy_btn.format(urllib.parse.quote(item['celular']))}</span>"
 
-    html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>ID:</b> {item['id']} {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
+    html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>ID:</b> {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
 
     if ifood_code != "-":
         html += f"<br><span style='font-size: 13px; color: #10b981; font-weight: bold;'>Código Ifood: {ifood_code} {copy_btn.format(urllib.parse.quote(ifood_code))}</span>"
