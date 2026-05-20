@@ -295,6 +295,11 @@ class NotificationToast(QFrame):
             text_color = "#e2e8f0"
             border_color = "#334155"
             close_hover = "#475569"
+        elif mode == "sepia":
+            bg_color = "#faf3e0"
+            text_color = "#433422"
+            border_color = "#d2b48c"
+            close_hover = "#f4ecd8"
         else:
             bg_color = "#ffffff"
             text_color = "#1e293b"
@@ -369,10 +374,18 @@ class ConfigDialog(QDialog):
         self.setMinimumWidth(400)
         
         # Define estilo base do diálogo para garantir legibilidade
-        self.setStyleSheet("""
-            QDialog { font-size: 14px; }
-            QGroupBox { font-weight: bold; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 10px; padding-top: 15px; }
-            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; }
+        theme = self.parent_window.settings.value("theme", "light")
+        if theme == "dark":
+            border_color = "#475569"
+        elif theme == "sepia":
+            border_color = "#d2b48c"
+        else:
+            border_color = "#cbd5e1"
+
+        self.setStyleSheet(f"""
+            QDialog {{ font-size: 14px; }}
+            QGroupBox {{ font-weight: bold; border: 1px solid {border_color}; border-radius: 6px; margin-top: 10px; padding-top: 15px; }}
+            QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; }}
         """)
 
         layout = QVBoxLayout(self)
@@ -413,16 +426,20 @@ class ConfigDialog(QDialog):
         
         self.rb_claro = QRadioButton("Modo Claro")
         self.rb_escuro = QRadioButton("Modo Escuro")
+        self.rb_sepia = QRadioButton("Modo Sepia")
         
         # Grupo lógico
         self.bg_theme = QButtonGroup(self)
         self.bg_theme.addButton(self.rb_claro, 1)
         self.bg_theme.addButton(self.rb_escuro, 2)
+        self.bg_theme.addButton(self.rb_sepia, 3)
         
         # Define seleção atual
         current_theme = self.parent_window.settings.value("theme", "light")
         if current_theme == "dark":
             self.rb_escuro.setChecked(True)
+        elif current_theme == "sepia":
+            self.rb_sepia.setChecked(True)
         else:
             self.rb_claro.setChecked(True)
             
@@ -430,6 +447,7 @@ class ConfigDialog(QDialog):
         
         lay_theme.addWidget(self.rb_claro)
         lay_theme.addWidget(self.rb_escuro)
+        lay_theme.addWidget(self.rb_sepia)
         layout.addWidget(gb_theme)
 
         # === SEÇÃO CREDENCIAIS ===
@@ -484,7 +502,12 @@ class ConfigDialog(QDialog):
              self.lbl_status.setStyleSheet("color: #10b981; font-weight: bold; margin-bottom: 10px;")
 
     def trocar_tema(self, id):
-        modo = "dark" if id == 2 else "light"
+        if id == 2:
+            modo = "dark"
+        elif id == 3:
+            modo = "sepia"
+        else:
+            modo = "light"
         self.parent_window.aplicar_tema(modo)
 
     def acao_salvar_credenciais(self):
@@ -517,6 +540,9 @@ class InstrucoesDialog(QDialog):
         if theme == "dark":
             self.setStyleSheet("background-color: #1e293b; color: #e2e8f0;")
             link_color = "#38bdf8"
+        elif theme == "sepia":
+            self.setStyleSheet("background-color: #f4ecd8; color: #433422;")
+            link_color = "#a67c52"
         else:
             self.setStyleSheet("background-color: #ffffff; color: #1e293b;")
             link_color = "#2563eb"
@@ -613,11 +639,11 @@ class InstrucoesDialog(QDialog):
 
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
-def render_zk_card(item, card_bg, card_border, sub_text_color):
+def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#3b82f6"):
     """
     Função utilitária para renderizar o card de um registro do ZK Bio.
     """
-    copy_btn = "<a href='copy:{}' style='text-decoration: none; color: #3b82f6; font-size: 10px; margin-left: 5px;'>[Copiar]</a>"
+    copy_btn = f"<a href='copy:{{}}' style='text-decoration: none; color: {accent_color}; font-size: 10px; margin-left: 5px;'>[Copiar]</a>"
 
     # Cálculo do Código Ifood (últimos 4 dígitos do telefone)
     ifood_code = "-"
@@ -625,7 +651,7 @@ def render_zk_card(item, card_bg, card_border, sub_text_color):
         ifood_code = re.sub(r'\D', '', item['celular'])[-4:]
 
     html = f"""
-    <div style='background-color: {card_bg}; border: 1px solid {card_border}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
+    <div style='background-color: {card_bg}; border: 1px solid {card_border}; border-left: 5px solid {accent_color}; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
         <span style='font-size: 13px; color: {sub_text_color};'><b>Nome:</b> {item['nome']} {item['sobrenome']} {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}</span>
     """
 
@@ -663,7 +689,7 @@ class SearchThread(QThread):
         ).lower()
 
     def render_item_card(self, item):
-        return render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'])
+        return render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'], self.td.get('accent_color', '#3b82f6'))
 
     def run(self):
         db_file = "zk_cache.db"
@@ -704,9 +730,10 @@ class SearchThread(QThread):
                 item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6], "data_upload": r[7]}
                 if item_data["dept"] != current_dept:
                     current_dept = item_data["dept"]
+                    accent = self.td.get('accent_color', '#3b82f6')
                     html_parts.append(f"""
-                        <div style='background-color: transparent; color: #3b82f6; padding: 6px 12px; border-radius: 6px;
-                                    border-bottom: 2px solid #3b82f6; margin-top: 20px; margin-bottom: 12px; font-weight: bold; font-size: 16px;'>
+                        <div style='background-color: transparent; color: {accent}; padding: 6px 12px; border-radius: 6px;
+                                    border-bottom: 2px solid {accent}; margin-top: 20px; margin-bottom: 12px; font-weight: bold; font-size: 16px;'>
                             📂 {current_dept}
                         </div>
                     """)
@@ -743,20 +770,35 @@ class ExcelRecordsWidget(QWidget):
             except: pass
         return self.db_conn
 
-    def setup_ui(self):
-        if self.theme == "dark":
+    def aplicar_tema(self, modo):
+        self.theme = modo
+        if modo == "dark":
             self.setStyleSheet("background-color: #0f172a; color: #e2e8f0;")
             self.card_bg = "#1e293b"
             self.card_border = "#334155"
             self.text_color = "#f8fafc"
             self.sub_text_color = "#94a3b8"
+            self.accent_color = "#3b82f6"
+        elif modo == "sepia":
+            self.setStyleSheet("background-color: #f4ecd8; color: #433422;")
+            self.card_bg = "#faf3e0"
+            self.card_border = "#d2b48c"
+            self.text_color = "#433422"
+            self.sub_text_color = "#705d49"
+            self.accent_color = "#a67c52"
         else:
             self.setStyleSheet("background-color: #f8fafc; color: #1e293b;")
             self.card_bg = "#ffffff"
             self.card_border = "#cbd5e1"
             self.text_color = "#1e293b"
             self.sub_text_color = "#64748b"
+            self.accent_color = "#3b82f6"
 
+        if hasattr(self, 'input_search'):
+            self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
+
+    def setup_ui(self):
+        self.aplicar_tema(self.theme)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
 
@@ -852,7 +894,7 @@ class ExcelRecordsWidget(QWidget):
         search_lay = QHBoxLayout()
         self.input_search = QLineEdit()
         self.input_search.setPlaceholderText("🔍 Pesquisar...")
-        self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
+        self.aplicar_tema(self.theme) # Reaplica para garantir estilos dinâmicos
 
         self.timer_busca = QTimer()
         self.timer_busca.setSingleShot(True)
@@ -1111,7 +1153,8 @@ class ExcelRecordsWidget(QWidget):
             "card_bg": self.card_bg,
             "card_border": self.card_border,
             "text_color": self.text_color,
-            "sub_text_color": self.sub_text_color
+            "sub_text_color": self.sub_text_color,
+            "accent_color": self.accent_color
         }
 
         self.search_thread = SearchThread(search_query, visible_depts, theme_data)
@@ -1741,6 +1784,28 @@ class SmartPortariaScanner(QMainWindow):
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
             live_log_style = "background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #475569;"
 
+        elif modo == "sepia":
+            # Estilo SEPIA
+            style = """
+                QMainWindow, QWidget { background-color: #f4ecd8; color: #433422; }
+                QLineEdit { background-color: #faf3e0; color: #433422; border: 1px solid #d2b48c; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #faf3e0; color: #433422; border: 1px solid #d2b48c; border-radius: 4px; }
+                QGroupBox { border: 1px solid #d2b48c; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #705d49; }
+                QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
+                QLabel { color: #433422; }
+                QPushButton { background-color: #faf3e0; color: #433422; border: 1px solid #d2b48c; border-radius: 4px; padding: 6px; }
+                QPushButton:hover { background-color: #f4ecd8; }
+                QTabBar::tab { background: #faf3e0; color: #705d49; border: 1px solid #d2b48c; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab:selected { background: #a67c52; color: white; border-color: #a67c52; }
+                QSplitter::handle { background-color: #d2b48c; }
+            """
+            # Cores específicas
+            btn_unlock_style = "background-color: #8b5e3c; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #705d49; color: white; padding: 8px; border-radius: 4px;"
+            btn_qr_style = "background-color: #a67c52; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            live_log_style = "background: #faf3e0; color: #433422; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #d2b48c;"
+
         else:
             # Estilo CLARO (Padrão)
             style = """
@@ -1775,8 +1840,15 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_live.setStyleSheet(live_log_style)
         
         # Ajusta botões do cabeçalho para parecerem com o tema
-        btn_conf_color = "#334155" if modo == "dark" else "#f1f5f9"
-        btn_conf_border = "#475569" if modo == "dark" else "#cbd5e1"
+        if modo == "dark":
+            btn_conf_color = "#334155"
+            btn_conf_border = "#475569"
+        elif modo == "sepia":
+            btn_conf_color = "#faf3e0"
+            btn_conf_border = "#d2b48c"
+        else:
+            btn_conf_color = "#f1f5f9"
+            btn_conf_border = "#cbd5e1"
         header_btn_style = f"""
             QPushButton {{ background-color: {btn_conf_color}; color: {'white' if modo=='dark' else '#334155'}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {'#475569' if modo=='dark' else '#e2e8f0'}; }}
@@ -1791,6 +1863,9 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_forward.setStyleSheet(header_btn_style)
         self.btn_reload.setStyleSheet(header_btn_style)
         self.btn_home.setStyleSheet(header_btn_style)
+
+        # Propaga o tema para o container ZK
+        self.container_pesquisa_zk.aplicar_tema(modo)
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
@@ -2109,9 +2184,25 @@ class SmartPortariaScanner(QMainWindow):
         html = ""
         hoje = datetime.date.today()
         # Define cor do texto baseada no tema
-        text_color = "#e2e8f0" if self.settings.value("theme") == "dark" else "#1e293b"
-        card_bg = "#1e293b" if self.settings.value("theme") == "dark" else "#ffffff"
-        border_color = "#475569" if self.settings.value("theme") == "dark" else "#cbd5e1"
+        current_theme = self.settings.value("theme")
+        if current_theme == "dark":
+            text_color = "#e2e8f0"
+            card_bg = "#1e293b"
+            border_color = "#475569"
+            accent_color = "#2563eb"
+            name_color = "#ffffff"
+        elif current_theme == "sepia":
+            text_color = "#433422"
+            card_bg = "#faf3e0"
+            border_color = "#d2b48c"
+            accent_color = "#a67c52"
+            name_color = "#433422"
+        else:
+            text_color = "#1e293b"
+            card_bg = "#ffffff"
+            border_color = "#cbd5e1"
+            accent_color = "#2563eb"
+            name_color = "#1e293b"
         
         for vid, nome, cpf, horario in dados:
             cor_validade = "green"
@@ -2127,7 +2218,7 @@ class SmartPortariaScanner(QMainWindow):
             <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
                 <div style='color: {text_color}; font-size: 14px;'>
                     <a href="{vid}" style="text-decoration: none; color: inherit;">
-                        <b style='color: #2563eb;'>ID {vid}:</b> <span style='color: #ffffff;'>{nome}</span><br>
+                        <b style='color: {accent_color};'>ID {vid}:</b> <span style='color: {name_color};'>{nome}</span><br>
                         <span style='color: #64748b; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                         <span style='color: #64748b; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                     </a>
