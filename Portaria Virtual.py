@@ -636,14 +636,10 @@ class SearchThread(QThread):
         extra_str = " | ".join(extra)
         full_extra = f" | {extra_str}" if extra_str else ""
 
-        upload_badge = ""
-        if item.get('data_upload') and item['data_upload'] != "-":
-            upload_badge = f"<span style='background-color: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;'>📅 {item['data_upload']}</span>"
-
         return f"""
         <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
             <div style='font-size: 13px; color: {self.td["text_color"]};'>
-                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){upload_badge}{full_extra}
+                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
             </div>
         </div>
         """
@@ -676,7 +672,7 @@ class SearchThread(QThread):
             total_count = cursor.fetchone()[0]
 
             # Limitamos para 300 para performance máxima
-            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email, data_upload " + base_query + " ORDER BY dept, nome LIMIT 300"
+            query = "SELECT id, nome, sobrenome, dept, celular, cartao, email " + base_query + " ORDER BY dept, nome LIMIT 300"
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
@@ -684,7 +680,7 @@ class SearchThread(QThread):
 
             current_dept = None
             for r in rows:
-                item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6], "data_upload": r[7]}
+                item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6]}
                 if item_data["dept"] != current_dept:
                     current_dept = item_data["dept"]
                     html_parts.append(f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.td['card_border']}; margin-top: 15px; margin-bottom: 10px;'>{current_dept}</h3>")
@@ -874,20 +870,7 @@ class ExcelRecordsWidget(QWidget):
             except Exception as e:
                 print(f"Erro ao verificar integridade do cache: {e}")
 
-            # Tenta pegar a data do último upload
-            data_u = None
-            try:
-                cursor = conn.cursor()
-                cursor.execute("SELECT data_upload FROM zk_records LIMIT 1")
-                row = cursor.fetchone()
-                if row: data_u = row[0]
-            except: pass
-
-            if data_u and data_u != "-":
-                self.lbl_file_name.setText(f"Dados carregados: {data_u}")
-            else:
-                self.lbl_file_name.setText("Dados carregados do cache (.db).")
-
+            self.lbl_file_name.setText("Dados carregados do cache (.db).")
             self.render_department_filters()
             self.filter_and_render()
 
@@ -903,8 +886,7 @@ class ExcelRecordsWidget(QWidget):
             cursor.execute("""
                 CREATE TABLE zk_records (
                     id TEXT, nome TEXT, sobrenome TEXT, dept TEXT,
-                    celular TEXT, cartao TEXT, email TEXT, search_text TEXT,
-                    data_upload TEXT
+                    celular TEXT, cartao TEXT, email TEXT, search_text TEXT
                 )
             """)
             cursor.execute("""
@@ -920,11 +902,10 @@ class ExcelRecordsWidget(QWidget):
                 for item in new_items[dept]:
                     records.append((
                         item["id"], item["nome"], item["sobrenome"], item["dept"],
-                        item["celular"], item["cartao"], item["email"], item["search_text"],
-                        item.get("data_upload", "-")
+                        item["celular"], item["cartao"], item["email"], item["search_text"]
                     ))
 
-            cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?,?)", records)
+            cursor.executemany("INSERT INTO zk_records VALUES (?,?,?,?,?,?,?,?)", records)
             cursor.execute("INSERT INTO zk_records_fts(rowid, search_text) SELECT rowid, search_text FROM zk_records")
             cursor.execute("CREATE INDEX idx_zk_dept_nome ON zk_records(dept, nome)")
             conn.commit()
@@ -964,7 +945,6 @@ class ExcelRecordsWidget(QWidget):
         if not fname: return
 
         try:
-            agora = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
             self.lbl_file_name.setText(f"📂 {os.path.basename(fname)}")
 
             rows = []
@@ -1002,8 +982,7 @@ class ExcelRecordsWidget(QWidget):
                 item = {
                     "id": vid, "nome": nome, "sobrenome": sobrenome,
                     "dept": dept, "celular": celular, "cartao": cartao,
-                    "email": email, "search_text": search_text,
-                    "data_upload": agora
+                    "email": email, "search_text": search_text
                 }
 
                 if dept not in new_items: new_items[dept] = []
@@ -1066,14 +1045,10 @@ class ExcelRecordsWidget(QWidget):
         extra_str = " | ".join(extra)
         full_extra = f" | {extra_str}" if extra_str else ""
 
-        upload_badge = ""
-        if item.get('data_upload') and item['data_upload'] != "-":
-            upload_badge = f"<span style='background-color: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;'>📅 {item['data_upload']}</span>"
-
         return f"""
         <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
             <div style='font-size: 13px; color: {self.text_color};'>
-                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){upload_badge}{full_extra}
+                <b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
             </div>
         </div>
         """
