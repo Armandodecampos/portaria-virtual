@@ -1545,8 +1545,8 @@ class SmartPortariaScanner(QMainWindow):
         group_busca = QGroupBox("BUSCA NO BANCO DE DADOS")
         layout_busca = QVBoxLayout(group_busca)
         layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout_busca.setSpacing(5)
-        layout_busca.setContentsMargins(5, 5, 5, 5)
+        layout_busca.setSpacing(10)
+        layout_busca.setContentsMargins(10, 10, 10, 10)
         
         # Botão de Alternância
         self.btn_toggle_busca = QPushButton("🔍 Busca: Todos os dados")
@@ -1561,7 +1561,7 @@ class SmartPortariaScanner(QMainWindow):
         container_normal = QWidget()
         lay_normal = QHBoxLayout(container_normal)
         lay_normal.setContentsMargins(0, 0, 0, 0)
-        lay_normal.setSpacing(5)
+        lay_normal.setSpacing(10)
 
         self.input_busca = QLineEdit()
         self.input_busca.setPlaceholderText("Nome ou ID...")
@@ -1579,7 +1579,7 @@ class SmartPortariaScanner(QMainWindow):
         container_cpf = QWidget()
         lay_cpf = QHBoxLayout(container_cpf)
         lay_cpf.setContentsMargins(0, 0, 0, 0)
-        lay_cpf.setSpacing(5)
+        lay_cpf.setSpacing(10)
 
         self.input_busca_cpf = QLineEdit()
         self.input_busca_cpf.setPlaceholderText("CPF (somente números)...")
@@ -1609,6 +1609,8 @@ class SmartPortariaScanner(QMainWindow):
         # === GRUPO LOG ===
         group_live = QGroupBox("LOG DO SISTEMA")
         layout_live = QVBoxLayout(group_live)
+        layout_live.setContentsMargins(10, 10, 10, 10)
+        layout_live.setSpacing(10)
         self.txt_live = QTextEdit()
         self.txt_live.setReadOnly(True)
         # Fonte monospace fixa, mas cores geridas pelo tema
