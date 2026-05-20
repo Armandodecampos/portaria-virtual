@@ -796,7 +796,7 @@ class ExcelRecordsWidget(QWidget):
                 border: 1px solid #334155;
             }
         """)
-        header_lay.addWidget(self.lbl_file_name)
+        header_lay.addWidget(self.lbl_file_name, alignment=Qt.AlignmentFlag.AlignBottom)
         header_lay.addStretch()
 
         # Botão Fechar no cabeçalho
@@ -812,7 +812,7 @@ class ExcelRecordsWidget(QWidget):
             }
             QPushButton:hover { background-color: #dc2626; }
         """)
-        header_lay.addWidget(self.btn_close)
+        header_lay.addWidget(self.btn_close, alignment=Qt.AlignmentFlag.AlignBottom)
 
         layout.addLayout(header_lay)
 
@@ -931,7 +931,7 @@ class ExcelRecordsWidget(QWidget):
                 cursor.execute("SELECT data_upload FROM zk_records LIMIT 1")
                 res = cursor.fetchone()
                 if res and res[0]:
-                    self.lbl_file_name.setText(f"Dados do cache <span style='color: #3b82f6;'>📅 {res[0]}</span>")
+                    self.update_file_label("Dados do cache", res[0])
                 else:
                     self.lbl_file_name.setText("Dados carregados do cache (.db).")
             except:
@@ -1008,13 +1008,33 @@ class ExcelRecordsWidget(QWidget):
         except: pass
         self.cb_all.setChecked(True)
 
+    def update_file_label(self, source_name, timestamp):
+        """
+        Atualiza o label do arquivo com a lógica de aviso de data desatualizada.
+        """
+        try:
+            # Assume formato DD/MM/YYYY HH:mm
+            date_str = timestamp.split()[0]
+            current_date_str = datetime.datetime.now().strftime("%d/%m/%Y")
+
+            is_outdated = date_str != current_date_str
+            color = "#ef4444" if is_outdated else "#3b82f6"
+
+            html = f"{source_name} <span style='color: {color};'>📅 {timestamp}</span>"
+            if is_outdated:
+                html += " <span style='color: #ef4444; font-weight: bold;'>Considere fazer o upload do arquivo atualizado.</span>"
+
+            self.lbl_file_name.setText(html)
+        except:
+            self.lbl_file_name.setText(f"{source_name} 📅 {timestamp}")
+
     def import_excel(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Excel", "", "Excel Files (*.xls *.xlsx)")
         if not fname: return
 
         try:
             now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-            self.lbl_file_name.setText(f"📂 {os.path.basename(fname)} <span style='color: #3b82f6;'>📅 {now_str}</span>")
+            self.update_file_label(f"📂 {os.path.basename(fname)}", now_str)
 
             rows = []
             if fname.lower().endswith(".xls"):
