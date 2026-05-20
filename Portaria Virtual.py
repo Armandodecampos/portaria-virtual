@@ -8,6 +8,7 @@ import traceback
 import time
 import requests
 import urllib3
+import urllib.parse
 import base64
 import json
 
@@ -629,15 +630,20 @@ class SearchThread(QThread):
         ).lower()
 
     def render_item_card(self, item):
+        copy_btn = "<a href='copy:{}' style='text-decoration: none; color: #3b82f6; font-size: 10px; margin-left: 10px;'>[Copiar]</a>"
+
         extra_html = ""
-        if item['email'] != "-": extra_html += f"<br>📧 {item['email']}"
-        if item['celular'] != "-": extra_html += f"<br>📱 {item['celular']}"
-        if item['cartao'] != "-": extra_html += f"<br>🪪 {item['cartao']}"
+        if item['email'] != "-":
+            extra_html += f"<br>📧 {item['email']} {copy_btn.format(item['email'])}"
+        if item['celular'] != "-":
+            extra_html += f"<br>📱 {item['celular']} {copy_btn.format(item['celular'])}"
+        if item['cartao'] != "-":
+            extra_html += f"<br>🪪 {item['cartao']} {copy_btn.format(item['cartao'])}"
 
         return f"""
         <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
-            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
-            <br><span style='color: {self.td["sub_text_color"]}; font-size: 12px;'>(ID: {item['id']})</span>
+            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']} {copy_btn.format(item['nome'] + ' ' + item['sobrenome'])}</b>
+            <br><span style='color: {self.td["sub_text_color"]}; font-size: 12px;'>(ID: {item['id']}) {copy_btn.format(item['id'])}</span>
             <span style='font-size: 13px; color: {self.td["sub_text_color"]};'>
                 {extra_html}
             </span>
@@ -841,9 +847,18 @@ class ExcelRecordsWidget(QWidget):
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
-        self.browser.setOpenExternalLinks(True)
+        self.browser.setOpenExternalLinks(False)
+        self.browser.anchorClicked.connect(self.handle_copy_link)
         self.browser.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.browser)
+
+    def handle_copy_link(self, qurl):
+        url_str = qurl.toString()
+        if url_str.startswith("copy:"):
+            text_to_copy = urllib.parse.unquote(url_str[5:])
+            QApplication.clipboard().setText(text_to_copy)
+            if self.parent_window:
+                self.parent_window.txt_live.append(f"📋 Copiado: {text_to_copy}")
 
     def normalize_text(self, text):
         if not text: return ""
@@ -1064,15 +1079,20 @@ class ExcelRecordsWidget(QWidget):
     def render_item_card(self, item):
         # Este método agora é usado principalmente para importação imediata,
         # mas a thread tem sua própria versão. Mantemos para consistência.
+        copy_btn = "<a href='copy:{}' style='text-decoration: none; color: #3b82f6; font-size: 10px; margin-left: 10px;'>[Copiar]</a>"
+
         extra_html = ""
-        if item['email'] != "-": extra_html += f"<br>📧 {item['email']}"
-        if item['celular'] != "-": extra_html += f"<br>📱 {item['celular']}"
-        if item['cartao'] != "-": extra_html += f"<br>🪪 {item['cartao']}"
+        if item['email'] != "-":
+            extra_html += f"<br>📧 {item['email']} {copy_btn.format(item['email'])}"
+        if item['celular'] != "-":
+            extra_html += f"<br>📱 {item['celular']} {copy_btn.format(item['celular'])}"
+        if item['cartao'] != "-":
+            extra_html += f"<br>🪪 {item['cartao']} {copy_btn.format(item['cartao'])}"
 
         return f"""
         <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
-            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
-            <br><span style='color: {self.sub_text_color}; font-size: 12px;'>(ID: {item['id']})</span>
+            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']} {copy_btn.format(item['nome'] + ' ' + item['sobrenome'])}</b>
+            <br><span style='color: {self.sub_text_color}; font-size: 12px;'>(ID: {item['id']}) {copy_btn.format(item['id'])}</span>
             <span style='font-size: 13px; color: {self.sub_text_color};'>
                 {extra_html}
             </span>
