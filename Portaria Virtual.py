@@ -1948,6 +1948,9 @@ class SmartPortariaScanner(QMainWindow):
             js_login = f"document.querySelectorAll('input').forEach(i => {{ if(i.type=='text') i.value='{self.creds['portaria_user']}'; if(i.type=='password') i.value='{self.creds['portaria_pass']}'; }});"
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
+            if self.pending_zk_search_id:
+                self.txt_live.append(f"🤖 [ZK Bio] Login automático para buscar ID: {self.pending_zk_search_id}")
+
             js_login_zk = f"""
                 var userField = document.getElementById('username');
                 var passField = document.getElementById('password');
@@ -1961,7 +1964,33 @@ class SmartPortariaScanner(QMainWindow):
             """
             browser_view.page().runJavaScript(js_login_zk)
 
+        elif "dashboard.do" in url_atual and self.pending_zk_search_id:
+            self.txt_live.append("🤖 [ZK Bio] Dashboard detectada. Acessando menu 'Pessoal'...")
+            js_dash = """
+                (function() {
+                    var checkIcon = setInterval(function() {
+                        var icons = document.querySelectorAll('.zk_menu_icon_box img');
+                        for (var img of icons) {
+                            if (img.src.includes('Pers_over.png')) {
+                                clearInterval(checkIcon);
+                                img.click();
+                                // Tenta clicar no pai também para garantir
+                                if (img.parentElement) img.parentElement.click();
+                                break;
+                            }
+                        }
+                    }, 500);
+                    setTimeout(() => clearInterval(checkIcon), 10000);
+                })();
+            """
+            browser_view.page().runJavaScript(js_dash)
+
         elif self.pending_zk_search_id and "192.168.7.9:8098" in url_atual:
+            # Garante que não tente pesquisar na dashboard ou login
+            if "dashboard.do" in url_atual or "bioLogin.do" in url_atual:
+                return
+
+            self.txt_live.append(f"🤖 [ZK Bio] Localizando campo de busca para ID {self.pending_zk_search_id}...")
             js_search_zk = f"""
                 (function() {{
                     var checkInput = setInterval(function() {{
@@ -2134,8 +2163,9 @@ class SmartPortariaScanner(QMainWindow):
                     self.tabs.setCurrentIndex(i)
                     view = self.web_stack.widget(i)
                     if view:
-                        if view.url().toString().startswith(f"{ZK_SERVER}/bioLogin.do"):
-                             self.injetar_login(view) # Tenta injetar logo se já estiver na página
+                        cur_url = view.url().toString()
+                        if cur_url.startswith(f"{ZK_SERVER}/bioLogin.do") or "dashboard.do" in cur_url or "192.168.7.9:8098" in cur_url:
+                             self.injetar_login(view) # Tenta injetar logo se já estiver logado ou na página certa
                         else:
                              view.setUrl(QUrl(f"{ZK_SERVER}/bioLogin.do"))
                     return
