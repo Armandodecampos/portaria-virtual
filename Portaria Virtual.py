@@ -636,9 +636,11 @@ class SearchThread(QThread):
         extra_str = " &nbsp;|&nbsp; ".join(extra)
 
         separator = f"<span style='color: {self.td['card_border']}; margin: 0 15px;'>&nbsp;&nbsp;|&nbsp;&nbsp;</span>" if extra_str else ""
+        btn_zk = f"<a href='zkbio:{item['id']}' style='background-color: #2563eb; color: white; text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 10px;'>Abrir no Zk Bio</a>"
 
         return f"""
         <div style='background-color: transparent; border: none; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
+            {btn_zk}
             <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
             <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'> (ID: {item['id']})</span>
             {separator}
@@ -845,8 +847,10 @@ class ExcelRecordsWidget(QWidget):
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
-        self.browser.setOpenExternalLinks(True)
+        self.browser.setOpenExternalLinks(False)
         self.browser.setStyleSheet("border: none; background: transparent;")
+        if self.parent_window:
+            self.browser.anchorClicked.connect(self.parent_window.abrir_link_resultado)
         layout.addWidget(self.browser)
 
     def normalize_text(self, text):
@@ -1075,9 +1079,11 @@ class ExcelRecordsWidget(QWidget):
         extra_str = " &nbsp;|&nbsp; ".join(extra)
 
         separator = f"<span style='color: {self.card_border}; margin: 0 15px;'>&nbsp;&nbsp;|&nbsp;&nbsp;</span>" if extra_str else ""
+        btn_zk = f"<a href='zkbio:{item['id']}' style='background-color: #2563eb; color: white; text-decoration: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 10px;'>Abrir no Zk Bio</a>"
 
         return f"""
         <div style='background-color: transparent; border: none; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
+            {btn_zk}
             <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
             <span style='color: {self.sub_text_color}; font-size: 12px;'> (ID: {item['id']})</span>
             {separator}
@@ -1387,6 +1393,7 @@ class SmartPortariaScanner(QMainWindow):
         self.db = None
         self.id_atual = 1
         self.rodando = True
+        self.pending_zk_search_id = None
         
         self.timer_retry = QTimer()
         self.timer_retry.setSingleShot(True)
@@ -1946,8 +1953,33 @@ class SmartPortariaScanner(QMainWindow):
                 var passField = document.getElementById('password');
                 if (userField) userField.value = '{self.creds['zk_user']}';
                 if (passField) passField.value = '{self.creds['zk_pass']}';
+
+                if ("{self.pending_zk_search_id or ''}") {{
+                    var btnLogin = document.getElementById('test');
+                    if (btnLogin) btnLogin.click();
+                }}
             """
             browser_view.page().runJavaScript(js_login_zk)
+
+        elif self.pending_zk_search_id and "192.168.7.9:8098" in url_atual:
+            js_search_zk = f"""
+                (function() {{
+                    var checkInput = setInterval(function() {{
+                        var input = document.querySelector('input[title="ID Pessoal"]');
+                        if (input) {{
+                            clearInterval(checkInput);
+                            input.value = '{self.pending_zk_search_id}';
+                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            input.dispatchEvent(new KeyboardEvent('keydown', {{ bubbles: true, cancelable: true, key: 'Enter', keyCode: 13 }}));
+                        }}
+                    }}, 500);
+                    // Timeout para não ficar rodando infinitamente se não achar
+                    setTimeout(() => clearInterval(checkInput), 10000);
+                }})();
+            """
+            browser_view.page().runJavaScript(js_search_zk)
+            self.pending_zk_search_id = None
 
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
@@ -2090,6 +2122,25 @@ class SmartPortariaScanner(QMainWindow):
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
+
+        if url_str.startswith("zkbio:"):
+            vid = url_str.split(":")[1]
+            QApplication.clipboard().setText(vid)
+            self.pending_zk_search_id = vid
+
+            # Navegar para ZK Bio
+            for i in range(self.tabs.count()):
+                if "ZK Bio" in self.tabs.tabText(i):
+                    self.tabs.setCurrentIndex(i)
+                    view = self.web_stack.widget(i)
+                    if view:
+                        if view.url().toString().startswith(f"{ZK_SERVER}/bioLogin.do"):
+                             self.injetar_login(view) # Tenta injetar logo se já estiver na página
+                        else:
+                             view.setUrl(QUrl(f"{ZK_SERVER}/bioLogin.do"))
+                    return
+            return
+
         if url_str.startswith("transfer:"):
             visita_id = url_str.split(":")[1]
             self.iniciar_transferencia(visita_id)
