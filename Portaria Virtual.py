@@ -863,6 +863,7 @@ class ExcelRecordsWidget(QWidget):
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
         self.browser.setOpenExternalLinks(False)
+        self.browser.setOpenLinks(False)
         self.browser.anchorClicked.connect(self.handle_copy_link)
         self.browser.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(self.browser)
@@ -1563,6 +1564,7 @@ class SmartPortariaScanner(QMainWindow):
         
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setOpenExternalLinks(False)
+        self.txt_res_busca.setOpenLinks(False)
         # O estilo base transparente é bom, mas vamos deixar o tema controlar a cor do texto
         self.txt_res_busca.setStyleSheet("border: none; background: transparent;")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
