@@ -634,14 +634,15 @@ class SearchThread(QThread):
         if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
         if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
         extra_str = " | ".join(extra)
-        full_extra = f" | {extra_str}" if extra_str else ""
-
-        data_badge = f"<span style='color: #3b82f6; font-size: 11px;'>📅 {item['data_upload']}</span> " if item.get('data_upload') else ""
 
         return f"""
-        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
-            <div style='font-size: 13px; color: {self.td["text_color"]};'>
-                {data_badge}<b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
+        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
+            <div style='margin-bottom: 4px;'>
+                <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
+                <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'> (ID: {item['id']})</span>
+            </div>
+            <div style='font-size: 12px; color: {self.td["sub_text_color"]};'>
+                {extra_str}
             </div>
         </div>
         """
@@ -685,7 +686,12 @@ class SearchThread(QThread):
                 item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6], "data_upload": r[7]}
                 if item_data["dept"] != current_dept:
                     current_dept = item_data["dept"]
-                    html_parts.append(f"<h3 style='color: #3b82f6; border-bottom: 1px solid {self.td['card_border']}; margin-top: 15px; margin-bottom: 10px;'>{current_dept}</h3>")
+                    html_parts.append(f"""
+                        <div style='background-color: {self.td["card_bg"]}; color: #3b82f6; padding: 6px 12px; border-radius: 6px;
+                                    border-bottom: 2px solid #3b82f6; margin-top: 20px; margin-bottom: 12px; font-weight: bold; font-size: 16px;'>
+                            📂 {current_dept}
+                        </div>
+                    """)
                 html_parts.append(self.render_item_card(item_data))
 
             html_parts.append("</div>")
@@ -753,7 +759,16 @@ class ExcelRecordsWidget(QWidget):
         header_lay.addWidget(self.btn_upload)
 
         self.lbl_file_name = QLabel("")
-        self.lbl_file_name.setStyleSheet("font-style: italic; color: #94a3b8;")
+        self.lbl_file_name.setStyleSheet("""
+            QLabel {
+                background-color: #1e293b;
+                color: #94a3b8;
+                padding: 5px 12px;
+                border-radius: 12px;
+                font-size: 11px;
+                border: 1px solid #334155;
+            }
+        """)
         header_lay.addWidget(self.lbl_file_name)
         header_lay.addStretch()
 
@@ -1057,14 +1072,15 @@ class ExcelRecordsWidget(QWidget):
         if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
         if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
         extra_str = " | ".join(extra)
-        full_extra = f" | {extra_str}" if extra_str else ""
-
-        data_badge = f"<span style='color: #3b82f6; font-size: 11px;'>📅 {item['data_upload']}</span> " if item.get('data_upload') else ""
 
         return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-radius: 6px; padding: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
-            <div style='font-size: 13px; color: {self.text_color};'>
-                {data_badge}<b style='color: #3b82f6;'>👤 {item['nome']} {item['sobrenome']}</b> (ID: {item['id']}){full_extra}
+        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
+            <div style='margin-bottom: 4px;'>
+                <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
+                <span style='color: {self.sub_text_color}; font-size: 12px;'> (ID: {item['id']})</span>
+            </div>
+            <div style='font-size: 12px; color: {self.sub_text_color};'>
+                {extra_str}
             </div>
         </div>
         """
