@@ -869,7 +869,7 @@ class ExcelRecordsWidget(QWidget):
             }
             QPushButton:hover { background-color: #dc2626; }
         """)
-        header_lay.addWidget(self.btn_close, alignment=Qt.AlignmentFlag.AlignBottom)
+        header_lay.addWidget(self.btn_close, alignment=Qt.AlignmentFlag.AlignTop)
 
         layout.addLayout(header_lay)
 
