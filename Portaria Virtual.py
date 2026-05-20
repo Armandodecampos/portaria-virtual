@@ -1544,10 +1544,12 @@ class SmartPortariaScanner(QMainWindow):
         # === GRUPO BUSCA NO BANCO ===
         group_busca = QGroupBox("BUSCA NO BANCO DE DADOS")
         layout_busca = QVBoxLayout(group_busca)
+        layout_busca.setSpacing(0)
+        layout_busca.setContentsMargins(5, 2, 5, 5)
         
         # Botão de Alternância
         self.btn_toggle_busca = QPushButton("🔍 Busca: Todos os dados")
-        self.btn_toggle_busca.setStyleSheet("font-weight: bold; padding: 5px; margin-bottom: 5px;")
+        self.btn_toggle_busca.setStyleSheet("font-weight: bold; padding: 5px;")
         self.btn_toggle_busca.clicked.connect(self.alternar_modo_busca)
         layout_busca.addWidget(self.btn_toggle_busca)
 
@@ -1557,7 +1559,7 @@ class SmartPortariaScanner(QMainWindow):
         container_normal = QWidget()
         lay_normal = QHBoxLayout(container_normal)
         lay_normal.setContentsMargins(0, 0, 0, 0)
-        lay_normal.setSpacing(5)
+        lay_normal.setSpacing(0)
 
         self.input_busca = QLineEdit()
         self.input_busca.setPlaceholderText("Nome ou ID...")
@@ -1575,7 +1577,7 @@ class SmartPortariaScanner(QMainWindow):
         container_cpf = QWidget()
         lay_cpf = QHBoxLayout(container_cpf)
         lay_cpf.setContentsMargins(0, 0, 0, 0)
-        lay_cpf.setSpacing(5)
+        lay_cpf.setSpacing(0)
 
         self.input_busca_cpf = QLineEdit()
         self.input_busca_cpf.setPlaceholderText("CPF (somente números)...")
@@ -1594,8 +1596,9 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setOpenExternalLinks(False)
         self.txt_res_busca.setOpenLinks(False)
+        self.txt_res_busca.document().setDocumentMargin(0)
         # O estilo base transparente é bom, mas vamos deixar o tema controlar a cor do texto
-        self.txt_res_busca.setStyleSheet("border: none; background: transparent;")
+        self.txt_res_busca.setStyleSheet("border: none; background: transparent; margin: 0; padding: 0;")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
         lat.addWidget(group_busca, 3)
@@ -2116,7 +2119,7 @@ class SmartPortariaScanner(QMainWindow):
                 except: pass
             
             html += f"""
-            <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
+            <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
                 <div style='color: {text_color}; font-size: 14px;'>
                     <a href="{vid}" style="text-decoration: none; color: inherit;">
                         <b style='color: #2563eb;'>ID {vid}:</b> <span style='color: #ffffff;'>{nome}</span><br>
