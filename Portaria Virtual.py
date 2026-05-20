@@ -613,6 +613,39 @@ class InstrucoesDialog(QDialog):
 
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
+def render_zk_card(item, card_bg, card_border, sub_text_color):
+    """
+    Função utilitária para renderizar o card de um registro do ZK Bio.
+    """
+    copy_btn = "<a href='copy:{}' style='text-decoration: none; color: #3b82f6; font-size: 10px; margin-left: 10px;'>[Copiar]</a>"
+
+    # Cálculo do Código Ifood (últimos 4 dígitos do telefone)
+    ifood_code = "-"
+    if item['celular'] != "-" and len(re.sub(r'\D', '', item['celular'])) >= 4:
+        ifood_code = re.sub(r'\D', '', item['celular'])[-4:]
+
+    html = f"""
+    <div style='background-color: {card_bg}; border: 1px solid {card_border}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
+        <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']} {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}</b>
+    """
+
+    if item['cartao'] != "-":
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'>🪪 {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
+
+    if item['email'] != "-":
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'>📧 {item['email']} {copy_btn.format(urllib.parse.quote(item['email']))}</span>"
+
+    if item['celular'] != "-":
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'>📱 {item['celular']} {copy_btn.format(urllib.parse.quote(item['celular']))}</span>"
+
+    html += f"<br><span style='color: {sub_text_color}; font-size: 12px;'>(ID: {item['id']}) {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
+
+    if ifood_code != "-":
+        html += f"<br><span style='font-size: 13px; color: #10b981; font-weight: bold;'>🍔 Código Ifood: {ifood_code} {copy_btn.format(urllib.parse.quote(ifood_code))}</span>"
+
+    html += "</div>"
+    return html
+
 class SearchThread(QThread):
     results_ready = pyqtSignal(str, int)
 
@@ -630,25 +663,7 @@ class SearchThread(QThread):
         ).lower()
 
     def render_item_card(self, item):
-        copy_btn = "<a href='copy:{}' style='text-decoration: none; color: #3b82f6; font-size: 10px; margin-left: 10px;'>[Copiar]</a>"
-
-        extra_html = ""
-        if item['email'] != "-":
-            extra_html += f"<br>📧 {item['email']} {copy_btn.format(item['email'])}"
-        if item['celular'] != "-":
-            extra_html += f"<br>📱 {item['celular']} {copy_btn.format(item['celular'])}"
-        if item['cartao'] != "-":
-            extra_html += f"<br>🪪 {item['cartao']} {copy_btn.format(item['cartao'])}"
-
-        return f"""
-        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
-            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']} {copy_btn.format(item['nome'] + ' ' + item['sobrenome'])}</b>
-            <br><span style='color: {self.td["sub_text_color"]}; font-size: 12px;'>(ID: {item['id']}) {copy_btn.format(item['id'])}</span>
-            <span style='font-size: 13px; color: {self.td["sub_text_color"]};'>
-                {extra_html}
-            </span>
-        </div>
-        """
+        return render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'])
 
     def run(self):
         db_file = "zk_cache.db"
@@ -1079,25 +1094,7 @@ class ExcelRecordsWidget(QWidget):
     def render_item_card(self, item):
         # Este método agora é usado principalmente para importação imediata,
         # mas a thread tem sua própria versão. Mantemos para consistência.
-        copy_btn = "<a href='copy:{}' style='text-decoration: none; color: #3b82f6; font-size: 10px; margin-left: 10px;'>[Copiar]</a>"
-
-        extra_html = ""
-        if item['email'] != "-":
-            extra_html += f"<br>📧 {item['email']} {copy_btn.format(item['email'])}"
-        if item['celular'] != "-":
-            extra_html += f"<br>📱 {item['celular']} {copy_btn.format(item['celular'])}"
-        if item['cartao'] != "-":
-            extra_html += f"<br>🪪 {item['cartao']} {copy_btn.format(item['cartao'])}"
-
-        return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
-            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']} {copy_btn.format(item['nome'] + ' ' + item['sobrenome'])}</b>
-            <br><span style='color: {self.sub_text_color}; font-size: 12px;'>(ID: {item['id']}) {copy_btn.format(item['id'])}</span>
-            <span style='font-size: 13px; color: {self.sub_text_color};'>
-                {extra_html}
-            </span>
-        </div>
-        """
+        return render_zk_card(item, self.card_bg, self.card_border, self.sub_text_color)
 
 # --- CONFIGURAÇÕES AMBEV ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
