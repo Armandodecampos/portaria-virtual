@@ -633,17 +633,18 @@ class SearchThread(QThread):
         if item['email'] != "-": extra.append(f"📧 {item['email']}")
         if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
         if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
-        extra_str = " | ".join(extra)
+        extra_str = " &nbsp;|&nbsp; ".join(extra)
+
+        separator = f"<span style='color: {self.td['card_border']}; margin: 0 15px;'>&nbsp;&nbsp;|&nbsp;&nbsp;</span>" if extra_str else ""
 
         return f"""
-        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
-            <div style='margin-bottom: 4px;'>
-                <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
-                <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'> (ID: {item['id']})</span>
-            </div>
-            <div style='font-size: 12px; color: {self.td["sub_text_color"]};'>
+        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
+            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
+            <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'> (ID: {item['id']})</span>
+            {separator}
+            <span style='font-size: 13px; color: {self.td["sub_text_color"]};'>
                 {extra_str}
-            </div>
+            </span>
         </div>
         """
 
@@ -1071,17 +1072,18 @@ class ExcelRecordsWidget(QWidget):
         if item['email'] != "-": extra.append(f"📧 {item['email']}")
         if item['celular'] != "-": extra.append(f"📱 {item['celular']}")
         if item['cartao'] != "-": extra.append(f"🪪 {item['cartao']}")
-        extra_str = " | ".join(extra)
+        extra_str = " &nbsp;|&nbsp; ".join(extra)
+
+        separator = f"<span style='color: {self.card_border}; margin: 0 15px;'>&nbsp;&nbsp;|&nbsp;&nbsp;</span>" if extra_str else ""
 
         return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 12px; margin-bottom: 8px;'>
-            <div style='margin-bottom: 4px;'>
-                <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
-                <span style='color: {self.sub_text_color}; font-size: 12px;'> (ID: {item['id']})</span>
-            </div>
-            <div style='font-size: 12px; color: {self.sub_text_color};'>
+        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
+            <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
+            <span style='color: {self.sub_text_color}; font-size: 12px;'> (ID: {item['id']})</span>
+            {separator}
+            <span style='font-size: 13px; color: {self.sub_text_color};'>
                 {extra_str}
-            </div>
+            </span>
         </div>
         """
 
