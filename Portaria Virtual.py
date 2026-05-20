@@ -638,7 +638,7 @@ class SearchThread(QThread):
         separator = f"<span style='color: {self.td['card_border']}; margin: 0 15px;'>&nbsp;&nbsp;|&nbsp;&nbsp;</span>" if extra_str else ""
 
         return f"""
-        <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["card_border"]}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
+        <div style='background-color: transparent; border: none; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
             <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
             <span style='color: {self.td["sub_text_color"]}; font-size: 12px;'> (ID: {item['id']})</span>
             {separator}
@@ -688,7 +688,7 @@ class SearchThread(QThread):
                 if item_data["dept"] != current_dept:
                     current_dept = item_data["dept"]
                     html_parts.append(f"""
-                        <div style='background-color: {self.td["card_bg"]}; color: #3b82f6; padding: 6px 12px; border-radius: 6px;
+                        <div style='background-color: transparent; color: #3b82f6; padding: 6px 12px; border-radius: 6px;
                                     border-bottom: 2px solid #3b82f6; margin-top: 20px; margin-bottom: 12px; font-weight: bold; font-size: 16px;'>
                             📂 {current_dept}
                         </div>
@@ -1077,7 +1077,7 @@ class ExcelRecordsWidget(QWidget):
         separator = f"<span style='color: {self.card_border}; margin: 0 15px;'>&nbsp;&nbsp;|&nbsp;&nbsp;</span>" if extra_str else ""
 
         return f"""
-        <div style='background-color: {self.card_bg}; border: 1px solid {self.card_border}; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
+        <div style='background-color: transparent; border: none; border-left: 5px solid #3b82f6; border-radius: 10px; padding: 16px; margin-bottom: 12px; white-space: nowrap;'>
             <b style='color: #3b82f6; font-size: 14px;'>👤 {item['nome']} {item['sobrenome']}</b>
             <span style='color: {self.sub_text_color}; font-size: 12px;'> (ID: {item['id']})</span>
             {separator}
