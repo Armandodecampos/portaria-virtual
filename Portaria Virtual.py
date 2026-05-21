@@ -277,13 +277,6 @@ class NotificationToast(QFrame):
         self.lbl_msg.setStyleSheet("font-size: 13px; font-weight: bold;")
         self.main_layout.addWidget(self.lbl_msg, 1)
 
-        # Botão Fechar
-        self.btn_close = QPushButton("✕")
-        self.btn_close.setFixedSize(24, 24)
-        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_close.clicked.connect(self.hide_notification)
-        self.main_layout.addWidget(self.btn_close)
-
         # Timer para auto-fechamento
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
@@ -294,17 +287,14 @@ class NotificationToast(QFrame):
             bg_color = "#1e293b"
             text_color = "#e2e8f0"
             border_color = "#334155"
-            close_hover = "#475569"
         elif mode == "sepia":
             bg_color = "#000000"
             text_color = "#ffffff"
             border_color = "#554433"
-            close_hover = "#332211"
         else:
             bg_color = "#f8fafc"
             text_color = "#1e293b"
             border_color = "#cbd5e1"
-            close_hover = "#e2e8f0"
 
         self.setStyleSheet(f"""
             NotificationToast {{
@@ -315,17 +305,6 @@ class NotificationToast(QFrame):
             QLabel {{
                 color: {text_color};
                 background: transparent;
-            }}
-            QPushButton {{
-                background: transparent;
-                color: {text_color};
-                border: none;
-                border-radius: 12px;
-                font-weight: bold;
-                font-size: 14px;
-            }}
-            QPushButton:hover {{
-                background-color: {close_hover};
             }}
         """)
 
@@ -2267,7 +2246,7 @@ class SmartPortariaScanner(QMainWindow):
 
     def exibir_notificacao(self, nome_visitante):
         # Exibe Notificação Toast de forma segura
-        self.active_toast = NotificationToast(f"Novo convite: {nome_visitante}", self)
+        self.active_toast = NotificationToast("Novo convite!", self)
         self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
         self.active_toast.show_notification()
 
