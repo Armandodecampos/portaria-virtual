@@ -2203,7 +2203,7 @@ class SmartPortariaScanner(QMainWindow):
         maior = self.db.get_maior_id_salvo()
         if maior > 0: 
             self.id_atual = maior + 1
-            self.txt_live.append(f"🔄 Retomando captura a partir do ID: {self.id_atual}")
+            self.txt_live.append(f"✅ Último ID registrado: {maior}")
         else:
             self.txt_live.append("✨ Banco vazio/novo. Começando do ID 1.")
             self.id_atual = 1
