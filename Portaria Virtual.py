@@ -277,6 +277,13 @@ class NotificationToast(QFrame):
         self.lbl_msg.setStyleSheet("font-size: 13px; font-weight: bold;")
         self.main_layout.addWidget(self.lbl_msg, 1)
 
+        # Botão fechar
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setFixedSize(24, 24)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.clicked.connect(self.hide_notification)
+        self.main_layout.addWidget(self.btn_close)
+
         # Timer para auto-fechamento
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
@@ -305,6 +312,16 @@ class NotificationToast(QFrame):
             QLabel {{
                 color: {text_color};
                 background: transparent;
+            }}
+            QPushButton {{
+                color: {text_color};
+                background: transparent;
+                border: none;
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                color: #ef4444;
             }}
         """)
 
