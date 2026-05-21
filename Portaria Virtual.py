@@ -1375,8 +1375,11 @@ class RoboCapture(QObject):
 
     def iniciar(self, id_base):
         self.rodando = True
-        self.id_inicio_ciclo = id_base
-        self.id_atual_robo = id_base
+        if self.strategy == 'window':
+            self.id_atual_robo = max(1, id_base - self.range_size)
+        else:
+            self.id_atual_robo = id_base
+        self.id_inicio_ciclo = self.id_atual_robo
         self.log_signal.emit(f"🤖 {self.name} iniciado no ID: {self.id_atual_robo}")
         self.carregar_url()
 
@@ -1391,7 +1394,7 @@ class RoboCapture(QObject):
         # Antes de carregar, verifica se o ID já existe no banco (pode ter sido capturado por outro robô)
         if self.db.buscar_por_id(self.id_atual_robo):
             # Se já existe, pula para o próximo
-            if self.strategy == 'sequential':
+            if self.id_atual_robo >= self.parent_scanner.id_atual:
                 self.parent_scanner.id_atual = self.id_atual_robo + 1
 
             self.proximo_id()
@@ -1428,8 +1431,8 @@ class RoboCapture(QObject):
                 self.log_signal.emit(msg_log)
                 self.new_visit_signal.emit(nome_str)
 
-                # Se for Robo 1 (sequential), atualiza o id_atual global
-                if self.strategy == 'sequential':
+                # Atualiza a fronteira global se o ID for maior ou igual ao atual
+                if self.id_atual_robo >= self.parent_scanner.id_atual:
                     self.parent_scanner.id_atual = self.id_atual_robo + 1
 
             self.proximo_id()
@@ -1444,6 +1447,16 @@ class RoboCapture(QObject):
     def proximo_id(self):
         if self.strategy == 'sequential':
             self.id_atual_robo += 1
+        elif self.strategy == 'window':
+            # Implementação da estratégia de janela (window)
+            # Monitora [last_id - range_size, last_id + range_size]
+            last_id = self.parent_scanner.id_atual - 1
+            min_id = max(1, last_id - self.range_size)
+            max_id = last_id + self.range_size
+
+            self.id_atual_robo += 1
+            if self.id_atual_robo > max_id or self.id_atual_robo < min_id:
+                self.id_atual_robo = min_id
         else:
             self.id_atual_robo += 1
             if self.id_atual_robo > self.id_inicio_ciclo + self.range_size:
@@ -1520,7 +1533,7 @@ class DatabaseHandler:
 
     def salvar_visita(self, visita_id, nome, cpf, horario, conteudo, url):
         try:
-            self.cursor.execute('INSERT OR REPLACE INTO detalhes_visitas (visita_id, nome, cpf, horario, conteudo, url) VALUES (?, ?, ?, ?, ?, ?)',
+            self.cursor.execute('INSERT INTO detalhes_visitas (visita_id, nome, cpf, horario, conteudo, url) VALUES (?, ?, ?, ?, ?, ?)',
                                (visita_id, nome, cpf, horario, conteudo, url))
             self.conn.commit()
             return True
@@ -2208,10 +2221,10 @@ class SmartPortariaScanner(QMainWindow):
 
         # Inicializa os 4 robôs
         configs_robos = [
-            ("Robo 1", "sequential", 0),
-            ("Robo 2", ("range", 50), 2000),
-            ("Robo 3", ("range", 100), 4000),
-            ("Robo 4", ("range", 1000), 6000),
+            ("Robo 1", ("window", 5), 0),
+            ("Robo 2", ("window", 25), 2000),
+            ("Robo 3", ("window", 50), 4000),
+            ("Robo 4", ("window", 500), 6000),
         ]
 
         for name, strategy, delay in configs_robos:
