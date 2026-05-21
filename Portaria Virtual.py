@@ -450,18 +450,6 @@ class ConfigDialog(QDialog):
         lay_theme.addWidget(self.rb_sepia)
         layout.addWidget(gb_theme)
 
-        # === SEÇÃO MONITORAMENTO ===
-        gb_mon = QGroupBox("Captura Automática")
-        lay_mon = QHBoxLayout(gb_mon)
-        lay_mon.addWidget(QLabel("Próximo ID:"))
-        self.edit_next_id = QLineEdit(str(self.parent_window.id_atual))
-        self.edit_next_id.setPlaceholderText("Apenas números")
-        lay_mon.addWidget(self.edit_next_id)
-        btn_set_id = QPushButton("Definir")
-        btn_set_id.setStyleSheet("background-color: #3b82f6; color: white; padding: 4px 10px; font-weight: bold;")
-        btn_set_id.clicked.connect(self.acao_definir_id)
-        lay_mon.addWidget(btn_set_id)
-        layout.addWidget(gb_mon)
 
         # === SEÇÃO CREDENCIAIS ===
         gb_creds = QGroupBox("Credenciais de Acesso")
@@ -522,20 +510,6 @@ class ConfigDialog(QDialog):
         else:
             modo = "light"
         self.parent_window.aplicar_tema(modo)
-
-    def acao_definir_id(self):
-        try:
-            val = self.edit_next_id.text().strip()
-            if not val or not val.isdigit():
-                raise ValueError("ID Inválido")
-
-            novo_id = int(val)
-            self.parent_window.id_atual = novo_id
-            self.parent_window.txt_live.append(f"🎯 [Config] Monitoramento alterado para ID: {novo_id}")
-            self.parent_window.reiniciar_monitores()
-            QMessageBox.information(self, "Sucesso", f"Próximo ID definido para {novo_id}")
-        except Exception as e:
-            QMessageBox.warning(self, "Erro", "Insira um número de ID válido.")
 
     def acao_salvar_credenciais(self):
         p_user = self.edit_portaria_user.text().strip()
