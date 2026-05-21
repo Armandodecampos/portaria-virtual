@@ -707,6 +707,9 @@ class SearchThread(QThread):
 
             current_dept = None
             for r in rows:
+                if self.isInterruptionRequested():
+                    conn.close()
+                    return
                 item_data = {"id": r[0], "nome": r[1], "sobrenome": r[2], "dept": r[3], "celular": r[4], "cartao": r[5], "email": r[6], "data_upload": r[7]}
                 if item_data["dept"] != current_dept:
                     current_dept = item_data["dept"]
@@ -724,6 +727,137 @@ class SearchThread(QThread):
             conn.close()
         except Exception as e:
             print(f"Erro na thread de busca: {e}")
+
+class LocalSearchThread(QThread):
+    results_ready = pyqtSignal(str)
+
+    def __init__(self, db, termos, theme_data):
+        super().__init__()
+        self.db = db
+        self.termos = termos
+        self.td = theme_data
+
+    def run(self):
+        if not self.db: return
+        try:
+            dados = self.db.buscar_por_filtro(self.termos)
+            html = ""
+            hoje = datetime.date.today()
+
+            for vid, nome, cpf, horario in dados:
+                if self.isInterruptionRequested(): return
+
+                cor_validade = self.td['cor_validade_padrao']
+                if horario and horario != "N/A":
+                    try:
+                        partes = horario.split(" - ")
+                        if len(partes) == 2:
+                            data_fim = datetime.datetime.strptime(partes[1].strip(), "%d/%m/%Y").date()
+                            if data_fim < hoje: cor_validade = "#ef4444"
+                    except: pass
+
+                html += f"""
+                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
+                    <div style='color: {self.td["text_color"]}; font-size: 14px;'>
+                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                            <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
+                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                        </a>
+                    </div>
+                </div>
+                """
+            self.results_ready.emit(html)
+        except Exception as e:
+            print(f"Erro na thread de busca local: {e}")
+
+class ImportExcelThread(QThread):
+    success = pyqtSignal(str, str, dict)
+    error = pyqtSignal(str)
+
+    def __init__(self, fname, normalize_func):
+        super().__init__()
+        self.fname = fname
+        self.normalize_func = normalize_func
+
+    def run(self):
+        try:
+            now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+            rows = []
+            if self.fname.lower().endswith(".xls"):
+                wb = xlrd.open_workbook(self.fname)
+                ws = wb.sheet_by_index(0)
+                for row_idx in range(1, ws.nrows):
+                    rows.append(ws.row_values(row_idx))
+            else:
+                wb = openpyxl.load_workbook(self.fname, data_only=True)
+                ws = wb.active
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    rows.append(row)
+
+            new_items = {}
+            for row in rows:
+                if not any(row): continue
+                row_len = len(row)
+                vid = str(row[0]) if row_len > 0 and row[0] is not None else "-"
+                nome = str(row[1]).strip() if row_len > 1 and row[1] else "-"
+                sobrenome = str(row[2]).strip() if row_len > 2 and row[2] else "-"
+                dept = str(row[4]).strip() if row_len > 4 and row[4] else "Portaria Virtual"
+                celular = str(row[7]) if row_len > 7 and row[7] is not None else "-"
+                cartao = str(row[8]) if row_len > 8 and row[8] is not None else "-"
+                email = str(row[9]) if row_len > 9 and row[9] is not None else "-"
+
+                if vid == "-" and nome == "-": continue
+
+                search_text = self.normalize_func(f"{nome} {sobrenome} {vid} {email} {celular} {cartao}")
+                item = {
+                    "id": vid, "nome": nome, "sobrenome": sobrenome,
+                    "dept": dept, "celular": celular, "cartao": cartao,
+                    "email": email, "search_text": search_text
+                }
+                if dept not in new_items: new_items[dept] = []
+                new_items[dept].append(item)
+
+            self.success.emit(os.path.basename(self.fname), now_str, new_items)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class DownloadImageThread(QThread):
+    success = pyqtSignal(str, str)
+    error = pyqtSignal(str)
+
+    def __init__(self, url_data):
+        super().__init__()
+        self.url_data = url_data
+
+    def run(self):
+        try:
+            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+            agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"imagem_baixada_{agora}.jpg"
+
+            if self.url_data.startswith("data:image"):
+                header, encoded = self.url_data.split(",", 1)
+                ext = header.split(";")[0].split("/")[1]
+                filename = f"imagem_baixada_{agora}.{ext}"
+                filepath = os.path.join(downloads_path, filename)
+                with open(filepath, "wb") as f:
+                    f.write(base64.b64decode(encoded))
+                self.success.emit(filename, f"Salva como Data URI: {filename}")
+            else:
+                response = requests.get(self.url_data, verify=False, timeout=10)
+                if response.status_code == 200:
+                    content_type = response.headers.get('content-type', '')
+                    if 'png' in content_type: filename = filename.replace('.jpg', '.png')
+                    elif 'webp' in content_type: filename = filename.replace('.jpg', '.webp')
+                    filepath = os.path.join(downloads_path, filename)
+                    with open(filepath, "wb") as f:
+                        f.write(response.content)
+                    self.success.emit(filename, f"Baixada com sucesso: {filename}")
+                else:
+                    self.error.emit(f"Erro HTTP {response.status_code}")
+        except Exception as e:
+            self.error.emit(str(e))
 
 class ExcelRecordsWidget(QWidget):
     def __init__(self, parent=None):
@@ -982,8 +1116,8 @@ class ExcelRecordsWidget(QWidget):
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
-            cursor.execute("PRAGMA journal_mode=OFF")
-            cursor.execute("PRAGMA synchronous=OFF")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("DROP TABLE IF EXISTS zk_records")
             cursor.execute("DROP TABLE IF EXISTS zk_records_fts")
             cursor.execute("""
@@ -1069,57 +1203,25 @@ class ExcelRecordsWidget(QWidget):
         fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Excel", "", "Excel Files (*.xls *.xlsx)")
         if not fname: return
 
-        try:
-            now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-            self.update_file_label(f"📂 {os.path.basename(fname)}", now_str)
+        self.btn_upload.setEnabled(False)
+        self.lbl_file_name.setText("⏳ Processando arquivo Excel...")
 
-            rows = []
-            if fname.lower().endswith(".xls"):
-                wb = xlrd.open_workbook(fname)
-                ws = wb.sheet_by_index(0)
-                for row_idx in range(1, ws.nrows):
-                    rows.append(ws.row_values(row_idx))
-            else:
-                wb = openpyxl.load_workbook(fname, data_only=True)
-                ws = wb.active
-                for row in ws.iter_rows(min_row=2, values_only=True):
-                    rows.append(row)
+        self.import_thread = ImportExcelThread(fname, self.normalize_text)
+        self.import_thread.success.connect(self.on_import_success)
+        self.import_thread.error.connect(self.on_import_error)
+        self.import_thread.start()
 
-            new_items = {}
-            # Mapping: ID(0), Nome(1), Sobrenome(2), Departamento(4), Celular(7), Cartão(8), Email(9)
-            for row in rows:
-                if not any(row): continue
+    def on_import_success(self, base_name, now_str, new_items):
+        self.btn_upload.setEnabled(True)
+        self.update_file_label(f"📂 {base_name}", now_str)
+        self.save_to_cache_db(new_items, upload_date=now_str)
+        self.render_department_filters()
+        self.filter_and_render()
 
-                # Use safely indices with get() or similar logic to avoid IndexError
-                # or check length
-                row_len = len(row)
-                vid = str(row[0]) if row_len > 0 and row[0] is not None else "-"
-                nome = str(row[1]).strip() if row_len > 1 and row[1] else "-"
-                sobrenome = str(row[2]).strip() if row_len > 2 and row[2] else "-"
-                dept = str(row[4]).strip() if row_len > 4 and row[4] else "Portaria Virtual"
-                celular = str(row[7]) if row_len > 7 and row[7] is not None else "-"
-                cartao = str(row[8]) if row_len > 8 and row[8] is not None else "-"
-                email = str(row[9]) if row_len > 9 and row[9] is not None else "-"
-
-                if vid == "-" and nome == "-": continue
-
-                search_text = self.normalize_text(f"{nome} {sobrenome} {vid} {email} {celular} {cartao}")
-
-                item = {
-                    "id": vid, "nome": nome, "sobrenome": sobrenome,
-                    "dept": dept, "celular": celular, "cartao": cartao,
-                    "email": email, "search_text": search_text
-                }
-
-                if dept not in new_items: new_items[dept] = []
-                new_items[dept].append(item)
-
-            self.save_to_cache_db(new_items, upload_date=now_str)
-            self.render_department_filters()
-            self.filter_and_render()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {e}")
+    def on_import_error(self, err):
+        self.btn_upload.setEnabled(True)
+        self.lbl_file_name.setText("❌ Erro na importação.")
+        QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {err}")
 
     def fechar_ou_ocultar(self):
         if self.parent_window:
@@ -1139,10 +1241,11 @@ class ExcelRecordsWidget(QWidget):
             self.browser.clear()
             return
 
-        # Cancela busca anterior se existir
+        # Cancela busca anterior se existir de forma segura
         if self.search_thread and self.search_thread.isRunning():
-            self.search_thread.terminate()
-            self.search_thread.wait()
+            self.search_thread.results_ready.disconnect()
+            self.search_thread.requestInterruption()
+            # Não chamamos wait() aqui para evitar congelar a UI se a thread demorar a responder
 
         theme_data = {
             "card_bg": self.card_bg,
@@ -1456,6 +1559,8 @@ class DatabaseHandler:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.create_function("unaccent", 1, self.remove_accents)
         self.cursor = self.conn.cursor()
+        self.cursor.execute("PRAGMA journal_mode=WAL")
+        self.cursor.execute("PRAGMA synchronous=NORMAL")
         self.criar_tabelas()
         self.migrar_dados_vazios()
 
@@ -1622,6 +1727,7 @@ class SmartPortariaScanner(QMainWindow):
         self.timer_busca = QTimer()
         self.timer_busca.setSingleShot(True)
         self.timer_busca.timeout.connect(self.executar_busca_local)
+        self.local_search_thread = None
 
         self.timer_download_img = QTimer()
         self.timer_download_img.timeout.connect(self.verificar_imagem_capturada)
@@ -2321,56 +2427,36 @@ class SmartPortariaScanner(QMainWindow):
             self.txt_res_busca.clear()
             return
 
-        termos = termo_db.lower().split()
-        dados = self.db.buscar_por_filtro(termos)
-        html = ""
-        hoje = datetime.date.today()
-        # Define cor do texto baseada no tema
+        # Cancela busca anterior se existir
+        if self.local_search_thread and self.local_search_thread.isRunning():
+            self.local_search_thread.results_ready.disconnect()
+            self.local_search_thread.requestInterruption()
+
         current_theme = self.settings.value("theme")
+        theme_data = {}
         if current_theme == "dark":
-            text_color = "#e2e8f0"
-            card_bg = "#1e293b"
-            border_color = "#475569"
-            accent_color = "#3b82f6"
-            name_color = "#ffffff"
-            subtext_color = "#94a3b8"
+            theme_data = {
+                "text_color": "#e2e8f0", "card_bg": "#1e293b", "border_color": "#475569",
+                "accent_color": "#3b82f6", "name_color": "#ffffff", "subtext_color": "#94a3b8",
+                "cor_validade_padrao": "#10b981"
+            }
         elif current_theme == "sepia":
-            text_color = "#ffffff"
-            card_bg = "#000000"
-            border_color = "#554433"
-            accent_color = "#d9975d"
-            name_color = "#ffffff"
-            subtext_color = "#e2e8f0"
+            theme_data = {
+                "text_color": "#ffffff", "card_bg": "#000000", "border_color": "#554433",
+                "accent_color": "#d9975d", "name_color": "#ffffff", "subtext_color": "#e2e8f0",
+                "cor_validade_padrao": "#10b981"
+            }
         else:
-            text_color = "#1e293b"
-            card_bg = "#ffffff"
-            border_color = "#cbd5e1"
-            accent_color = "#2563eb"
-            name_color = "#1e293b"
-            subtext_color = "#64748b"
-        
-        for vid, nome, cpf, horario in dados:
-            cor_validade = "#10b981" if current_theme in ["dark", "sepia"] else "green"
-            if horario and horario != "N/A":
-                try:
-                    partes = horario.split(" - ")
-                    if len(partes) == 2:
-                        data_fim = datetime.datetime.strptime(partes[1].strip(), "%d/%m/%Y").date()
-                        if data_fim < hoje: cor_validade = "#ef4444"
-                except: pass
-            
-            html += f"""
-            <div style='background-color: {card_bg}; border: 1px solid {border_color}; border-bottom: 3px solid {border_color}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
-                <div style='color: {text_color}; font-size: 14px;'>
-                    <a href="{vid}" style="text-decoration: none; color: inherit;">
-                        <b style='color: {accent_color};'>ID {vid}:</b> <span style='color: {name_color}; font-weight: bold;'>{nome}</span><br>
-                        <span style='color: {subtext_color}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                        <span style='color: {subtext_color}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                    </a>
-                </div>
-            </div>
-            """
-        self.txt_res_busca.setHtml(html)
+            theme_data = {
+                "text_color": "#1e293b", "card_bg": "#ffffff", "border_color": "#cbd5e1",
+                "accent_color": "#2563eb", "name_color": "#1e293b", "subtext_color": "#64748b",
+                "cor_validade_padrao": "green"
+            }
+
+        termos = termo_db.lower().split()
+        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data)
+        self.local_search_thread.results_ready.connect(self.txt_res_busca.setHtml)
+        self.local_search_thread.start()
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
@@ -2525,46 +2611,20 @@ class SmartPortariaScanner(QMainWindow):
                 self.txt_live.append("❌ [Imagem] Cancelado (clicou fora de uma imagem).")
 
     def baixar_imagem(self, url_data):
-        try:
-            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-            agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"imagem_baixada_{agora}.jpg"
-            filepath = os.path.join(downloads_path, filename)
+        self.txt_live.append("⏳ [Imagem] Iniciando download...")
+        self.download_thread = DownloadImageThread(url_data)
+        self.download_thread.success.connect(self.on_download_success)
+        self.download_thread.error.connect(self.on_download_error)
+        self.download_thread.start()
 
-            if url_data.startswith("data:image"):
-                # Handle Data URI
-                header, encoded = url_data.split(",", 1)
-                ext = header.split(";")[0].split("/")[1]
-                filename = f"imagem_baixada_{agora}.{ext}"
-                filepath = os.path.join(downloads_path, filename)
+    def on_download_success(self, filename, msg):
+        self.txt_live.append(f"✅ [Imagem] {msg}")
+        self.active_toast = NotificationToast(f"Imagem salva!\n{filename}", self)
+        self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
+        self.active_toast.show_notification()
 
-                with open(filepath, "wb") as f:
-                    f.write(base64.b64decode(encoded))
-                self.txt_live.append(f"✅ [Imagem] Salva como Data URI: {filename}")
-            else:
-                # Handle URL
-                response = requests.get(url_data, verify=False, timeout=10)
-                if response.status_code == 200:
-                    # Tenta descobrir a extensão correta
-                    content_type = response.headers.get('content-type', '')
-                    if 'png' in content_type: filename = filename.replace('.jpg', '.png')
-                    elif 'webp' in content_type: filename = filename.replace('.jpg', '.webp')
-
-                    filepath = os.path.join(downloads_path, filename)
-                    with open(filepath, "wb") as f:
-                        f.write(response.content)
-                    self.txt_live.append(f"✅ [Imagem] Baixada com sucesso: {filename}")
-                else:
-                    self.txt_live.append(f"❌ [Imagem] Erro HTTP {response.status_code}")
-                    return
-
-            # Notifica o usuário
-            self.active_toast = NotificationToast(f"Imagem salva!\n{filename}", self)
-            self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
-            self.active_toast.show_notification()
-
-        except Exception as e:
-            self.txt_live.append(f"❌ [Imagem] Erro: {str(e)}")
+    def on_download_error(self, err):
+        self.txt_live.append(f"❌ [Imagem] Erro: {err}")
 
     def iniciar_transferencia(self, id_convite=None):
         if not id_convite:
