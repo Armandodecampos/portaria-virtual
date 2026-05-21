@@ -16,7 +16,7 @@ import json
 try:
     from PyQt6.QtCore import (
         Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData,
-        QPropertyAnimation, QEasingCurve, QPoint, QThread, QEvent
+        QPropertyAnimation, QEasingCurve, QPoint, QThread, QEvent, QObject
     )
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -1367,6 +1367,112 @@ class TransferThread(QThread):
                 pass
         self.driver = None
 
+class RoboCapture(QObject):
+    log_signal = pyqtSignal(str)
+    new_visit_signal = pyqtSignal(str) # Para notificação
+
+    def __init__(self, name, strategy, db, parent_scanner):
+        super().__init__(parent_scanner)
+        self.name = name
+        self.strategy = strategy # 'sequential' ou 'range'
+        self.range_size = 0
+        if isinstance(strategy, tuple):
+            self.strategy, self.range_size = strategy
+
+        self.db = db
+        self.parent_scanner = parent_scanner
+        self.id_inicio_ciclo = 0
+        self.id_atual_robo = 0
+        self.rodando = False
+
+        self.view = QWebEngineView(parent_scanner)
+        self.view.setVisible(False)
+        # Otimização de recursos: não carregar imagens para os robôs
+        self.view.settings().setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, False)
+        self.view.loadFinished.connect(self.on_load_finished)
+
+        self.timer_retry = QTimer(self)
+        self.timer_retry.setSingleShot(True)
+        self.timer_retry.timeout.connect(self.carregar_url)
+
+    def iniciar(self, id_base):
+        self.rodando = True
+        self.id_inicio_ciclo = id_base
+        self.id_atual_robo = id_base
+        self.log_signal.emit(f"🤖 {self.name} iniciado no ID: {self.id_atual_robo}")
+        self.carregar_url()
+
+    def parar(self):
+        self.rodando = False
+        self.timer_retry.stop()
+        self.view.stop()
+
+    def carregar_url(self):
+        if not self.rodando: return
+
+        # Antes de carregar, verifica se o ID já existe no banco (pode ter sido capturado por outro robô)
+        if self.db.buscar_por_id(self.id_atual_robo):
+            # Se já existe, pula para o próximo
+            if self.strategy == 'sequential':
+                self.parent_scanner.id_atual = self.id_atual_robo + 1
+
+            self.proximo_id()
+            QTimer.singleShot(100, self.carregar_url)
+            return
+
+        url = f"https://portaria-global.governarti.com.br/visita/{self.id_atual_robo}/detalhes?t={datetime.datetime.now().timestamp()}"
+        self.view.setUrl(QUrl(url))
+
+    def on_load_finished(self, ok):
+        if not self.rodando: return
+        # Injetar login se necessário (compartilha sessão, mas garante)
+        self.parent_scanner.injetar_login(self.view)
+        QTimer.singleShot(800, self.extrair_dados)
+
+    def extrair_dados(self):
+        if not self.rodando: return
+        self.view.page().runJavaScript("document.body.innerText;", self.callback_validacao)
+
+    def callback_validacao(self, conteudo):
+        if not self.rodando: return
+        if not conteudo or "entrar" in conteudo.lower()[:400]:
+            self.timer_retry.start(3000)
+            return
+
+        # self.log_signal.emit(f"🤖 {self.name}: Verificando ID {self.id_atual_robo}...")
+        nome_str, cpf_str, horario_str = DatabaseHandler.extrair_dados(conteudo)
+        dados_encontrados = (nome_str != "Desconhecido" or cpf_str != "N/A") and "não encontrada" not in conteudo.lower()
+
+        if dados_encontrados:
+            agora = datetime.datetime.now().strftime('%H:%M')
+            if self.db.salvar_visita(self.id_atual_robo, nome_str, cpf_str, horario_str, conteudo, self.view.url().toString()):
+                msg_log = f"🤖 {self.name}: ID {self.id_atual_robo} registrado às {agora}: {nome_str}"
+                self.log_signal.emit(msg_log)
+                self.new_visit_signal.emit(nome_str)
+
+                # Se for Robo 1 (sequential), atualiza o id_atual global
+                if self.strategy == 'sequential':
+                    self.parent_scanner.id_atual = self.id_atual_robo + 1
+
+            self.proximo_id()
+            QTimer.singleShot(500, self.carregar_url)
+        else:
+            if self.strategy == 'sequential':
+                self.timer_retry.start(10000)
+            else:
+                self.proximo_id()
+                QTimer.singleShot(500, self.carregar_url)
+
+    def proximo_id(self):
+        if self.strategy == 'sequential':
+            self.id_atual_robo += 1
+        else:
+            self.id_atual_robo += 1
+            if self.id_atual_robo > self.id_inicio_ciclo + self.range_size:
+                # Reinicia o ciclo a partir do id_atual global
+                self.id_inicio_ciclo = self.parent_scanner.id_atual
+                self.id_atual_robo = self.id_inicio_ciclo
+
 class DatabaseHandler:
     @staticmethod
     def remove_accents(input_str):
@@ -1523,10 +1629,7 @@ class SmartPortariaScanner(QMainWindow):
         self.db = None
         self.id_atual = 1
         self.rodando = True
-        
-        self.timer_retry = QTimer()
-        self.timer_retry.setSingleShot(True)
-        self.timer_retry.timeout.connect(self.carregar_url_id)
+        self.robos = []
 
         self.profile_anonimo = QWebEngineProfile(self) 
         self.profile_anonimo.setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -1795,10 +1898,6 @@ class SmartPortariaScanner(QMainWindow):
         layout_web.addWidget(self.stack_central, 1)
         layout_web.addWidget(self.container_pesquisa_zk)
 
-        self.view_worker = QWebEngineView()
-        self.view_worker.setVisible(False)
-        self.view_worker.loadFinished.connect(self.on_worker_load_finished)
-        
         splitter.addWidget(self.painel_lateral)
         splitter.addWidget(container_web)
         layout.addWidget(splitter)
@@ -2105,12 +2204,17 @@ class SmartPortariaScanner(QMainWindow):
             self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
     def configurar_navegadores(self):
-        s_worker = self.view_worker.settings()
-        s_worker.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, False)
-        s_worker.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        # Configurações globais se necessário
+        pass
 
     def carregar_ultimo_id(self):
         if not self.db: return
+
+        # Para robôs existentes
+        for robo in self.robos:
+            robo.parar()
+        self.robos = []
+
         maior = self.db.get_maior_id_salvo()
         if maior > 0: 
             self.id_atual = maior + 1
@@ -2119,10 +2223,23 @@ class SmartPortariaScanner(QMainWindow):
             self.txt_live.append("✨ Banco vazio/novo. Começando do ID 1.")
             self.id_atual = 1
 
-    def carregar_url_id(self):
-        if not self.rodando or not self.db: return
-        url = f"https://portaria-global.governarti.com.br/visita/{self.id_atual}/detalhes?t={datetime.datetime.now().timestamp()}"
-        self.view_worker.setUrl(QUrl(url))
+        # Inicializa os 4 robôs
+        configs_robos = [
+            ("Robo 1", "sequential", 0),
+            ("Robo 2", ("range", 50), 2000),
+            ("Robo 3", ("range", 100), 4000),
+            ("Robo 4", ("range", 1000), 6000),
+        ]
+
+        for name, strategy, delay in configs_robos:
+            robo = RoboCapture(name, strategy, self.db, self)
+            robo.log_signal.connect(lambda msg: self.txt_live.append(msg))
+            robo.new_visit_signal.connect(self.exibir_notificacao)
+            self.robos.append(robo)
+            if delay == 0:
+                robo.iniciar(self.id_atual)
+            else:
+                QTimer.singleShot(delay, lambda r=robo: r.iniciar(self.id_atual))
 
     def injetar_login(self, browser_view):
         if browser_view.page().profile() == self.profile_anonimo: return
@@ -2152,41 +2269,11 @@ class SmartPortariaScanner(QMainWindow):
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
 
-    def on_worker_load_finished(self, ok):
-        self.injetar_login(self.view_worker)
-        if self.rodando and self.db: QTimer.singleShot(800, self.extrair_e_validar)
-
-    def extrair_e_validar(self):
-        self.view_worker.page().runJavaScript("document.body.innerText;", self.callback_validacao)
-
-    def callback_validacao(self, conteudo):
-        if not self.rodando or not self.db: return
-        if not conteudo or "entrar" in conteudo.lower()[:400]:
-            if "entrar" in (conteudo or "").lower():
-                self.txt_live.append("🔑 [Captura] Aguardando login automático...")
-            self.timer_retry.start(3000)
-            return
-
-        self.txt_live.append(f"🔍 [Captura] Verificando ID {self.id_atual}...")
-        nome_str, cpf_str, horario_str = self.db.extrair_dados(conteudo)
-        dados_encontrados = (nome_str != "Desconhecido" or cpf_str != "N/A") and "não encontrada" not in conteudo.lower()
-
-        if dados_encontrados:
-            agora = datetime.datetime.now().strftime('%H:%M')
-            self.db.salvar_visita(self.id_atual, nome_str, cpf_str, horario_str, conteudo, self.view_worker.url().toString())
-
-            msg_log = f"ID {self.id_atual} registrado às {agora}: {nome_str}"
-            self.txt_live.append(msg_log)
-
-            # Exibe Notificação Toast
-            self.active_toast = NotificationToast("Novo convite!", self)
-            self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
-            self.active_toast.show_notification()
-
-            self.id_atual += 1
-            QTimer.singleShot(500, self.carregar_url_id)
-        else:
-            self.timer_retry.start(10000)
+    def exibir_notificacao(self, nome_visitante):
+        # Exibe Notificação Toast de forma segura
+        self.active_toast = NotificationToast(f"Novo convite: {nome_visitante}", self)
+        self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
+        self.active_toast.show_notification()
 
     def formatar_cpf(self, texto):
         """Formata uma string numérica para o padrão 000.000.000-00"""
