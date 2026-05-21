@@ -525,12 +525,16 @@ class ConfigDialog(QDialog):
 
     def acao_definir_id(self):
         try:
-            novo_id = int(self.edit_next_id.text().strip())
+            val = self.edit_next_id.text().strip()
+            if not val or not val.isdigit():
+                raise ValueError("ID Inválido")
+
+            novo_id = int(val)
             self.parent_window.id_atual = novo_id
             self.parent_window.txt_live.append(f"🎯 [Config] Monitoramento alterado para ID: {novo_id}")
-            self.parent_window.carregar_url_id()
+            self.parent_window.reiniciar_monitores()
             QMessageBox.information(self, "Sucesso", f"Próximo ID definido para {novo_id}")
-        except:
+        except Exception as e:
             QMessageBox.warning(self, "Erro", "Insira um número de ID válido.")
 
     def acao_salvar_credenciais(self):
@@ -2076,7 +2080,6 @@ class SmartPortariaScanner(QMainWindow):
             
             self.txt_live.append(f"--- BANCO CONECTADO: {path} ---")
             self.carregar_ultimo_id()
-            self.carregar_url_id()
             
         except Exception as e:
             QMessageBox.critical(self, "Erro de Conexão", f"Falha ao conectar ao banco de dados:\n{e}")
@@ -2210,11 +2213,6 @@ class SmartPortariaScanner(QMainWindow):
     def carregar_ultimo_id(self):
         if not self.db: return
 
-        # Para robôs existentes
-        for robo in self.robos:
-            robo.parar()
-        self.robos = []
-
         maior = self.db.get_maior_id_salvo()
         if maior > 0: 
             self.id_atual = maior + 1
@@ -2222,6 +2220,17 @@ class SmartPortariaScanner(QMainWindow):
         else:
             self.txt_live.append("✨ Banco vazio/novo. Começando do ID 1.")
             self.id_atual = 1
+
+        self.reiniciar_monitores()
+
+    def reiniciar_monitores(self):
+        if not self.db: return
+
+        # Para robôs existentes
+        for robo in self.robos:
+            try: robo.parar()
+            except: pass
+        self.robos = []
 
         # Inicializa os 4 robôs
         configs_robos = [
