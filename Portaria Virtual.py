@@ -450,6 +450,19 @@ class ConfigDialog(QDialog):
         lay_theme.addWidget(self.rb_sepia)
         layout.addWidget(gb_theme)
 
+        # === SEÇÃO MONITORAMENTO ===
+        gb_mon = QGroupBox("Captura Automática")
+        lay_mon = QHBoxLayout(gb_mon)
+        lay_mon.addWidget(QLabel("Próximo ID:"))
+        self.edit_next_id = QLineEdit(str(self.parent_window.id_atual))
+        self.edit_next_id.setPlaceholderText("Apenas números")
+        lay_mon.addWidget(self.edit_next_id)
+        btn_set_id = QPushButton("Definir")
+        btn_set_id.setStyleSheet("background-color: #3b82f6; color: white; padding: 4px 10px; font-weight: bold;")
+        btn_set_id.clicked.connect(self.acao_definir_id)
+        lay_mon.addWidget(btn_set_id)
+        layout.addWidget(gb_mon)
+
         # === SEÇÃO CREDENCIAIS ===
         gb_creds = QGroupBox("Credenciais de Acesso")
         lay_creds = QVBoxLayout(gb_creds)
@@ -509,6 +522,16 @@ class ConfigDialog(QDialog):
         else:
             modo = "light"
         self.parent_window.aplicar_tema(modo)
+
+    def acao_definir_id(self):
+        try:
+            novo_id = int(self.edit_next_id.text().strip())
+            self.parent_window.id_atual = novo_id
+            self.parent_window.txt_live.append(f"🎯 [Config] Monitoramento alterado para ID: {novo_id}")
+            self.parent_window.carregar_url_id()
+            QMessageBox.information(self, "Sucesso", f"Próximo ID definido para {novo_id}")
+        except:
+            QMessageBox.warning(self, "Erro", "Insira um número de ID válido.")
 
     def acao_salvar_credenciais(self):
         p_user = self.edit_portaria_user.text().strip()
@@ -1456,19 +1479,35 @@ class DatabaseHandler:
     def extrair_dados(conteudo):
         if not conteudo:
             return "Desconhecido", "N/A", "N/A"
-        reg_nome = r"Visitante:\s*([\w\.\s\-]+)"
-        reg_cpf = r"(\d{3}\.\d{3}\.\d{3}-\d{2})"
+
+        # Regex mais robusta para Nome (captura até o fim da linha ou delimitadores comuns)
+        reg_nome = r"Visitante:\s*([^\n\r\|]+)"
+        # Regex para CPF que aceita formatado ou apenas números (11 dígitos)
+        reg_cpf = r"(\d{3}\.\d{3}\.\d{3}-\d{2})|(\b\d{11}\b)"
         reg_horario = r"Horário:\s*(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}\s*-\s*(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}"
+
         m_nome = re.search(reg_nome, conteudo, re.IGNORECASE)
         m_cpf = re.search(reg_cpf, conteudo)
         m_horario = re.search(reg_horario, conteudo)
+
         raw_nome = m_nome.group(1).strip() if m_nome else "Desconhecido"
-        cpf = m_cpf.group(1) if m_cpf else "N/A"
+        cpf = m_cpf.group(0) if m_cpf else "N/A"
         horario = f"{m_horario.group(1)} - {m_horario.group(2)}" if m_horario else "N/A"
+
+        # Limpeza adicional do nome
         if cpf != "N/A" and cpf in raw_nome:
             raw_nome = raw_nome.replace(cpf, "")
-        clean_nome = raw_nome.split("Telefone")[0].split("CPF")[0].split("Celular")[0].split("Horário")[0].strip(" -")
+
+        # Remove labels que podem ter ficado grudados
+        labels = ["Telefone", "CPF", "Celular", "Horário", "Empresa", "E-mail"]
+        clean_nome = raw_nome
+        for label in labels:
+            if label in clean_nome:
+                clean_nome = clean_nome.split(label)[0]
+
+        clean_nome = clean_nome.strip(" -|")
         if not clean_nome: clean_nome = "Desconhecido"
+
         return clean_nome, cpf, horario
 
 class SmartPortariaScanner(QMainWindow):
@@ -2089,14 +2128,24 @@ class SmartPortariaScanner(QMainWindow):
         if browser_view.page().profile() == self.profile_anonimo: return
         url_atual = browser_view.url().toString()
         if "portaria-global.governarti.com.br/login" in url_atual:
-            js_login = f"document.querySelectorAll('input').forEach(i => {{ if(i.type=='text') i.value='{self.creds['portaria_user']}'; if(i.type=='password') i.value='{self.creds['portaria_pass']}'; }});"
+            js_login = f"""
+                var inputs = document.querySelectorAll('input');
+                var form = document.querySelector('form');
+                inputs.forEach(i => {{
+                    if(i.type=='text') i.value='{self.creds['portaria_user']}';
+                    if(i.type=='password') i.value='{self.creds['portaria_pass']}';
+                }});
+                if(form) form.submit();
+            """
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
             js_login_zk = f"""
                 var userField = document.getElementById('username');
                 var passField = document.getElementById('password');
+                var btn = document.querySelector('input[type="button"]') || document.querySelector('button');
                 if (userField) userField.value = '{self.creds['zk_user']}';
                 if (passField) passField.value = '{self.creds['zk_pass']}';
+                if (btn) btn.click();
             """
             browser_view.page().runJavaScript(js_login_zk)
 
@@ -2112,10 +2161,13 @@ class SmartPortariaScanner(QMainWindow):
 
     def callback_validacao(self, conteudo):
         if not self.rodando or not self.db: return
-        if not conteudo or "entrar" in conteudo.lower()[:300]:
+        if not conteudo or "entrar" in conteudo.lower()[:400]:
+            if "entrar" in (conteudo or "").lower():
+                self.txt_live.append("🔑 [Captura] Aguardando login automático...")
             self.timer_retry.start(3000)
             return
 
+        self.txt_live.append(f"🔍 [Captura] Verificando ID {self.id_atual}...")
         nome_str, cpf_str, horario_str = self.db.extrair_dados(conteudo)
         dados_encontrados = (nome_str != "Desconhecido" or cpf_str != "N/A") and "não encontrada" not in conteudo.lower()
 
