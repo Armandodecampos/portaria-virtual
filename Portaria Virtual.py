@@ -1107,6 +1107,7 @@ class ExcelRecordsWidget(QWidget):
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
+        self.browser.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.browser.setOpenExternalLinks(False)
         self.browser.setOpenLinks(False)
         self.browser.anchorClicked.connect(self.handle_copy_link)
@@ -1941,6 +1942,7 @@ class SmartPortariaScanner(QMainWindow):
         layout_busca.addWidget(self.stack_busca)
         
         self.txt_res_busca = QTextBrowser()
+        self.txt_res_busca.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.txt_res_busca.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.txt_res_busca.setOpenExternalLinks(False)
         self.txt_res_busca.setOpenLinks(False)
