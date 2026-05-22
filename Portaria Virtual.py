@@ -414,6 +414,12 @@ class ConfigDialog(QDialog):
         hbox_btns.addWidget(btn_load)
         hbox_btns.addWidget(btn_new)
         lay_db.addLayout(hbox_btns)
+
+        btn_import_zk = QPushButton("📊 Importar Relatório ZK Bio (Excel)")
+        btn_import_zk.setStyleSheet("background-color: #475569; color: white; padding: 8px; border-radius: 4px; font-weight: bold; margin-top: 5px;")
+        btn_import_zk.clicked.connect(self.acao_importar_zk)
+        lay_db.addWidget(btn_import_zk)
+
         layout.addWidget(gb_db)
 
         # === SEÇÃO APARÊNCIA ===
@@ -497,6 +503,10 @@ class ConfigDialog(QDialog):
         self.lbl_status.setText(self.parent_window.lbl_status_db.text()) # Atualiza label local
         if "Ativo" in self.lbl_status.text():
              self.lbl_status.setStyleSheet("color: #10b981; font-weight: bold; margin-bottom: 10px;")
+
+    def acao_importar_zk(self):
+        self.accept()
+        self.parent_window.container_pesquisa_zk.import_excel()
 
     def trocar_tema(self, id):
         if id == 2:
@@ -888,6 +898,26 @@ class ExcelRecordsWidget(QWidget):
         self.setup_ui()
         self.department_checkboxes = {}
         self.load_from_cache()
+        self.atualizar_visibilidade_header()
+
+    def has_data(self):
+        try:
+            conn = self.get_db_conn()
+            if not conn: return False
+            cursor = conn.cursor()
+            cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='zk_records'")
+            if cursor.fetchone()[0] == 0: return False
+            cursor.execute("SELECT count(*) FROM zk_records")
+            return cursor.fetchone()[0] > 0
+        except:
+            return False
+
+    def atualizar_visibilidade_header(self):
+        has = self.has_data()
+        if hasattr(self, 'upload_header_widget'):
+            self.upload_header_widget.setVisible(has)
+        if not has:
+            self.hide()
 
     def get_db_conn(self):
         db_file = "zk_cache.db"
@@ -931,6 +961,16 @@ class ExcelRecordsWidget(QWidget):
         if hasattr(self, 'lbl_title'):
             self.lbl_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {self.accent_color};")
 
+        if hasattr(self, 'lbl_file_name'):
+            self.lbl_file_name.setStyleSheet(f"""
+                background-color: {self.card_bg};
+                color: {self.sub_text_color};
+                padding: 5px 12px;
+                border-radius: 12px;
+                font-size: 11px;
+                border: 1px solid {self.card_border};
+            """)
+
         if hasattr(self, 'btn_upload'):
             self.btn_upload.setStyleSheet(f"""
                 QPushButton {{
@@ -950,6 +990,12 @@ class ExcelRecordsWidget(QWidget):
 
         # Cabeçalho: Selecionar Arquivo
         header_lay = QHBoxLayout()
+
+        # NOVO: Container que pode ser ocultado se houver dados
+        self.upload_header_widget = QWidget()
+        upload_header_lay = QHBoxLayout(self.upload_header_widget)
+        upload_header_lay.setContentsMargins(0, 0, 0, 0)
+        upload_header_lay.setSpacing(10)
 
         # Container para o título e o botão de upload
         upload_container = QVBoxLayout()
@@ -971,7 +1017,7 @@ class ExcelRecordsWidget(QWidget):
         """)
         self.btn_upload.clicked.connect(self.import_excel)
         upload_container.addWidget(self.btn_upload)
-        header_lay.addLayout(upload_container)
+        upload_header_lay.addLayout(upload_container)
 
         self.lbl_file_name = QLabel("")
         self.lbl_file_name.setStyleSheet("""
@@ -984,8 +1030,10 @@ class ExcelRecordsWidget(QWidget):
                 border: 1px solid #334155;
             }
         """)
-        header_lay.addWidget(self.lbl_file_name, alignment=Qt.AlignmentFlag.AlignBottom)
-        header_lay.addStretch()
+        upload_header_lay.addWidget(self.lbl_file_name, alignment=Qt.AlignmentFlag.AlignBottom)
+        upload_header_lay.addStretch()
+
+        header_lay.addWidget(self.upload_header_widget)
 
         # Botão Fechar no cabeçalho
         self.btn_close = QPushButton("✕")
@@ -1121,12 +1169,13 @@ class ExcelRecordsWidget(QWidget):
                 if res and res[0]:
                     self.update_file_label("Dados do cache", res[0])
                 else:
-                    self.lbl_file_name.setText("Dados carregados do cache (.db).")
+                    self.lbl_file_name.setText("")
             except:
-                self.lbl_file_name.setText("Dados carregados do cache (.db).")
+                self.lbl_file_name.setText("")
 
             self.render_department_filters()
             self.filter_and_render()
+            self.atualizar_visibilidade_header()
 
     def save_to_cache_db(self, new_items, upload_date=None):
         db_file = "zk_cache.db"
@@ -1234,6 +1283,9 @@ class ExcelRecordsWidget(QWidget):
         self.save_to_cache_db(new_items, upload_date=now_str)
         self.render_department_filters()
         self.filter_and_render()
+        self.atualizar_visibilidade_header()
+        if self.parent_window and not self.isVisible():
+            self.parent_window.abrir_dialogo_excel()
 
     def on_import_error(self, err):
         self.btn_upload.setEnabled(True)
@@ -2435,7 +2487,7 @@ class SmartPortariaScanner(QMainWindow):
             termo_db = termo_normal
             termo_para_check = termo_normal
 
-        if termo_para_check and not self.container_pesquisa_zk.isVisible():
+        if termo_para_check and not self.container_pesquisa_zk.isVisible() and self.container_pesquisa_zk.has_data():
             self.abrir_dialogo_excel()
 
         if not self.db: return
