@@ -11,6 +11,7 @@ import urllib3
 import urllib.parse
 import base64
 import json
+import threading
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
@@ -765,9 +766,15 @@ class LocalSearchThread(QThread):
         self.td = theme_data
 
     def run(self):
-        if not self.db: return
+        if not self.db:
+            self.results_ready.emit("")
+            return
         try:
             dados = self.db.buscar_por_filtro(self.termos)
+            if not dados:
+                self.results_ready.emit("<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
+                return
+
             html = ""
             hoje = datetime.date.today()
 
@@ -797,6 +804,7 @@ class LocalSearchThread(QThread):
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
+            self.results_ready.emit(f"<div style='color: red; padding: 10px;'>Erro na busca: {e}</div>")
 
 class ImportExcelThread(QThread):
     success = pyqtSignal(str, str, dict)
@@ -1626,6 +1634,7 @@ class DatabaseHandler:
 
     def __init__(self, db_path):
         # Conexão direta com o caminho fornecido pelo usuário via GUI
+        self.lock = threading.RLock()
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.create_function("unaccent", 1, self.remove_accents)
         self.cursor = self.conn.cursor()
@@ -1635,96 +1644,103 @@ class DatabaseHandler:
         self.migrar_dados_vazios()
 
     def reprocessar_dados_existentes(self):
-        self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas")
-        registros = self.cursor.fetchall()
-        if registros:
-            for vid, conteudo in registros:
-                nome, cpf, horario = self.extrair_dados(conteudo)
-                self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ?, horario = ? WHERE visita_id = ?", (nome, cpf, horario, vid))
-            self.conn.commit()
+        with self.lock:
+            self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas")
+            registros = self.cursor.fetchall()
+            if registros:
+                for vid, conteudo in registros:
+                    nome, cpf, horario = self.extrair_dados(conteudo)
+                    self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ?, horario = ? WHERE visita_id = ?", (nome, cpf, horario, vid))
+                self.conn.commit()
 
     def migrar_dados_vazios(self):
-        self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas WHERE nome IS NULL OR cpf IS NULL OR horario IS NULL")
-        vazios = self.cursor.fetchall()
-        if vazios:
-            for vid, conteudo in vazios:
-                nome, cpf, horario = self.extrair_dados(conteudo)
-                self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ?, horario = ? WHERE visita_id = ?", (nome, cpf, horario, vid))
-            self.conn.commit()
+        with self.lock:
+            self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas WHERE nome IS NULL OR cpf IS NULL OR horario IS NULL")
+            vazios = self.cursor.fetchall()
+            if vazios:
+                for vid, conteudo in vazios:
+                    nome, cpf, horario = self.extrair_dados(conteudo)
+                    self.cursor.execute("UPDATE detalhes_visitas SET nome = ?, cpf = ?, horario = ? WHERE visita_id = ?", (nome, cpf, horario, vid))
+                self.conn.commit()
 
     def criar_tabelas(self):
-        self.cursor.execute("PRAGMA user_version")
-        versao = self.cursor.fetchone()[0]
+        with self.lock:
+            self.cursor.execute("PRAGMA user_version")
+            versao = self.cursor.fetchone()[0]
 
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS detalhes_visitas (
-                visita_id INTEGER PRIMARY KEY,
-                nome TEXT,
-                cpf TEXT,
-                horario TEXT,
-                conteudo TEXT,
-                url TEXT,
-                data_captura TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        self.cursor.execute("PRAGMA table_info(detalhes_visitas)")
-        columns = [col[1] for col in self.cursor.fetchall()]
-        if 'nome' not in columns:
-            self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN nome TEXT")
-        if 'cpf' not in columns:
-            self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN cpf TEXT")
-        if 'horario' not in columns:
-            self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN horario TEXT")
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS detalhes_visitas (
+                    visita_id INTEGER PRIMARY KEY,
+                    nome TEXT,
+                    cpf TEXT,
+                    horario TEXT,
+                    conteudo TEXT,
+                    url TEXT,
+                    data_captura TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            self.cursor.execute("PRAGMA table_info(detalhes_visitas)")
+            columns = [col[1] for col in self.cursor.fetchall()]
+            if 'nome' not in columns:
+                self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN nome TEXT")
+            if 'cpf' not in columns:
+                self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN cpf TEXT")
+            if 'horario' not in columns:
+                self.cursor.execute("ALTER TABLE detalhes_visitas ADD COLUMN horario TEXT")
 
-        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_nome ON detalhes_visitas(nome)")
-        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpf ON detalhes_visitas(cpf)")
-        self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_horario ON detalhes_visitas(horario)")
+            self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_nome ON detalhes_visitas(nome)")
+            self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpf ON detalhes_visitas(cpf)")
+            self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_horario ON detalhes_visitas(horario)")
 
-        if versao < 1:
-            self.reprocessar_dados_existentes()
-            self.cursor.execute("PRAGMA user_version = 1")
-        self.conn.commit()
+            if versao < 1:
+                self.reprocessar_dados_existentes()
+                self.cursor.execute("PRAGMA user_version = 1")
+            self.conn.commit()
 
     def salvar_visita(self, visita_id, nome, cpf, horario, conteudo, url):
-        try:
-            self.cursor.execute('INSERT INTO detalhes_visitas (visita_id, nome, cpf, horario, conteudo, url) VALUES (?, ?, ?, ?, ?, ?)',
-                               (visita_id, nome, cpf, horario, conteudo, url))
-            self.conn.commit()
-            return True
-        except Exception:
-            return False
+        with self.lock:
+            try:
+                self.cursor.execute('INSERT INTO detalhes_visitas (visita_id, nome, cpf, horario, conteudo, url) VALUES (?, ?, ?, ?, ?, ?)',
+                                   (visita_id, nome, cpf, horario, conteudo, url))
+                self.conn.commit()
+                return True
+            except Exception:
+                return False
 
     def buscar_por_id(self, visita_id):
-        try:
-            self.cursor.execute("SELECT nome FROM detalhes_visitas WHERE visita_id = ?", (visita_id,))
-            res = self.cursor.fetchone()
-            return res[0] if res else None
-        except Exception:
-            return None
+        with self.lock:
+            try:
+                self.cursor.execute("SELECT nome FROM detalhes_visitas WHERE visita_id = ?", (visita_id,))
+                res = self.cursor.fetchone()
+                return res[0] if res else None
+            except Exception:
+                return None
 
     def buscar_por_filtro(self, termos):
         if not termos: return []
-        query = "SELECT visita_id, nome, cpf, horario FROM detalhes_visitas WHERE "
-        conditions = []
-        params = []
-        for t in termos:
-            t_norm = self.remove_accents(t)
-            conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ?)")
-            params.extend([f"%{t_norm}%", f"%{t}%"])
-        query += " AND ".join(conditions)
-        query += " ORDER BY visita_id DESC LIMIT 50"
-        self.cursor.execute(query, params)
-        return self.cursor.fetchall()
+        with self.lock:
+            query = "SELECT visita_id, nome, cpf, horario FROM detalhes_visitas WHERE "
+            conditions = []
+            params = []
+            for t in termos:
+                t_norm = self.remove_accents(t)
+                conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ?)")
+                params.extend([f"%{t_norm}%", f"%{t}%"])
+            query += " AND ".join(conditions)
+            query += " ORDER BY visita_id DESC LIMIT 50"
+            self.cursor.execute(query, params)
+            return self.cursor.fetchall()
 
     def get_maior_id_salvo(self):
-        try:
-            self.cursor.execute("SELECT MAX(visita_id) FROM detalhes_visitas")
-            res = self.cursor.fetchone()
-            maior_id = res[0] if res[0] else 0
-            return maior_id
-        except Exception as e:
-            print(f"❌ Erro ao ler maior ID: {e}")
-            return 0
+        with self.lock:
+            try:
+                self.cursor.execute("SELECT MAX(visita_id) FROM detalhes_visitas")
+                res = self.cursor.fetchone()
+                maior_id = res[0] if res[0] else 0
+                return maior_id
+            except Exception as e:
+                print(f"❌ Erro ao ler maior ID: {e}")
+                return 0
 
     @staticmethod
     def extrair_dados(conteudo):
@@ -2500,8 +2516,14 @@ class SmartPortariaScanner(QMainWindow):
 
         # Cancela busca anterior se existir
         if self.local_search_thread and self.local_search_thread.isRunning():
-            self.local_search_thread.results_ready.disconnect()
+            try:
+                self.local_search_thread.results_ready.disconnect()
+            except:
+                pass
             self.local_search_thread.requestInterruption()
+
+        # Limpa resultados anteriores enquanto a nova busca processa
+        self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
 
         current_theme = self.settings.value("theme")
         theme_data = {}
