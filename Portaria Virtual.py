@@ -1904,7 +1904,7 @@ class SmartPortariaScanner(QMainWindow):
         lat.addWidget(self.lbl_status_db)
 
         # === GRUPO BUSCA NO BANCO ===
-        group_busca = QGroupBox("BUSCA NO BANCO DE DADOS")
+        group_busca = QGroupBox("Registros - Portaria Virtual")
         layout_busca = QVBoxLayout(group_busca)
         layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout_busca.setSpacing(10)
