@@ -790,10 +790,12 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
+                # Passa ID e Nome no link para atualizar o extrator
+                link_visita = f"visita:{vid}|{urllib.parse.quote(nome)}"
                 html += f"""
                 <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
                     <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                        <a href="{link_visita}" style="text-decoration: none; color: inherit;">
                             <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
                             <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                             <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
@@ -2523,7 +2525,18 @@ class SmartPortariaScanner(QMainWindow):
             self.iniciar_transferencia(visita_id)
             return
 
-        visita_id = url_str
+        if url_str.startswith("visita:"):
+            # Formato: visita:ID|NOME
+            dados_link = url_str.split(":", 1)[1]
+            if "|" in dados_link:
+                visita_id, nome_visitante = dados_link.split("|", 1)
+                nome_visitante = urllib.parse.unquote(nome_visitante)
+                self.lbl_qr_nome_visitante.setText(nome_visitante)
+            else:
+                visita_id = dados_link
+        else:
+            visita_id = url_str
+
         self.input_transfer_id.setText(visita_id)
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         for i in range(self.tabs.count()):
