@@ -1830,6 +1830,11 @@ class SmartPortariaScanner(QMainWindow):
         # Tenta carregar automaticamente o último banco usado
         self.carregar_ultimo_banco()
 
+        self.last_qr_result = None
+        self.timer_qr_auto = QTimer(self)
+        self.timer_qr_auto.timeout.connect(self.auto_update_qr_info)
+        self.timer_qr_auto.start(3000)
+
         self.active_toast = None
 
     def setup_ui(self):
@@ -2534,7 +2539,18 @@ class SmartPortariaScanner(QMainWindow):
                 return
         self.add_new_tab(QUrl(link_final), f"ID {visita_id}")
 
-    def extrair_link_whatsapp(self, callback):
+    def auto_update_qr_info(self):
+        self.extrair_link_whatsapp(self._handle_auto_qr_result, silent=True)
+
+    def _handle_auto_qr_result(self, result):
+        if result:
+            self.last_qr_result = result
+            self.lbl_qr_nome_visitante.setText(result.get('name', 'Visitante'))
+        else:
+            self.last_qr_result = None
+            self.lbl_qr_nome_visitante.setText("Nenhum convite selecionado")
+
+    def extrair_link_whatsapp(self, callback, silent=False):
         """
         Localiza a aba da Portaria Virtual e extrai o link de confirmação do WhatsApp.
         """
@@ -2545,7 +2561,8 @@ class SmartPortariaScanner(QMainWindow):
                 break
 
         if not view_portaria:
-            self.txt_live.append("❌ [QR] Guia 'Portaria Virtual' não encontrada.")
+            if not silent:
+                self.txt_live.append("❌ [QR] Guia 'Portaria Virtual' não encontrada.")
             callback(None)
             return
 
@@ -2572,7 +2589,8 @@ class SmartPortariaScanner(QMainWindow):
             if result and result.get('url'):
                 callback(result)
             else:
-                self.txt_live.append("❌ [QR] Link de convite não encontrado na página atual.")
+                if not silent:
+                    self.txt_live.append("❌ [QR] Link de convite não encontrado na página atual.")
                 callback(None)
 
         view_portaria.page().runJavaScript(js_script, handle_result)
@@ -2593,7 +2611,10 @@ class SmartPortariaScanner(QMainWindow):
                     return
             self.add_new_tab(QUrl(url), "Guia anônima", closable=False, profile=self.profile_anonimo)
 
-        self.extrair_link_whatsapp(on_link_extracted)
+        if self.last_qr_result:
+            on_link_extracted(self.last_qr_result)
+        else:
+            self.extrair_link_whatsapp(on_link_extracted, silent=False)
 
     def mostrar_qr_code(self):
         def on_link_extracted(result):
@@ -2615,7 +2636,10 @@ class SmartPortariaScanner(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao gerar QR Code: {str(e)}")
 
-        self.extrair_link_whatsapp(on_link_extracted)
+        if self.last_qr_result:
+            on_link_extracted(self.last_qr_result)
+        else:
+            self.extrair_link_whatsapp(on_link_extracted, silent=False)
 
     def abrir_camera(self):
         """Abre o diálogo de captura de foto"""
