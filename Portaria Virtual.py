@@ -1957,25 +1957,21 @@ class SmartPortariaScanner(QMainWindow):
         group_qr = QGroupBox("EXTRATOR DE LINK")
         group_qr.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout_qr = QVBoxLayout(group_qr)
-        self.txt_qr_input = QTextEdit()
-        self.txt_qr_input.setPlaceholderText("Cole a mensagem aqui para extrair o link...")
-        self.txt_qr_input.setFixedHeight(65)
-        layout_qr.addWidget(self.txt_qr_input)
+
+        self.lbl_qr_nome_visitante = QLabel("Nenhum convite selecionado")
+        self.lbl_qr_nome_visitante.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_qr_nome_visitante.setStyleSheet("font-weight: bold; font-size: 13px; margin-bottom: 5px;")
+        layout_qr.addWidget(self.lbl_qr_nome_visitante)
 
         btns_layout = QHBoxLayout()
-        self.btn_open_anon = QPushButton("Abrir na Guia Anônima")
+        self.btn_open_anon = QPushButton("Finalizar convite")
         self.btn_open_anon.clicked.connect(self.abrir_qr_na_anonima)
 
         self.btn_gen_qr = QPushButton("Gerar QR Code")
         self.btn_gen_qr.clicked.connect(self.mostrar_qr_code)
 
-        self.btn_clear_qr = QPushButton("Apagar")
-        self.btn_clear_qr.setFixedWidth(70)
-        self.btn_clear_qr.clicked.connect(self.txt_qr_input.clear)
-
         btns_layout.addWidget(self.btn_open_anon)
         btns_layout.addWidget(self.btn_gen_qr)
-        btns_layout.addWidget(self.btn_clear_qr)
         layout_qr.addLayout(btns_layout)
         lat.addWidget(group_qr)
 
@@ -2120,7 +2116,6 @@ class SmartPortariaScanner(QMainWindow):
         # Reaplica estilos específicos que não devem ser sobrescritos pelo genérico
         self.btn_open_anon.setStyleSheet(btn_anon_style)
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
-        self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(btn_clear_style)
         self.txt_live.setStyleSheet(live_log_style)
         
@@ -2539,42 +2534,88 @@ class SmartPortariaScanner(QMainWindow):
                 return
         self.add_new_tab(QUrl(link_final), f"ID {visita_id}")
 
-    def extrair_url_qr(self):
-        texto = self.txt_qr_input.toPlainText()
-        match = re.search(r'https?://[^\s]+', texto)
-        if match: return match.group(0).rstrip('.')
-        return None
+    def extrair_link_whatsapp(self, callback):
+        """
+        Localiza a aba da Portaria Virtual e extrai o link de confirmação do WhatsApp.
+        """
+        view_portaria = None
+        for i in range(self.tabs.count()):
+            if "Portaria Virtual" in self.tabs.tabText(i):
+                view_portaria = self.web_stack.widget(i)
+                break
+
+        if not view_portaria:
+            self.txt_live.append("❌ [QR] Guia 'Portaria Virtual' não encontrada.")
+            callback(None)
+            return
+
+        js_script = r"""
+        (function() {
+            var links = document.getElementsByTagName('a');
+            for (var i = 0; i < links.length; i++) {
+                if (links[i].innerText.includes('Enviar convite por Whatsapp')) {
+                    var href = links[i].href;
+                    var decodedHref = decodeURIComponent(href);
+                    var urlMatch = decodedHref.match(/https:\/\/portaria-global\.governarti\.com\.br\/confirmar-visita\/[a-zA-Z0-9-]+\//);
+                    var nameMatch = decodedHref.match(/Olá ([^!]+)!/);
+                    return {
+                        url: urlMatch ? urlMatch[0] : null,
+                        name: nameMatch ? nameMatch[1].trim() : "Visitante"
+                    };
+                }
+            }
+            return null;
+        })();
+        """
+
+        def handle_result(result):
+            if result and result.get('url'):
+                callback(result)
+            else:
+                self.txt_live.append("❌ [QR] Link de convite não encontrado na página atual.")
+                callback(None)
+
+        view_portaria.page().runJavaScript(js_script, handle_result)
+
 
     def abrir_qr_na_anonima(self):
-        url = self.extrair_url_qr()
-        if not url:
-            QMessageBox.warning(self, "Aviso", "Nenhuma URL encontrada na mensagem.")
-            return
-        for i in range(self.tabs.count()):
-            if "anônima" in self.tabs.tabText(i).lower():
-                self.tabs.setCurrentIndex(i)
-                view = self.web_stack.widget(i)
-                if view: view.setUrl(QUrl(url))
-                return
-        self.add_new_tab(QUrl(url), "Guia anônima", closable=False, profile=self.profile_anonimo)
+        def on_link_extracted(result):
+            if not result: return
+            url = result['url']
+            name = result['name']
+            self.lbl_qr_nome_visitante.setText(name)
+
+            for i in range(self.tabs.count()):
+                if "anônima" in self.tabs.tabText(i).lower():
+                    self.tabs.setCurrentIndex(i)
+                    view = self.web_stack.widget(i)
+                    if view: view.setUrl(QUrl(url))
+                    return
+            self.add_new_tab(QUrl(url), "Guia anônima", closable=False, profile=self.profile_anonimo)
+
+        self.extrair_link_whatsapp(on_link_extracted)
 
     def mostrar_qr_code(self):
-        url = self.extrair_url_qr()
-        if not url:
-            QMessageBox.warning(self, "Aviso", "Nenhuma URL encontrada na mensagem.")
-            return
-        try:
-            qr = qrcode.QRCode(version=1, box_size=10, border=5)
-            qr.add_data(url)
-            qr.make(fit=True)
-            img_pil = qr.make_image(fill_color="black", back_color="white")
-            actual_image = img_pil._img
-            qimg = ImageQt(actual_image)
-            pixmap = QPixmap.fromImage(qimg)
-            dlg = QRDialog(pixmap, self)
-            dlg.exec()
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Erro ao gerar QR Code: {str(e)}")
+        def on_link_extracted(result):
+            if not result: return
+            url = result['url']
+            name = result['name']
+            self.lbl_qr_nome_visitante.setText(name)
+
+            try:
+                qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                qr.add_data(url)
+                qr.make(fit=True)
+                img_pil = qr.make_image(fill_color="black", back_color="white")
+                actual_image = img_pil._img
+                qimg = ImageQt(actual_image)
+                pixmap = QPixmap.fromImage(qimg)
+                dlg = QRDialog(pixmap, self)
+                dlg.exec()
+            except Exception as e:
+                QMessageBox.critical(self, "Erro", f"Erro ao gerar QR Code: {str(e)}")
+
+        self.extrair_link_whatsapp(on_link_extracted)
 
     def abrir_camera(self):
         """Abre o diálogo de captura de foto"""
