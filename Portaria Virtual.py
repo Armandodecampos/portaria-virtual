@@ -1008,8 +1008,8 @@ class ExcelRecordsWidget(QWidget):
         # Container para o título e o botão de upload
         upload_container = QVBoxLayout()
         upload_container.setSpacing(2)
-        self.lbl_title = QLabel("Registros ZK Bio")
-        self.lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #3b82f6;")
+        self.lbl_title = QLabel("Registros - ZK Bio")
+        self.lbl_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {self.accent_color};")
         upload_container.addWidget(self.lbl_title)
 
         self.btn_upload = QPushButton("Selecionar arquivo Excel")
@@ -2051,7 +2051,7 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #0f172a; color: #e2e8f0; }
                 QLineEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
-                QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #94a3b8; }
+                QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #e2e8f0; }
                 QPushButton { background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px; }
@@ -2073,7 +2073,7 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #1a120b; color: #ffffff; }
                 QLineEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; }
-                QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #ffffff; }
+                QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #d9975d; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
                 QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; padding: 6px; }
@@ -2095,7 +2095,7 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #f1f5f9; color: #1e293b; }
                 QLineEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; }
-                QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #334155; }
+                QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #334155; }
                 QPushButton { background-color: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; }
