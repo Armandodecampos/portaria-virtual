@@ -1910,52 +1910,23 @@ class SmartPortariaScanner(QMainWindow):
         layout_busca.setSpacing(10)
         layout_busca.setContentsMargins(10, 10, 10, 10)
         
-        # Botão de Alternância
-        self.btn_toggle_busca = QPushButton("🔍 Busca: Todos os dados")
-        self.btn_toggle_busca.setStyleSheet("font-weight: bold; padding: 5px;")
-        self.btn_toggle_busca.clicked.connect(self.alternar_modo_busca)
-        layout_busca.addWidget(self.btn_toggle_busca)
-
-        self.stack_busca = QStackedWidget()
-        self.stack_busca.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-
-        # Página 0: Busca normal
-        container_normal = QWidget()
-        lay_normal = QHBoxLayout(container_normal)
-        lay_normal.setContentsMargins(0, 0, 0, 0)
-        lay_normal.setSpacing(10)
+        # Campo de Busca Unificado
+        container_busca = QWidget()
+        lay_busca = QHBoxLayout(container_busca)
+        lay_busca.setContentsMargins(0, 0, 0, 0)
+        lay_busca.setSpacing(10)
 
         self.input_busca = QLineEdit()
-        self.input_busca.setPlaceholderText("Nome ou ID...")
+        self.input_busca.setPlaceholderText("Nome, ID ou CPF...")
         self.input_busca.textChanged.connect(self.realizar_busca_normal)
         
         self.btn_limpar_busca = QPushButton("Apagar")
         self.btn_limpar_busca.setFixedWidth(70)
         self.btn_limpar_busca.clicked.connect(self.input_busca.clear)
 
-        lay_normal.addWidget(self.input_busca)
-        lay_normal.addWidget(self.btn_limpar_busca)
-        self.stack_busca.addWidget(container_normal)
-
-        # Página 1: Busca por CPF
-        container_cpf = QWidget()
-        lay_cpf = QHBoxLayout(container_cpf)
-        lay_cpf.setContentsMargins(0, 0, 0, 0)
-        lay_cpf.setSpacing(10)
-
-        self.input_busca_cpf = QLineEdit()
-        self.input_busca_cpf.setPlaceholderText("CPF (somente números)...")
-        self.input_busca_cpf.textChanged.connect(self.realizar_busca_cpf)
-
-        self.btn_limpar_busca_cpf = QPushButton("Apagar")
-        self.btn_limpar_busca_cpf.setFixedWidth(70)
-        self.btn_limpar_busca_cpf.clicked.connect(self.input_busca_cpf.clear)
-
-        lay_cpf.addWidget(self.input_busca_cpf)
-        lay_cpf.addWidget(self.btn_limpar_busca_cpf)
-        self.stack_busca.addWidget(container_cpf)
-
-        layout_busca.addWidget(self.stack_busca)
+        lay_busca.addWidget(self.input_busca)
+        lay_busca.addWidget(self.btn_limpar_busca)
+        layout_busca.addWidget(container_busca)
         
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -2151,8 +2122,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_gen_qr.setStyleSheet(btn_qr_style)
         self.btn_clear_qr.setStyleSheet(btn_clear_style)
         self.btn_limpar_busca.setStyleSheet(btn_clear_style)
-        self.btn_limpar_busca_cpf.setStyleSheet(btn_clear_style)
-        self.btn_toggle_busca.setStyleSheet(btn_qr_style)
         self.txt_live.setStyleSheet(live_log_style)
         
         # Ajusta botões do cabeçalho para parecerem com o tema
@@ -2459,51 +2428,46 @@ class SmartPortariaScanner(QMainWindow):
             return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:9]}-{numeros[9:]}"
 
     def realizar_busca_normal(self):
-        if self.input_busca.text():
-            self.input_busca_cpf.blockSignals(True)
-            self.input_busca_cpf.clear()
-            self.input_busca_cpf.blockSignals(False)
+        texto = self.input_busca.text().strip()
+        # Se o texto for puramente numérico ou parecer um CPF em digitação, formata automaticamente
+        apenas_numeros = re.sub(r'\D', '', texto)
+        if apenas_numeros and apenas_numeros.isdigit() and len(apenas_numeros) <= 11:
+            # Só formata se o que foi digitado for apenas números ou já tiver separadores de CPF
+            # Isso evita formatar IDs que podem ser numéricos mas curtos,
+            # embora no Brasil CPFs sejam muito comuns com 11 dígitos.
+            # Se o usuário está digitando algo que só tem números, assumimos CPF.
+            if all(c.isdigit() or c in ".-" for c in texto):
+                cpf_formatado = self.formatar_cpf(apenas_numeros)
+                if texto != cpf_formatado:
+                    cursor_pos = self.input_busca.cursorPosition()
+                    self.input_busca.blockSignals(True)
+                    self.input_busca.setText(cpf_formatado)
+                    self.input_busca.setCursorPosition(cursor_pos + (len(cpf_formatado) - len(texto)))
+                    self.input_busca.blockSignals(False)
+
         self.timer_busca.start(300)
 
-    def realizar_busca_cpf(self):
-        if self.input_busca_cpf.text():
-            self.input_busca.blockSignals(True)
-            self.input_busca.clear()
-            self.input_busca.blockSignals(False)
-        self.timer_busca.start(300)
-
-    def alternar_modo_busca(self):
-        novo_idx = 1 if self.stack_busca.currentIndex() == 0 else 0
-        self.stack_busca.setCurrentIndex(novo_idx)
-
-        if novo_idx == 0:
-            self.btn_toggle_busca.setText("🔍 Busca: Todos os dados")
-            self.input_busca_cpf.clear()
-        else:
-            self.btn_toggle_busca.setText("🔍 Busca: CPF")
-            self.input_busca.clear()
-
-        self.txt_res_busca.clear()
-        self.container_pesquisa_zk.browser.clear()
 
     def realizar_busca_local(self):
         self.timer_busca.start(300)
 
     def executar_busca_local(self):
-        # Verifica qual modo de busca está ativo no stack
-        if self.stack_busca.currentIndex() == 1:
-            # MODO CPF
-            cpf_raw = self.input_busca_cpf.text().strip()
-            # Para o Relatório ZK Bio (ExcelRecordsWidget), busca-se sem pontos
-            self.container_pesquisa_zk.filter_and_render(re.sub(r'\D', '', cpf_raw))
-            termo_db = self.formatar_cpf(cpf_raw)
-            termo_para_check = cpf_raw
+        termo_original = self.input_busca.text().strip()
+        apenas_numeros = re.sub(r'\D', '', termo_original)
+
+        # Identifica se é uma busca por CPF (somente números e até 11 dígitos)
+        # Se for CPF, termo_db será formatado e termo_zk será apenas números.
+        if apenas_numeros and apenas_numeros.isdigit() and len(apenas_numeros) <= 11 and all(c.isdigit() or c in ".-" for c in termo_original):
+            termo_db = self.formatar_cpf(apenas_numeros)
+            termo_zk = apenas_numeros
+            termo_para_check = termo_original
         else:
-            # MODO TODOS OS DADOS
-            termo_normal = self.input_busca.text().strip()
-            self.container_pesquisa_zk.filter_and_render(termo_normal)
-            termo_db = termo_normal
-            termo_para_check = termo_normal
+            termo_db = termo_original
+            termo_zk = termo_original
+            termo_para_check = termo_original
+
+        # Para o Relatório ZK Bio (ExcelRecordsWidget)
+        self.container_pesquisa_zk.filter_and_render(termo_zk)
 
         if termo_para_check and not self.container_pesquisa_zk.isVisible() and self.container_pesquisa_zk.has_data():
             self.abrir_dialogo_excel()
@@ -2798,17 +2762,10 @@ class SmartPortariaScanner(QMainWindow):
                 rect_zk.moveTo(self.container_pesquisa_zk.mapToGlobal(QPoint(0,0)))
 
                 # Geometria dos componentes de busca (para não fechar ao clicar neles)
-                rect_toggle = self.btn_toggle_busca.geometry()
-                rect_toggle.moveTo(self.btn_toggle_busca.mapToGlobal(QPoint(0,0)))
-
                 rect_busca = self.input_busca.geometry()
                 rect_busca.moveTo(self.input_busca.mapToGlobal(QPoint(0,0)))
 
-                rect_busca_cpf = self.input_busca_cpf.geometry()
-                rect_busca_cpf.moveTo(self.input_busca_cpf.mapToGlobal(QPoint(0,0)))
-
-                if not rect_zk.contains(pos) and not rect_toggle.contains(pos) and \
-                   not rect_busca.contains(pos) and not rect_busca_cpf.contains(pos):
+                if not rect_zk.contains(pos) and not rect_busca.contains(pos):
                     self.container_pesquisa_zk.hide()
 
         return super().eventFilter(obj, event)
