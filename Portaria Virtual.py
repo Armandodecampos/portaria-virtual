@@ -2420,7 +2420,11 @@ class SmartPortariaScanner(QMainWindow):
                     setTimeout(function() {{
                         if (checkbox) checkbox.click();
                         setTimeout(function() {{
-                            if (btn) btn.click();
+                            var okBtn = document.querySelector('a[onclick*="policyPopupOk"]');
+                            if (okBtn) okBtn.click();
+                            setTimeout(function() {{
+                                if (btn) btn.click();
+                            }}, 500);
                         }}, 500);
                     }}, 500);
                 }})();
