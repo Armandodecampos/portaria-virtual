@@ -1854,13 +1854,23 @@ class DatabaseHandler:
 class SmartPortariaScanner(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        # 1. INICIALIZAÇÃO DE ATRIBUTOS BÁSICOS E ESTADOS (Obrigatório antes do setup_ui)
+        self.dados_transferencia = None
+        self.transfer_state = None
+        self.transfer_target_id = None
+        self.transfer_pending_extraction = False
+
+        # Overlay deve ser criado antes do setup_ui pois este o referencia
+        self.overlay_transfer = TransferInstructionOverlay(self)
+        self.overlay_transfer.hide()
+        self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
+
+        # Configurações e UI
         self.setWindowTitle("Monitor Portaria - Gestão de Dados")
         self.resize(1400, 900)
-        
-        # Gerenciador de configurações persistentes
         self.settings = QSettings("PortariaApps", "MonitorVisitas")
         
-        # INICIALIZA SEM BANCO DE DADOS
         self.db = None
         self.id_atual = 1
         self.rodando = True
@@ -1872,16 +1882,6 @@ class SmartPortariaScanner(QMainWindow):
         # Janela de pesquisa integrada (deve ser criada antes do setup_ui para ser adicionada ao layout)
         self.container_pesquisa_zk = ExcelRecordsWidget(self)
         self.container_pesquisa_zk.hide()
-
-        # Estado de transferência interna
-        self.dados_transferencia = None
-        self.transfer_state = None
-        self.transfer_target_id = None
-        self.transfer_pending_extraction = False
-
-        self.overlay_transfer = TransferInstructionOverlay(self) # Parent provisório para evitar erro no setup_ui
-        self.overlay_transfer.hide()
-        self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
 
         self.setup_ui()
         self.configurar_navegadores()
