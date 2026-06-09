@@ -850,11 +850,12 @@ class SearchThread(QThread):
 class LocalSearchThread(QThread):
     results_ready = pyqtSignal(str)
 
-    def __init__(self, db, termos, theme_data):
+    def __init__(self, db, termos, theme_data, selected_id=None):
         super().__init__()
         self.db = db
         self.termos = termos
         self.td = theme_data
+        self.selected_id = selected_id
 
     def run(self):
         if not self.db:
@@ -881,10 +882,15 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
+                arrow_html = ""
+                if self.selected_id and str(vid) == str(self.selected_id):
+                    arrow_html = "<span style='color: orange; font-size: 24px; float: right; margin-top: 5px;'>➜</span>"
+
                 html += f"""
                 <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
                     <div style='color: {self.td["text_color"]}; font-size: 14px;'>
                         <a href="{vid}" style="text-decoration: none; color: inherit;">
+                            {arrow_html}
                             <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
                             <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                             <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
@@ -2740,7 +2746,7 @@ class SmartPortariaScanner(QMainWindow):
     def realizar_busca_local(self):
         self.timer_busca.start(300)
 
-    def executar_busca_local(self):
+    def executar_busca_local(self, silent=False):
         termo_original = self.input_busca.text().strip()
         apenas_numeros = re.sub(r'\D', '', termo_original)
 
@@ -2776,7 +2782,8 @@ class SmartPortariaScanner(QMainWindow):
             self.local_search_thread.requestInterruption()
 
         # Limpa resultados anteriores enquanto a nova busca processa
-        self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
+        if not silent:
+            self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
 
         current_theme = self.settings.value("theme")
         theme_data = {}
@@ -2800,7 +2807,8 @@ class SmartPortariaScanner(QMainWindow):
             }
 
         termos = termo_db.lower().split()
-        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data)
+        selected_id = self.input_transfer_id.text().strip()
+        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data, selected_id=selected_id)
         self.local_search_thread.results_ready.connect(self.txt_res_busca.setHtml)
         self.local_search_thread.start()
 
@@ -2819,6 +2827,7 @@ class SmartPortariaScanner(QMainWindow):
 
         visita_id = url_str
         self.input_transfer_id.setText(visita_id)
+        self.executar_busca_local(silent=True)
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         for i in range(self.tabs.count()):
             if "Portaria Virtual" in self.tabs.tabText(i):
