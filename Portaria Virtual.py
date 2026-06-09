@@ -2402,14 +2402,28 @@ class SmartPortariaScanner(QMainWindow):
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
             js_login_zk = f"""
-                var userField = document.getElementById('username');
-                var passField = document.getElementById('password');
-                var btn = document.querySelector('input[type="button"]') || document.querySelector('button');
-                var checkbox = document.querySelector('label[for="input_0eee436c9a984f68b47ff2e6778f79d7"]') || document.querySelector('label.zk-checkbox-custom-lab');
-                if (userField) userField.value = {json.dumps(self.creds['zk_user'])};
-                if (passField) passField.value = {json.dumps(self.creds['zk_pass'])};
-                if (checkbox) checkbox.click();
-                if (btn) btn.click();
+                (function() {{
+                    var userField = document.getElementById('username');
+                    var passField = document.getElementById('password');
+                    var checkbox = document.querySelector('label[for="input_0eee436c9a984f68b47ff2e6778f79d7"]') || document.querySelector('label.zk-checkbox-custom-lab');
+                    var btn = document.querySelector('input[type="button"]') || document.querySelector('button') || document.querySelector('.login-btn');
+
+                    if (userField) {{
+                        userField.value = {json.dumps(self.creds['zk_user'])};
+                        userField.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    }}
+                    if (passField) {{
+                        passField.value = {json.dumps(self.creds['zk_pass'])};
+                        passField.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    }}
+
+                    setTimeout(function() {{
+                        if (checkbox) checkbox.click();
+                        setTimeout(function() {{
+                            if (btn) btn.click();
+                        }}, 500);
+                    }}, 500);
+                }})();
             """
             browser_view.page().runJavaScript(js_login_zk)
 
