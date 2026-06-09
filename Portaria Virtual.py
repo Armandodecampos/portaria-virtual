@@ -77,6 +77,7 @@ class CustomWebPage(QWebEnginePage):
 class TransferInstructionOverlay(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._drag_pos = None
         self.setFixedWidth(300)
         self.setFixedHeight(140)
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -122,6 +123,21 @@ class TransferInstructionOverlay(QFrame):
 
         # Estilo para destacar sobre o navegador (após criar widgets)
         self.apply_theme("light")
+        self.setCursor(Qt.CursorShape.SizeAllCursor)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
+        event.accept()
 
     def apply_theme(self, mode):
         if mode == "dark":
@@ -2596,6 +2612,7 @@ class SmartPortariaScanner(QMainWindow):
 
             if found_zk:
                 self.overlay_transfer.show()
+                self.posicionar_overlay()
                 self.txt_live.append("ℹ️ Instrução: Faça login e clique em 'Novo' no ZK Bio para colar os dados.")
             else:
                 self.txt_live.append("❌ Aba 'ZK Bio' não encontrada.")
@@ -3117,16 +3134,20 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
-    def resizeEvent(self, event):
-        if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
-            self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
-
-        # Posiciona o overlay de transferência no canto superior direito
+    def posicionar_overlay(self):
+        """Helper para posicionar o overlay no canto superior direito"""
         if hasattr(self, 'overlay_transfer') and hasattr(self, 'container_stack_overlay'):
             self.overlay_transfer.move(
                 self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
                 20
             )
+
+    def resizeEvent(self, event):
+        if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
+            self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
+
+        # Posiciona o overlay de transferência no canto superior direito
+        self.posicionar_overlay()
 
         super().resizeEvent(event)
 
