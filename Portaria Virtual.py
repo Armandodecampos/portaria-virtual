@@ -82,9 +82,6 @@ class TransferInstructionOverlay(QFrame):
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setFrameShadow(QFrame.Shadow.Raised)
 
-        # Estilo para destacar sobre o navegador
-        self.apply_theme("light")
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
@@ -93,6 +90,7 @@ class TransferInstructionOverlay(QFrame):
         header = QHBoxLayout()
         header.addStretch()
         self.btn_close = QPushButton("✕")
+        self.btn_close.setObjectName("btn_close") # Define antes do apply_theme
         self.btn_close.setFixedSize(24, 24)
         self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_close.clicked.connect(self.hide)
@@ -121,6 +119,9 @@ class TransferInstructionOverlay(QFrame):
             QPushButton:hover { background-color: #059669; }
         """)
         layout.addWidget(self.btn_paste)
+
+        # Estilo para destacar sobre o navegador (após criar widgets)
+        self.apply_theme("light")
 
     def apply_theme(self, mode):
         if mode == "dark":
