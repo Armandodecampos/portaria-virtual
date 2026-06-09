@@ -74,6 +74,80 @@ class CustomWebPage(QWebEnginePage):
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
 
+class TransferInstructionOverlay(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(300)
+        self.setFixedHeight(140)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setFrameShadow(QFrame.Shadow.Raised)
+
+        # Estilo para destacar sobre o navegador
+        self.apply_theme("light")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
+
+        # Botão Fechar
+        header = QHBoxLayout()
+        header.addStretch()
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setFixedSize(24, 24)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.clicked.connect(self.hide)
+        header.addWidget(self.btn_close)
+        layout.addLayout(header)
+
+        # Texto de Instrução
+        self.lbl_instruction = QLabel("Faça login e clique em novo para colar as informações")
+        self.lbl_instruction.setWordWrap(True)
+        self.lbl_instruction.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_instruction.setStyleSheet("font-weight: bold; font-size: 13px;")
+        layout.addWidget(self.lbl_instruction)
+
+        # Botão Colar
+        self.btn_paste = QPushButton("📋 Colar informações")
+        self.btn_paste.setFixedHeight(35)
+        self.btn_paste.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_paste.setStyleSheet("""
+            QPushButton {
+                background-color: #10b981;
+                color: white;
+                font-weight: bold;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover { background-color: #059669; }
+        """)
+        layout.addWidget(self.btn_paste)
+
+    def apply_theme(self, mode):
+        if mode == "dark":
+            bg = "#1e293b"
+            text = "#f8fafc"
+            border = "#3b82f6"
+        elif mode == "sepia":
+            bg = "#000000"
+            text = "#ffffff"
+            border = "#d9975d"
+        else:
+            bg = "#ffffff"
+            text = "#1e293b"
+            border = "#3b82f6"
+
+        self.setStyleSheet(f"""
+            TransferInstructionOverlay {{
+                background-color: {bg};
+                border: 2px solid {border};
+                border-radius: 10px;
+            }}
+            QLabel {{ color: {text}; background: transparent; }}
+            QPushButton#btn_close {{ color: {text}; background: transparent; border: none; font-weight: bold; }}
+            QPushButton#btn_close:hover {{ color: #ef4444; }}
+        """)
+        self.btn_close.setObjectName("btn_close")
+
 class QRDialog(QDialog):
     def __init__(self, pixmap, parent=None):
         super().__init__(parent)
@@ -1843,6 +1917,10 @@ class SmartPortariaScanner(QMainWindow):
         self.transfer_target_id = None
         self.transfer_pending_extraction = False
 
+        self.overlay_transfer = TransferInstructionOverlay(self.centralWidget())
+        self.overlay_transfer.hide()
+        self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
+
     def setup_ui(self):
         self.central = QWidget()
         self.setCentralWidget(self.central)
@@ -2036,7 +2114,16 @@ class SmartPortariaScanner(QMainWindow):
         self.web_stack = QStackedWidget()
         self.stack_central.addWidget(self.web_stack)
 
-        layout_web.addWidget(self.stack_central, 1)
+        # Container para posicionar o overlay sobre o stack do navegador
+        self.container_stack_overlay = QWidget()
+        lay_stack_overlay = QVBoxLayout(self.container_stack_overlay)
+        lay_stack_overlay.setContentsMargins(0, 0, 0, 0)
+        lay_stack_overlay.addWidget(self.stack_central)
+
+        # Re-parent overlay para o container e posiciona
+        self.overlay_transfer.setParent(self.container_stack_overlay)
+
+        layout_web.addWidget(self.container_stack_overlay, 1)
         layout_web.addWidget(self.container_pesquisa_zk)
 
         splitter.addWidget(self.painel_lateral)
@@ -2157,6 +2244,7 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
+        self.overlay_transfer.apply_theme(modo)
         self.btn_config.setStyleSheet(header_btn_style)
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
@@ -2496,67 +2584,46 @@ class SmartPortariaScanner(QMainWindow):
 
             self.txt_live.append(f"✅ Dados extraídos: {p_nome} {s_nome}")
             self.transfer_pending_extraction = False
-            self.transfer_state = "LOGGING_IN"
 
-            # Navega para o ZK Bio
-            view.setUrl(QUrl(f"{ZK_SERVER}/bioLogin.do"))
+            # Muda para a aba ZK Bio e mostra instrução
+            found_zk = False
+            for i in range(self.tabs.count()):
+                if "ZK Bio" in self.tabs.tabText(i):
+                    self.tabs.setCurrentIndex(i)
+                    found_zk = True
+                    break
+
+            if found_zk:
+                self.overlay_transfer.show()
+                self.txt_live.append("ℹ️ Instrução: Faça login e clique em 'Novo' no ZK Bio para colar os dados.")
+            else:
+                self.txt_live.append("❌ Aba 'ZK Bio' não encontrada.")
+                self.btn_transferir.setEnabled(True)
+                self.btn_transferir.setText("🚀")
 
         view.page().runJavaScript(js_extract, handle_extraction)
 
-    def prosseguir_transferencia_zk(self, view):
-        """Gerencia o fluxo de estados dentro do portal ZK Bio"""
-        if not self.transfer_state: return
-        url_str = view.url().toString()
+    def colar_dados_manualmente(self):
+        """Injeta os dados no formulário aberto do ZK Bio"""
+        if not self.dados_transferencia:
+            self.txt_live.append("❌ Erro: Nenhum dado coletado para colar.")
+            return
 
-        if self.transfer_state == "LOGGING_IN":
-            if "main.do" in url_str:
-                self.txt_live.append("🔐 Login realizado. Navegando para Pessoal...")
-                self.transfer_state = "NAVIGATING_PERSONNEL"
-                view.setUrl(QUrl(f"{ZK_SERVER}/main.do?home#basePerson"))
+        # Busca a aba ZK Bio
+        view_zk = None
+        for i in range(self.tabs.count()):
+            if "ZK Bio" in self.tabs.tabText(i):
+                view_zk = self.web_stack.widget(i)
+                break
 
-        elif self.transfer_state == "NAVIGATING_PERSONNEL":
-            if "#basePerson" in url_str:
-                self.txt_live.append("📂 Página de Pessoal carregada. Aguardando UI...")
-                self.transfer_state = "CLICKING_NEW"
-                QTimer.singleShot(5000, lambda: self.finalizar_transferencia_zk(view))
+        if not view_zk:
+            self.txt_live.append("❌ Erro: Aba 'ZK Bio' não encontrada.")
+            return
 
-    def finalizar_transferencia_zk(self, view):
-        """Clica em 'Novo' e preenche os dados no formulário do ZK Bio"""
-        if not self.transfer_state: return
-        if self.transfer_state == "CLICKING_NEW":
-            self.txt_live.append("➕ Clicando em 'Novo'...")
+        self.txt_live.append(f"✍️ Injetando dados para {self.dados_transferencia['p_nome']}...")
 
-            js_click_new = r"""
-            (function() {
-                var btn = document.evaluate("//div[contains(@class, 'dhxtoolbar_text') and (text()='Novo' or contains(., 'Novo'))]",
-                                          document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                if (btn) {
-                    btn.click();
-                    return true;
-                }
-                return false;
-            })();
-            """
-
-            def handle_click_new(success):
-                if success:
-                    self.transfer_state = "FILLING"
-                    QTimer.singleShot(5000, lambda: self.finalizar_transferencia_zk(view))
-                else:
-                    self.txt_live.append("❌ Erro: Botão 'Novo' não encontrado. Tentando novamente em 3s...")
-                    QTimer.singleShot(3000, lambda: self.finalizar_transferencia_zk(view))
-
-            view.page().runJavaScript(js_click_new, handle_click_new)
-
-        elif self.transfer_state == "FILLING":
-            if not self.dados_transferencia:
-                self.txt_live.append("❌ Erro: Dados de transferência perdidos.")
-                self.transfer_state = None
-                return
-
-            self.txt_live.append(f"✍️ Preenchendo formulário para {self.dados_transferencia['p_nome']}...")
-
-            js_fill = f"""
+        js_fill = f"""
+            (function() {{
                 function triggerEvents(el) {{
                     el.dispatchEvent(new Event('input', {{ bubbles: true }}));
                     el.dispatchEvent(new Event('change', {{ bubbles: true }}));
@@ -2575,7 +2642,6 @@ class SmartPortariaScanner(QMainWindow):
                     if (input.name == 'email') {{ input.value = d.eml; triggerEvents(input); count++; }}
                 }}
 
-                // CPF / PIN
                 var pinField = document.getElementById('pers_pin_register_id');
                 if (pinField) {{
                     pinField.removeAttribute('readonly');
@@ -2584,20 +2650,23 @@ class SmartPortariaScanner(QMainWindow):
                     count++;
                 }}
 
-                count;
-            """
+                return count;
+            }})();
+        """
 
-            def handle_fill(count):
-                self.txt_live.append(f"✅ Transferência concluída. {count} campos processados.")
-                QMessageBox.information(self, "Sucesso", f"Dados de {self.dados_transferencia['p_nome']} transferidos com sucesso!")
-
-                # Reseta estado
-                self.transfer_state = None
-                self.dados_transferencia = None
+        def handle_fill(count):
+            if count > 0:
+                self.txt_live.append(f"✅ Sucesso: {count} campos preenchidos.")
+                self.overlay_transfer.hide()
+                # Reseta o botão de transferência
                 self.btn_transferir.setEnabled(True)
                 self.btn_transferir.setText("🚀")
+                self.dados_transferencia = None
+            else:
+                self.txt_live.append("⚠️ Aviso: Nenhum campo compatível encontrado na página atual. Certifique-se de estar na tela de 'Novo' registro.")
+                QMessageBox.warning(self, "Aviso", "Nenhum campo compatível encontrado. Certifique-se de que clicou em 'Novo' no ZK Bio.")
 
-            view.page().runJavaScript(js_fill, handle_fill)
+        view_zk.page().runJavaScript(js_fill, handle_fill)
 
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
@@ -2607,9 +2676,6 @@ class SmartPortariaScanner(QMainWindow):
         # Lógica de Transferência Interna
         if self.transfer_pending_extraction and "/visita/" in url_str and "/detalhes" in url_str:
             QTimer.singleShot(1500, lambda: self.extrair_dados_e_prosseguir(view))
-
-        elif self.transfer_state and ZK_SERVER in url_str:
-            self.prosseguir_transferencia_zk(view)
 
     def exibir_notificacao(self, nome_visitante):
         # Exibe Notificação Toast de forma segura
@@ -2960,6 +3026,9 @@ class SmartPortariaScanner(QMainWindow):
         self.transfer_pending_extraction = False
         self.transfer_target_id = None
 
+        if hasattr(self, 'overlay_transfer'):
+            self.overlay_transfer.hide()
+
         self.btn_transferir.setEnabled(True)
         self.btn_transferir.setText("🚀")
         self.btn_transferir.setStyleSheet(self.btn_transferir.styleSheet().replace("background-color: #ef4444;", "")) # Remove cor de erro se houver
@@ -3050,6 +3119,14 @@ class SmartPortariaScanner(QMainWindow):
     def resizeEvent(self, event):
         if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
             self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
+
+        # Posiciona o overlay de transferência no canto superior direito
+        if hasattr(self, 'overlay_transfer') and hasattr(self, 'container_stack_overlay'):
+            self.overlay_transfer.move(
+                self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
+                20
+            )
+
         super().resizeEvent(event)
 
     def eventFilter(self, obj, event):
