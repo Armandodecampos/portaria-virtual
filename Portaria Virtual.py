@@ -1873,6 +1873,16 @@ class SmartPortariaScanner(QMainWindow):
         self.container_pesquisa_zk = ExcelRecordsWidget(self)
         self.container_pesquisa_zk.hide()
 
+        # Estado de transferência interna
+        self.dados_transferencia = None
+        self.transfer_state = None
+        self.transfer_target_id = None
+        self.transfer_pending_extraction = False
+
+        self.overlay_transfer = TransferInstructionOverlay(self) # Parent provisório para evitar erro no setup_ui
+        self.overlay_transfer.hide()
+        self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
+
         self.setup_ui()
         self.configurar_navegadores()
 
@@ -1910,16 +1920,6 @@ class SmartPortariaScanner(QMainWindow):
         self.timer_qr_auto.start(3000)
 
         self.active_toast = None
-
-        # Estado de transferência interna
-        self.dados_transferencia = None
-        self.transfer_state = None
-        self.transfer_target_id = None
-        self.transfer_pending_extraction = False
-
-        self.overlay_transfer = TransferInstructionOverlay(self.centralWidget())
-        self.overlay_transfer.hide()
-        self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
 
     def setup_ui(self):
         self.central = QWidget()
