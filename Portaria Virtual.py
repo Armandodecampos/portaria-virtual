@@ -3101,8 +3101,8 @@ class SmartPortariaScanner(QMainWindow):
         elif msg_box.clickedButton() != btn_sim:
             return
 
-        self.btn_transferir.setEnabled(True) # Mantém habilitado para permitir o clique no 'X'
-        self.btn_transferir.setText("✖")
+        self.btn_transferir.setEnabled(False) # Volta a desabilitar para evitar múltiplos cliques
+        self.btn_transferir.setText("⏳")
         self.txt_live.append(f"🚀 Iniciando transferência interna para ID {id_convite}...")
 
         # Configura estado para extração
