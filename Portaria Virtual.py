@@ -2433,6 +2433,7 @@ class SmartPortariaScanner(QMainWindow):
 
     def extrair_dados_e_prosseguir(self, view):
         """Extrai os dados da Portaria Virtual via JS e navega para o ZK Bio"""
+        if not self.transfer_pending_extraction: return
         self.txt_live.append("📄 Extraindo dados do convite...")
 
         js_extract = r"""
@@ -2504,6 +2505,7 @@ class SmartPortariaScanner(QMainWindow):
 
     def prosseguir_transferencia_zk(self, view):
         """Gerencia o fluxo de estados dentro do portal ZK Bio"""
+        if not self.transfer_state: return
         url_str = view.url().toString()
 
         if self.transfer_state == "LOGGING_IN":
@@ -2520,6 +2522,7 @@ class SmartPortariaScanner(QMainWindow):
 
     def finalizar_transferencia_zk(self, view):
         """Clica em 'Novo' e preenche os dados no formulário do ZK Bio"""
+        if not self.transfer_state: return
         if self.transfer_state == "CLICKING_NEW":
             self.txt_live.append("➕ Clicando em 'Novo'...")
 
@@ -2950,7 +2953,24 @@ class SmartPortariaScanner(QMainWindow):
     def on_download_error(self, err):
         self.txt_live.append(f"❌ [Imagem] Erro: {err}")
 
+    def interromper_transferencia(self):
+        """Interrompe qualquer processo de transferência em curso e reseta a UI"""
+        self.transfer_state = None
+        self.dados_transferencia = None
+        self.transfer_pending_extraction = False
+        self.transfer_target_id = None
+
+        self.btn_transferir.setEnabled(True)
+        self.btn_transferir.setText("🚀")
+        self.btn_transferir.setStyleSheet(self.btn_transferir.styleSheet().replace("background-color: #ef4444;", "")) # Remove cor de erro se houver
+        self.txt_live.append("⏹️ Transferência interrompida pelo usuário.")
+
     def iniciar_transferencia(self, id_convite=None):
+        # Se já estiver transferindo, o botão serve para interromper
+        if self.transfer_pending_extraction or self.transfer_state:
+            self.interromper_transferencia()
+            return
+
         if not id_convite:
             id_convite = self.input_transfer_id.text().strip()
 
@@ -2994,8 +3014,8 @@ class SmartPortariaScanner(QMainWindow):
         elif msg_box.clickedButton() != btn_sim:
             return
 
-        self.btn_transferir.setEnabled(False)
-        self.btn_transferir.setText("⏳")
+        self.btn_transferir.setEnabled(True) # Mantém habilitado para permitir o clique no 'X'
+        self.btn_transferir.setText("✖")
         self.txt_live.append(f"🚀 Iniciando transferência interna para ID {id_convite}...")
 
         # Configura estado para extração
