@@ -883,31 +883,27 @@ class LocalSearchThread(QThread):
                     except: pass
 
                 if self.selected_id and str(vid) == str(self.selected_id):
-                    # Estilo para registro selecionado (conforme imagem exemplo)
-                    bg_sel = self.td["card_bg"]
-                    border_sel = self.td.get("sel_border", "#fbbf24")
+                    # Estilo para registro selecionado (sem fundo, seta na direita, sem espaço superior)
                     accent_sel = self.td.get("sel_accent", "#60a5fa")
                     text_sel = self.td.get("name_color", "#ffffff")
                     subtext_sel = self.td.get("subtext_color", "#cbd5e1")
                     highlight = self.td.get("sel_highlight", "#fbbf24")
 
                     html += f"""
-                    <div style='background-color: {bg_sel}; border: 1px solid {border_sel}; border-bottom: 3px solid {border_sel}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
+                    <div style='background-color: transparent; padding: 0px 12px 12px 12px; margin-bottom: 0px;'>
                         <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
-                                <td width="45" align="center" valign="middle">
-                                    <div style='border: 1px solid {highlight}; border-radius: 6px; padding: 6px; background-color: {self.td["card_bg"]};'>
-                                        <span style='color: {highlight}; font-size: 18px; font-weight: bold;'>➜</span>
-                                    </div>
-                                </td>
-                                <td style='padding-left: 12px;'>
+                                <td style='padding-right: 15px;'>
                                     <div style='color: {text_sel}; font-size: 14px;'>
                                         <a href="{vid}" style="text-decoration: none; color: inherit;">
-                                            <b style='color: {accent_sel};'>ID {vid}:</b> <span style='font-weight: bold;'>{nome}</span><br>
+                                            <b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br>
                                             <span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                                             <span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                                         </a>
                                     </div>
+                                </td>
+                                <td width="30" align="center" valign="middle">
+                                    <span style='color: {highlight}; font-size: 22px; font-weight: bold;'>➜</span>
                                 </td>
                             </tr>
                         </table>
