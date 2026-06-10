@@ -867,7 +867,7 @@ class LocalSearchThread(QThread):
                 self.results_ready.emit("<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
                 return
 
-            html = ""
+            html = "<html><head><style>body { margin: 0; padding: 0; } div, p, table { margin: 0; padding: 0; border-collapse: collapse; line-height: 1.1; }</style></head><body>"
             hoje = datetime.date.today()
 
             for i, (vid, nome, cpf, horario) in enumerate(dados):
@@ -886,15 +886,16 @@ class LocalSearchThread(QThread):
                 margin_top = "0px" if i == 0 else "-1px"
 
                 if self.selected_id and str(vid) == str(self.selected_id):
-                    # Estilo para registro selecionado (sem espaço entre itens)
+                    # Estilo para registro selecionado (sem espaço entre itens, alinhamento ao topo)
                     accent_sel = self.td.get("sel_accent", "#60a5fa")
                     text_sel = self.td.get("name_color", "#ffffff")
                     subtext_sel = self.td.get("subtext_color", "#cbd5e1")
                     highlight = self.td.get("sel_highlight", "#fbbf24")
 
-                    html += f"""<div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 0px 12px 12px 12px; margin: 0px; margin-top: {margin_top}; display: table; width: 100%;'><table width="100%" cellpadding="0" cellspacing="0" style="margin: 0; padding: 0;"><tr><td width="30" align="center" valign="middle"><span style='color: {highlight}; font-size: 22px; font-weight: bold;'>➜</span></td><td style='padding-left: 15px;'><div style='color: {text_sel}; font-size: 14px;'><a href="{vid}" style="text-decoration: none; color: inherit;"><b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br><span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></td></tr></table></div>"""
+                    html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 0px 12px 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><table width='100%' cellpadding='0' cellspacing='0' style='margin: 0; padding: 0; border-collapse: collapse; border: none;'><tr><td style='padding-right: 15px; padding-top: 0; padding-bottom: 0; vertical-align: top; border: none;'><div style='color: {text_sel}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br><span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></td><td width='30' align='center' valign='top' style='padding: 0; margin: 0; padding-top: 2px; border: none;'><span style='color: {highlight}; font-size: 22px; font-weight: bold; line-height: 1;'>➜</span></td></tr></table></div>"
                 else:
-                    html += f"""<div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 12px; margin: 0px; margin-top: {margin_top};'><div style='color: {self.td["text_color"]}; font-size: 14px;'><a href="{vid}" style="text-decoration: none; color: inherit;"><b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br><span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></div>"""
+                    html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><div style='color: {self.td['text_color']}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {self.td['accent_color']};'>ID {vid}:</b> <span style='color: {self.td['name_color']}; font-weight: bold;'>{nome}</span><br><span style='color: {self.td['subtext_color']}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {self.td['subtext_color']}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></div>"
+            html += "</body></html>"
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
@@ -2016,8 +2017,8 @@ class SmartPortariaScanner(QMainWindow):
         group_busca = QGroupBox("Registros - Portaria Virtual")
         layout_busca = QVBoxLayout(group_busca)
         layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout_busca.setSpacing(10)
-        layout_busca.setContentsMargins(10, 10, 10, 10)
+        layout_busca.setSpacing(0)
+        layout_busca.setContentsMargins(10, 0, 10, 10)
         
         # Campo de Busca Unificado
         container_busca = QWidget()
@@ -2789,21 +2790,21 @@ class SmartPortariaScanner(QMainWindow):
                 "text_color": "#e2e8f0", "card_bg": "#1e293b", "border_color": "#475569",
                 "accent_color": "#3b82f6", "name_color": "#ffffff", "subtext_color": "#94a3b8",
                 "cor_validade_padrao": "#10b981",
-                "sel_border": "#fbbf24", "sel_accent": "#60a5fa", "sel_highlight": "#fbbf24"
+                "sel_border": "#fbbf24", "sel_accent": "#60a5fa", "sel_highlight": "#f97316"
             }
         elif current_theme == "sepia":
             theme_data = {
                 "text_color": "#ffffff", "card_bg": "#000000", "border_color": "#554433",
                 "accent_color": "#d9975d", "name_color": "#ffffff", "subtext_color": "#e2e8f0",
                 "cor_validade_padrao": "#10b981",
-                "sel_border": "#fbbf24", "sel_accent": "#fcd34d", "sel_highlight": "#fbbf24"
+                "sel_border": "#fbbf24", "sel_accent": "#fcd34d", "sel_highlight": "#f97316"
             }
         else:
             theme_data = {
                 "text_color": "#1e293b", "card_bg": "#ffffff", "border_color": "#cbd5e1",
                 "accent_color": "#2563eb", "name_color": "#1e293b", "subtext_color": "#64748b",
                 "cor_validade_padrao": "green",
-                "sel_border": "#3b82f6", "sel_accent": "#2563eb", "sel_highlight": "#f59e0b"
+                "sel_border": "#3b82f6", "sel_accent": "#2563eb", "sel_highlight": "#f97316"
             }
 
         termos = termo_db.lower().split()
