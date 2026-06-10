@@ -870,6 +870,7 @@ class LocalSearchThread(QThread):
             html = ""
             hoje = datetime.date.today()
 
+            is_first = True
             for vid, nome, cpf, horario in dados:
                 if self.isInterruptionRequested(): return
 
@@ -884,18 +885,29 @@ class LocalSearchThread(QThread):
 
                 arrow_html = ""
                 if self.selected_id and str(vid) == str(self.selected_id):
-                    arrow_html = "<span style='color: orange; font-size: 24px; float: right; margin-top: 5px;'>➜</span>"
+                    arrow_html = "➜"
+
+                margin_top = "0px" if is_first else "-1px"
+                is_first = False
 
                 html += f"""
-                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
-                    <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                        <a href="{vid}" style="text-decoration: none; color: inherit;">
-                            {arrow_html}
-                            <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                        </a>
-                    </div>
+                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 12px; margin: 0px; margin-top: {margin_top};'>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                        <tr>
+                            <td width="30" align="center" valign="middle" style="color: orange; font-size: 24px; font-weight: bold;">
+                                {arrow_html}
+                            </td>
+                            <td>
+                                <div style='color: {self.td["text_color"]}; font-size: 14px;'>
+                                    <a href="{vid}" style="text-decoration: none; color: inherit;">
+                                        <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
+                                        <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                                        <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
                 </div>
                 """
             self.results_ready.emit(html)
@@ -2015,13 +2027,13 @@ class SmartPortariaScanner(QMainWindow):
         self.lbl_status_db.hide()
         lat.addWidget(self.lbl_status_db)
 
-        # === GRUPO BUSCA NO BANCO ===
-        group_busca = QGroupBox("Registros - Portaria Virtual")
-        layout_busca = QVBoxLayout(group_busca)
-        layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout_busca.setSpacing(10)
-        layout_busca.setContentsMargins(10, 10, 10, 10)
-        
+        # === GRUPO PESQUISA ===
+        self.group_pesquisa = QGroupBox("Pesquisa")
+        self.group_pesquisa.setObjectName("group_pesquisa")
+        self.group_pesquisa.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        layout_pesquisa = QVBoxLayout(self.group_pesquisa)
+        layout_pesquisa.setContentsMargins(10, 10, 10, 10)
+
         # Campo de Busca Unificado
         container_busca = QWidget()
         lay_busca = QHBoxLayout(container_busca)
@@ -2033,12 +2045,21 @@ class SmartPortariaScanner(QMainWindow):
         self.input_busca.textChanged.connect(self.realizar_busca_normal)
         
         self.btn_limpar_busca = QPushButton("Apagar")
-        self.btn_limpar_busca.setFixedWidth(70)
+        self.btn_limpar_busca.setFixedSize(80, 40)
         self.btn_limpar_busca.clicked.connect(self.input_busca.clear)
 
         lay_busca.addWidget(self.input_busca)
         lay_busca.addWidget(self.btn_limpar_busca)
-        layout_busca.addWidget(container_busca)
+        layout_pesquisa.addWidget(container_busca)
+        lat.addWidget(self.group_pesquisa)
+
+        # === GRUPO BUSCA NO BANCO ===
+        self.group_busca = QGroupBox("Registros - Portaria Virtual")
+        self.group_busca.setObjectName("group_busca")
+        layout_busca = QVBoxLayout(self.group_busca)
+        layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
+        layout_busca.setSpacing(0)
+        layout_busca.setContentsMargins(0, 10, 0, 0)
         
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -2050,7 +2071,7 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_res_busca.setStyleSheet("border: none; background: transparent; margin: 0; padding: 0;")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
-        lat.addWidget(group_busca, 3)
+        lat.addWidget(self.group_busca, 3)
 
         # === GRUPO LOG ===
         group_live = QGroupBox("LOG DO SISTEMA")
@@ -2173,6 +2194,7 @@ class SmartPortariaScanner(QMainWindow):
                 QLineEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
                 QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
+                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #475569; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #e2e8f0; }
                 QPushButton { background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px; }
@@ -2195,6 +2217,7 @@ class SmartPortariaScanner(QMainWindow):
                 QLineEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; }
                 QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #d9975d; font-size: 14px; }
+                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #554433; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
                 QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; padding: 6px; }
@@ -2217,6 +2240,7 @@ class SmartPortariaScanner(QMainWindow):
                 QLineEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; }
                 QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
+                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #94a3b8; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #334155; }
                 QPushButton { background-color: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; }
