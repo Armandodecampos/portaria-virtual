@@ -883,14 +883,14 @@ class LocalSearchThread(QThread):
                     except: pass
 
                 if self.selected_id and str(vid) == str(self.selected_id):
-                    # Estilo para registro selecionado (com fundo original, seta na esquerda, sem espaço superior)
+                    # Estilo para registro selecionado (sem espaço entre itens)
                     accent_sel = self.td.get("sel_accent", "#60a5fa")
                     text_sel = self.td.get("name_color", "#ffffff")
                     subtext_sel = self.td.get("subtext_color", "#cbd5e1")
                     highlight = self.td.get("sel_highlight", "#fbbf24")
 
                     html += f"""
-                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 0px 12px 12px 12px; margin-bottom: 0px;'>
+                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 0px 12px 12px 12px; margin: 0px; margin-top: -1px;'>
                         <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td width="30" align="center" valign="middle">
@@ -911,7 +911,7 @@ class LocalSearchThread(QThread):
                     """
                 else:
                     html += f"""
-                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
+                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 12px; margin: 0px; margin-top: -1px;'>
                         <div style='color: {self.td["text_color"]}; font-size: 14px;'>
                             <a href="{vid}" style="text-decoration: none; color: inherit;">
                                 <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
