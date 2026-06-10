@@ -883,17 +883,20 @@ class LocalSearchThread(QThread):
                     except: pass
 
                 if self.selected_id and str(vid) == str(self.selected_id):
-                    # Estilo para registro selecionado (sem fundo, seta na direita, sem espaço superior)
+                    # Estilo para registro selecionado (com fundo original, seta na esquerda, sem espaço superior)
                     accent_sel = self.td.get("sel_accent", "#60a5fa")
                     text_sel = self.td.get("name_color", "#ffffff")
                     subtext_sel = self.td.get("subtext_color", "#cbd5e1")
                     highlight = self.td.get("sel_highlight", "#fbbf24")
 
                     html += f"""
-                    <div style='background-color: transparent; padding: 0px 12px 12px 12px; margin-bottom: 0px;'>
+                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 0px 12px 12px 12px; margin-bottom: 0px;'>
                         <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
-                                <td style='padding-right: 15px;'>
+                                <td width="30" align="center" valign="middle">
+                                    <span style='color: {highlight}; font-size: 22px; font-weight: bold;'>➜</span>
+                                </td>
+                                <td style='padding-left: 15px;'>
                                     <div style='color: {text_sel}; font-size: 14px;'>
                                         <a href="{vid}" style="text-decoration: none; color: inherit;">
                                             <b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br>
@@ -901,9 +904,6 @@ class LocalSearchThread(QThread):
                                             <span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                                         </a>
                                     </div>
-                                </td>
-                                <td width="30" align="center" valign="middle">
-                                    <span style='color: {highlight}; font-size: 22px; font-weight: bold;'>➜</span>
                                 </td>
                             </tr>
                         </table>
