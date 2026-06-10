@@ -870,7 +870,7 @@ class LocalSearchThread(QThread):
             html = ""
             hoje = datetime.date.today()
 
-            for vid, nome, cpf, horario in dados:
+            for i, (vid, nome, cpf, horario) in enumerate(dados):
                 if self.isInterruptionRequested(): return
 
                 cor_validade = self.td['cor_validade_padrao']
@@ -882,6 +882,9 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
+                # O primeiro item não deve ter margin-top negativa para não sumir do topo do container
+                margin_top = "0px" if i == 0 else "-1px"
+
                 if self.selected_id and str(vid) == str(self.selected_id):
                     # Estilo para registro selecionado (sem espaço entre itens)
                     accent_sel = self.td.get("sel_accent", "#60a5fa")
@@ -889,38 +892,9 @@ class LocalSearchThread(QThread):
                     subtext_sel = self.td.get("subtext_color", "#cbd5e1")
                     highlight = self.td.get("sel_highlight", "#fbbf24")
 
-                    html += f"""
-                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 0px 12px 12px 12px; margin: 0px; margin-top: -1px;'>
-                        <table width="100%" cellpadding="0" cellspacing="0">
-                            <tr>
-                                <td width="30" align="center" valign="middle">
-                                    <span style='color: {highlight}; font-size: 22px; font-weight: bold;'>➜</span>
-                                </td>
-                                <td style='padding-left: 15px;'>
-                                    <div style='color: {text_sel}; font-size: 14px;'>
-                                        <a href="{vid}" style="text-decoration: none; color: inherit;">
-                                            <b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br>
-                                            <span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                                            <span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                    """
+                    html += f"""<div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 0px 12px 12px 12px; margin: 0px; margin-top: {margin_top}; display: table; width: 100%;'><table width="100%" cellpadding="0" cellspacing="0" style="margin: 0; padding: 0;"><tr><td width="30" align="center" valign="middle"><span style='color: {highlight}; font-size: 22px; font-weight: bold;'>➜</span></td><td style='padding-left: 15px;'><div style='color: {text_sel}; font-size: 14px;'><a href="{vid}" style="text-decoration: none; color: inherit;"><b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br><span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></td></tr></table></div>"""
                 else:
-                    html += f"""
-                    <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 12px; margin: 0px; margin-top: -1px;'>
-                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                            <a href="{vid}" style="text-decoration: none; color: inherit;">
-                                <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                            </a>
-                        </div>
-                    </div>
-                    """
+                    html += f"""<div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 12px; margin: 0px; margin-top: {margin_top};'><div style='color: {self.td["text_color"]}; font-size: 14px;'><a href="{vid}" style="text-decoration: none; color: inherit;"><b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br><span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></div>"""
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
