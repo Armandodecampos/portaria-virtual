@@ -882,22 +882,51 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
-                arrow_html = ""
                 if self.selected_id and str(vid) == str(self.selected_id):
-                    arrow_html = "<span style='color: orange; font-size: 24px; float: right; margin-top: 5px;'>➜</span>"
+                    # Estilo para registro selecionado (conforme imagem exemplo)
+                    bg_sel = self.td.get("sel_bg", "#002b5b")
+                    border_sel = self.td.get("sel_border", "#fbbf24")
+                    accent_sel = self.td.get("sel_accent", "#60a5fa")
+                    text_sel = "#ffffff" if self.td.get("text_color") != "#1e293b" else "#1e293b"
+                    subtext_sel = self.td.get("subtext_color", "#cbd5e1")
 
-                html += f"""
-                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
-                    <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                        <a href="{vid}" style="text-decoration: none; color: inherit;">
-                            {arrow_html}
-                            <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                        </a>
+                    # Highlight color for the arrow box
+                    highlight = "#fbbf24" # Amber/Orange
+
+                    html += f"""
+                    <div style='background-color: {bg_sel}; border: 2px solid {border_sel}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                            <tr>
+                                <td width="45" align="center" valign="middle">
+                                    <div style='border: 1px solid {highlight}; border-radius: 6px; padding: 6px; background-color: {self.td["card_bg"]};'>
+                                        <span style='color: {highlight}; font-size: 18px; font-weight: bold;'>➜</span>
+                                    </div>
+                                </td>
+                                <td style='padding-left: 12px;'>
+                                    <div style='color: {text_sel}; font-size: 14px;'>
+                                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                                            <b style='color: {accent_sel};'>ID {vid}:</b> <span style='font-weight: bold;'>{nome}</span><br>
+                                            <span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                                            <span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
-                </div>
-                """
+                    """
+                else:
+                    html += f"""
+                    <div style='background-color: {self.td["card_bg"]}; border: 2px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
+                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
+                            <a href="{vid}" style="text-decoration: none; color: inherit;">
+                                <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
+                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                            </a>
+                        </div>
+                    </div>
+                    """
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
@@ -2791,19 +2820,22 @@ class SmartPortariaScanner(QMainWindow):
             theme_data = {
                 "text_color": "#e2e8f0", "card_bg": "#1e293b", "border_color": "#475569",
                 "accent_color": "#3b82f6", "name_color": "#ffffff", "subtext_color": "#94a3b8",
-                "cor_validade_padrao": "#10b981"
+                "cor_validade_padrao": "#10b981",
+                "sel_bg": "#002b5b", "sel_border": "#fbbf24", "sel_accent": "#60a5fa"
             }
         elif current_theme == "sepia":
             theme_data = {
                 "text_color": "#ffffff", "card_bg": "#000000", "border_color": "#554433",
                 "accent_color": "#d9975d", "name_color": "#ffffff", "subtext_color": "#e2e8f0",
-                "cor_validade_padrao": "#10b981"
+                "cor_validade_padrao": "#10b981",
+                "sel_bg": "#332211", "sel_border": "#fbbf24", "sel_accent": "#fcd34d"
             }
         else:
             theme_data = {
                 "text_color": "#1e293b", "card_bg": "#ffffff", "border_color": "#cbd5e1",
                 "accent_color": "#2563eb", "name_color": "#1e293b", "subtext_color": "#64748b",
-                "cor_validade_padrao": "green"
+                "cor_validade_padrao": "green",
+                "sel_bg": "#dbeafe", "sel_border": "#fbbf24", "sel_accent": "#2563eb"
             }
 
         termos = termo_db.lower().split()
