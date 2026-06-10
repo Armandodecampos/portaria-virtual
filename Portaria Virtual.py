@@ -892,7 +892,7 @@ class LocalSearchThread(QThread):
                     subtext_sel = self.td.get("subtext_color", "#cbd5e1")
                     highlight = self.td.get("sel_highlight", "#fbbf24")
 
-                    html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 0px 12px 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><table width='100%' cellpadding='0' cellspacing='0' style='margin: 0; padding: 0; border-collapse: collapse; border: none;'><tr><td style='padding-right: 15px; padding-top: 0; padding-bottom: 0; vertical-align: top; border: none;'><div style='color: {text_sel}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br><span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></td><td width='30' align='center' valign='top' style='padding: 0; margin: 0; padding-top: 2px; border: none;'><span style='color: {highlight}; font-size: 22px; font-weight: bold; line-height: 1;'>➜</span></td></tr></table></div>"
+                    html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><table width='100%' cellpadding='0' cellspacing='0' style='margin: 0; padding: 0; border-collapse: collapse; border: none; vertical-align: top;'><tr><td style='padding-right: 15px; padding-top: 0; padding-bottom: 0; vertical-align: top; border: none;'><div style='color: {text_sel}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br><span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></td><td width='30' align='center' valign='top' style='padding: 0; margin: 0; padding-top: 0; border: none;'><span style='color: {highlight}; font-size: 22px; font-weight: bold; line-height: 1;'>➜</span></td></tr></table></div>"
                 else:
                     html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><div style='color: {self.td['text_color']}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {self.td['accent_color']};'>ID {vid}:</b> <span style='color: {self.td['name_color']}; font-weight: bold;'>{nome}</span><br><span style='color: {self.td['subtext_color']}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {self.td['subtext_color']}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></div>"
             html += "</body></html>"
@@ -2014,11 +2014,16 @@ class SmartPortariaScanner(QMainWindow):
         lat.addWidget(self.lbl_status_db)
 
         # === GRUPO BUSCA NO BANCO ===
-        group_busca = QGroupBox("Registros - Portaria Virtual")
+        group_busca = QGroupBox("Pesquisa")
         layout_busca = QVBoxLayout(group_busca)
         layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout_busca.setSpacing(0)
-        layout_busca.setContentsMargins(10, 0, 10, 10)
+        layout_busca.setContentsMargins(10, 5, 10, 10)
+
+        self.lbl_titulo_busca = QLabel("Registros - Portaria Virtual")
+        self.lbl_titulo_busca.setObjectName("lbl_titulo_busca")
+        self.lbl_titulo_busca.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 5px; margin-top: 5px;")
+        layout_busca.addWidget(self.lbl_titulo_busca)
         
         # Campo de Busca Unificado
         container_busca = QWidget()
@@ -2173,6 +2178,7 @@ class SmartPortariaScanner(QMainWindow):
                 QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #e2e8f0; }
+                QLabel#lbl_titulo_busca { color: #3b82f6; }
                 QPushButton { background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #475569; }
                 QTabBar::tab { background: #1e293b; color: #94a3b8; border: 1px solid #475569; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
@@ -2195,6 +2201,7 @@ class SmartPortariaScanner(QMainWindow):
                 QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #d9975d; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
+                QLabel#lbl_titulo_busca { color: #d9975d; }
                 QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #332211; }
                 QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
@@ -2217,6 +2224,7 @@ class SmartPortariaScanner(QMainWindow):
                 QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #334155; }
+                QLabel#lbl_titulo_busca { color: #3b82f6; }
                 QPushButton { background-color: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #cbd5e1; }
                 QTabBar::tab { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
