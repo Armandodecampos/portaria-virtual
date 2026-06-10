@@ -759,11 +759,12 @@ class SearchThread(QThread):
 class LocalSearchThread(QThread):
     results_ready = pyqtSignal(str)
 
-    def __init__(self, db, termos, theme_data):
+    def __init__(self, db, termos, theme_data, selected_id=None):
         super().__init__()
         self.db = db
         self.termos = termos
         self.td = theme_data
+        self.selected_id = str(selected_id) if selected_id else None
 
     def run(self):
         if not self.db:
@@ -778,10 +779,12 @@ class LocalSearchThread(QThread):
             html = ""
             hoje = datetime.date.today()
 
-            for vid, nome, cpf, horario in dados:
+            for i, (vid, nome, cpf, horario) in enumerate(dados):
                 if self.isInterruptionRequested(): return
 
-                cor_validade = self.td['cor_validade_padrao']
+                is_selected = (str(vid) == self.selected_id)
+
+                cor_validade = self.td.get('cor_validade_padrao', 'green')
                 if horario and horario != "N/A":
                     try:
                         partes = horario.split(" - ")
@@ -790,17 +793,28 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
-                html += f"""
-                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
-                    <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                        <a href="{vid}" style="text-decoration: none; color: inherit;">
-                            <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                        </a>
-                    </div>
-                </div>
-                """
+                margin_top = "-1px" if i > 0 else "0px"
+                bg_color = self.td.get("card_bg", "transparent")
+                border_color = self.td.get("border_color", "#475569")
+                text_color = self.td.get("text_color", "#e2e8f0")
+                subtext_color = self.td.get("subtext_color", "#94a3b8")
+                accent_color = self.td.get("accent_color", "#3b82f6")
+                name_color = self.td.get("name_color", "#ffffff")
+
+                html += f"<div style='background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 0px; margin-top: {margin_top}; margin-bottom: 0px;'>"
+                html += f"<a href='{vid}' style='text-decoration: none; color: inherit;'>"
+                html += "<table width='100%' cellpadding='0' cellspacing='0' border='0'><tr>"
+
+                if is_selected:
+                    html += f"<td width='40' align='center' valign='middle'><span style='color: #f97316; font-size: 24px;'>➜</span></td>"
+
+                html += f"<td style='padding: 12px;'>"
+                html += f"<div style='color: {text_color}; font-size: 14px;'>"
+                html += f"<b style='color: {accent_color}; font-size: 15px;'>ID {vid}:</b> <span style='color: {name_color}; font-weight: bold; font-size: 15px;'>{nome}</span><br>"
+                html += f"<span style='color: {subtext_color}; font-size: 13px;'>CPF / ID: {cpf}</span><br>"
+                html += f"<span style='color: {subtext_color}; font-size: 13px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>"
+                html += "</div></td></tr></table></a></div>"
+
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
@@ -1908,14 +1922,12 @@ class SmartPortariaScanner(QMainWindow):
         self.lbl_status_db.hide()
         lat.addWidget(self.lbl_status_db)
 
-        # === GRUPO BUSCA NO BANCO ===
-        group_busca = QGroupBox("Registros - Portaria Virtual")
-        layout_busca = QVBoxLayout(group_busca)
-        layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout_busca.setSpacing(10)
-        layout_busca.setContentsMargins(10, 10, 10, 10)
+        # === GRUPO PESQUISA ===
+        self.group_pesquisa = QGroupBox("Pesquisa")
+        self.group_pesquisa.setObjectName("group_pesquisa")
+        layout_pesquisa = QVBoxLayout(self.group_pesquisa)
+        layout_pesquisa.setContentsMargins(10, 15, 10, 10)
         
-        # Campo de Busca Unificado
         container_busca = QWidget()
         lay_busca = QHBoxLayout(container_busca)
         lay_busca.setContentsMargins(0, 0, 0, 0)
@@ -1923,15 +1935,26 @@ class SmartPortariaScanner(QMainWindow):
 
         self.input_busca = QLineEdit()
         self.input_busca.setPlaceholderText("Nome, ID ou CPF...")
+        self.input_busca.setFixedHeight(40)
         self.input_busca.textChanged.connect(self.realizar_busca_normal)
         
         self.btn_limpar_busca = QPushButton("Apagar")
-        self.btn_limpar_busca.setFixedWidth(70)
+        self.btn_limpar_busca.setFixedWidth(80)
+        self.btn_limpar_busca.setFixedHeight(40)
         self.btn_limpar_busca.clicked.connect(self.input_busca.clear)
 
         lay_busca.addWidget(self.input_busca)
         lay_busca.addWidget(self.btn_limpar_busca)
-        layout_busca.addWidget(container_busca)
+        layout_pesquisa.addWidget(container_busca)
+        lat.addWidget(self.group_pesquisa)
+
+        # === GRUPO REGISTROS ===
+        self.group_busca = QGroupBox("Registros - Portaria Virtual")
+        self.group_busca.setObjectName("group_busca")
+        layout_busca = QVBoxLayout(self.group_busca)
+        layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
+        layout_busca.setSpacing(0)
+        layout_busca.setContentsMargins(2, 15, 2, 2)
         
         self.txt_res_busca = QTextBrowser()
         self.txt_res_busca.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -1939,11 +1962,10 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_res_busca.setOpenExternalLinks(False)
         self.txt_res_busca.setOpenLinks(False)
         self.txt_res_busca.document().setDocumentMargin(0)
-        # O estilo base transparente é bom, mas vamos deixar o tema controlar a cor do texto
         self.txt_res_busca.setStyleSheet("border: none; background: transparent; margin: 0; padding: 0;")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
-        lat.addWidget(group_busca, 3)
+        lat.addWidget(self.group_busca, 3)
 
         # === GRUPO LOG ===
         group_live = QGroupBox("LOG DO SISTEMA")
@@ -2065,6 +2087,13 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab:selected { background: #2563eb; color: white; border-color: #2563eb; }
                 QSplitter::handle { background-color: #475569; }
             """
+            # Custom styling for Search and Results groups
+            style += """
+                QGroupBox#group_pesquisa { border: 1px solid #475569; border-radius: 8px; }
+                QGroupBox#group_pesquisa QLineEdit { background-color: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 8px; }
+                QGroupBox#group_pesquisa QPushButton { border-radius: 6px; }
+                QGroupBox#group_busca { border-top: 1px solid #475569; border-radius: 0px; margin-top: 15px; }
+            """
             # Cores específicas de botões funcionais
             btn_unlock_style = "background-color: #d97706; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
             btn_anon_style = "background-color: #475569; color: white; padding: 8px; border-radius: 4px;"
@@ -2087,6 +2116,12 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab:selected { background: #d9975d; color: white; border-color: #d9975d; }
                 QSplitter::handle { background-color: #554433; }
             """
+            style += """
+                QGroupBox#group_pesquisa { border: 1px solid #554433; border-radius: 8px; }
+                QGroupBox#group_pesquisa QLineEdit { background-color: #000000; border: 1px solid #554433; border-radius: 6px; padding: 8px; }
+                QGroupBox#group_pesquisa QPushButton { border-radius: 6px; }
+                QGroupBox#group_busca { border-top: 1px solid #554433; border-radius: 0px; margin-top: 15px; }
+            """
             # Cores específicas
             btn_unlock_style = "background-color: #d9975d; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
             btn_anon_style = "background-color: #332211; color: white; padding: 8px; border-radius: 4px;"
@@ -2108,6 +2143,12 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #3b82f6; color: white; border-color: #3b82f6; }
                 QSplitter::handle { background-color: #cbd5e1; }
+            """
+            style += """
+                QGroupBox#group_pesquisa { border: 1px solid #cbd5e1; border-radius: 8px; }
+                QGroupBox#group_pesquisa QLineEdit { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; }
+                QGroupBox#group_pesquisa QPushButton { border-radius: 6px; }
+                QGroupBox#group_busca { border-top: 1px solid #cbd5e1; border-radius: 0px; margin-top: 15px; }
             """
             # Cores específicas
             btn_unlock_style = "background-color: #f59e0b; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
@@ -2451,7 +2492,7 @@ class SmartPortariaScanner(QMainWindow):
     def realizar_busca_local(self):
         self.timer_busca.start(300)
 
-    def executar_busca_local(self):
+    def executar_busca_local(self, silent=False):
         termo_original = self.input_busca.text().strip()
         apenas_numeros = re.sub(r'\D', '', termo_original)
 
@@ -2487,7 +2528,8 @@ class SmartPortariaScanner(QMainWindow):
             self.local_search_thread.requestInterruption()
 
         # Limpa resultados anteriores enquanto a nova busca processa
-        self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
+        if not silent:
+            self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
 
         current_theme = self.settings.value("theme")
         theme_data = {}
@@ -2511,7 +2553,8 @@ class SmartPortariaScanner(QMainWindow):
             }
 
         termos = termo_db.lower().split()
-        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data)
+        selected_id = self.input_transfer_id.text().strip()
+        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data, selected_id=selected_id)
         self.local_search_thread.results_ready.connect(self.txt_res_busca.setHtml)
         self.local_search_thread.start()
 
@@ -2530,6 +2573,7 @@ class SmartPortariaScanner(QMainWindow):
 
         visita_id = url_str
         self.input_transfer_id.setText(visita_id)
+        self.executar_busca_local(silent=True)
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         for i in range(self.tabs.count()):
             if "Portaria Virtual" in self.tabs.tabText(i):
