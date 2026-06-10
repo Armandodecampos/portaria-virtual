@@ -74,97 +74,6 @@ class CustomWebPage(QWebEnginePage):
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
 
-class TransferInstructionOverlay(QFrame):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._drag_pos = None
-        self.setFixedWidth(300)
-        self.setFixedHeight(140)
-        self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setFrameShadow(QFrame.Shadow.Raised)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(10)
-
-        # Botão Fechar
-        header = QHBoxLayout()
-        header.addStretch()
-        self.btn_close = QPushButton("✕")
-        self.btn_close.setObjectName("btn_close") # Define antes do apply_theme
-        self.btn_close.setFixedSize(24, 24)
-        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_close.clicked.connect(self.hide)
-        header.addWidget(self.btn_close)
-        layout.addLayout(header)
-
-        # Texto de Instrução
-        self.lbl_instruction = QLabel("Faça login e clique em novo para colar as informações")
-        self.lbl_instruction.setWordWrap(True)
-        self.lbl_instruction.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_instruction.setStyleSheet("font-weight: bold; font-size: 13px;")
-        layout.addWidget(self.lbl_instruction)
-
-        # Botão Colar
-        self.btn_paste = QPushButton("📋 Colar informações")
-        self.btn_paste.setFixedHeight(35)
-        self.btn_paste.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_paste.setStyleSheet("""
-            QPushButton {
-                background-color: #10b981;
-                color: white;
-                font-weight: bold;
-                border-radius: 6px;
-                border: none;
-            }
-            QPushButton:hover { background-color: #059669; }
-        """)
-        layout.addWidget(self.btn_paste)
-
-        # Estilo para destacar sobre o navegador (após criar widgets)
-        self.apply_theme("light")
-        self.setCursor(Qt.CursorShape.SizeAllCursor)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
-        event.accept()
-
-    def apply_theme(self, mode):
-        if mode == "dark":
-            bg = "#1e293b"
-            text = "#f8fafc"
-            border = "#3b82f6"
-        elif mode == "sepia":
-            bg = "#000000"
-            text = "#ffffff"
-            border = "#d9975d"
-        else:
-            bg = "#ffffff"
-            text = "#1e293b"
-            border = "#3b82f6"
-
-        self.setStyleSheet(f"""
-            TransferInstructionOverlay {{
-                background-color: {bg};
-                border: 2px solid {border};
-                border-radius: 10px;
-            }}
-            QLabel {{ color: {text}; background: transparent; }}
-            QPushButton#btn_close {{ color: {text}; background: transparent; border: none; font-weight: bold; }}
-            QPushButton#btn_close:hover {{ color: #ef4444; }}
-        """)
-        self.btn_close.setObjectName("btn_close")
-
 class QRDialog(QDialog):
     def __init__(self, pixmap, parent=None):
         super().__init__(parent)
@@ -850,12 +759,11 @@ class SearchThread(QThread):
 class LocalSearchThread(QThread):
     results_ready = pyqtSignal(str)
 
-    def __init__(self, db, termos, theme_data, selected_id=None):
+    def __init__(self, db, termos, theme_data):
         super().__init__()
         self.db = db
         self.termos = termos
         self.td = theme_data
-        self.selected_id = selected_id
 
     def run(self):
         if not self.db:
@@ -867,10 +775,10 @@ class LocalSearchThread(QThread):
                 self.results_ready.emit("<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
                 return
 
-            html = "<html><head><style>body { margin: 0; padding: 0; } div, p, table { margin: 0; padding: 0; border-collapse: collapse; line-height: 1.1; }</style></head><body>"
+            html = ""
             hoje = datetime.date.today()
 
-            for i, (vid, nome, cpf, horario) in enumerate(dados):
+            for vid, nome, cpf, horario in dados:
                 if self.isInterruptionRequested(): return
 
                 cor_validade = self.td['cor_validade_padrao']
@@ -882,20 +790,17 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
-                # O primeiro item não deve ter margin-top negativa para não sumir do topo do container
-                margin_top = "0px" if i == 0 else "-1px"
-
-                if self.selected_id and str(vid) == str(self.selected_id):
-                    # Estilo para registro selecionado (sem espaço entre itens, alinhamento ao topo)
-                    accent_sel = self.td.get("sel_accent", "#60a5fa")
-                    text_sel = self.td.get("name_color", "#ffffff")
-                    subtext_sel = self.td.get("subtext_color", "#cbd5e1")
-                    highlight = self.td.get("sel_highlight", "#fbbf24")
-
-                    html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><table width='100%' cellpadding='0' cellspacing='0' style='margin: 0; padding: 0; border-collapse: collapse; border: none; vertical-align: top;'><tr><td style='padding-right: 15px; padding-top: 0; padding-bottom: 0; vertical-align: top; border: none;'><div style='color: {text_sel}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {accent_sel};'>ID {vid}:</b> <span style='color: {text_sel}; font-weight: bold;'>{nome}</span><br><span style='color: {subtext_sel}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {subtext_sel}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></td><td width='30' align='center' valign='top' style='padding: 0; margin: 0; padding-top: 0; border: none;'><span style='color: {highlight}; font-size: 22px; font-weight: bold; line-height: 1;'>➜</span></td></tr></table></div>"
-                else:
-                    html += f"<div style='background-color: {self.td['card_bg']}; border: 1px solid {self.td['border_color']}; border-radius: 0px; padding: 5px 12px; margin: 0px; margin-top: {margin_top}; width: 100%;'><div style='color: {self.td['text_color']}; font-size: 14px; line-height: 1.1;'><a href='{vid}' style='text-decoration: none; color: inherit;'><b style='color: {self.td['accent_color']};'>ID {vid}:</b> <span style='color: {self.td['name_color']}; font-weight: bold;'>{nome}</span><br><span style='color: {self.td['subtext_color']}; font-size: 12px;'>CPF / ID: {cpf}</span><br><span style='color: {self.td['subtext_color']}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span></a></div></div>"
-            html += "</body></html>"
+                html += f"""
+                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-bottom: 3px solid {self.td["border_color"]}; border-radius: 8px; padding: 12px; margin-bottom: 0px;'>
+                    <div style='color: {self.td["text_color"]}; font-size: 14px;'>
+                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                            <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
+                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                        </a>
+                    </div>
+                </div>
+                """
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
@@ -1875,23 +1780,13 @@ class DatabaseHandler:
 class SmartPortariaScanner(QMainWindow):
     def __init__(self):
         super().__init__()
-
-        # 1. INICIALIZAÇÃO DE ATRIBUTOS BÁSICOS E ESTADOS (Obrigatório antes do setup_ui)
-        self.dados_transferencia = None
-        self.transfer_state = None
-        self.transfer_target_id = None
-        self.transfer_pending_extraction = False
-
-        # Overlay deve ser criado antes do setup_ui pois este o referencia
-        self.overlay_transfer = TransferInstructionOverlay(self)
-        self.overlay_transfer.hide()
-        self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
-
-        # Configurações e UI
         self.setWindowTitle("Monitor Portaria - Gestão de Dados")
         self.resize(1400, 900)
+        
+        # Gerenciador de configurações persistentes
         self.settings = QSettings("PortariaApps", "MonitorVisitas")
         
+        # INICIALIZA SEM BANCO DE DADOS
         self.db = None
         self.id_atual = 1
         self.rodando = True
@@ -2014,16 +1909,11 @@ class SmartPortariaScanner(QMainWindow):
         lat.addWidget(self.lbl_status_db)
 
         # === GRUPO BUSCA NO BANCO ===
-        group_busca = QGroupBox("Pesquisa")
+        group_busca = QGroupBox("Registros - Portaria Virtual")
         layout_busca = QVBoxLayout(group_busca)
         layout_busca.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout_busca.setSpacing(0)
-        layout_busca.setContentsMargins(10, 5, 10, 10)
-
-        self.lbl_titulo_busca = QLabel("Registros - Portaria Virtual")
-        self.lbl_titulo_busca.setObjectName("lbl_titulo_busca")
-        self.lbl_titulo_busca.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 5px; margin-top: 5px;")
-        layout_busca.addWidget(self.lbl_titulo_busca)
+        layout_busca.setSpacing(10)
+        layout_busca.setContentsMargins(10, 10, 10, 10)
         
         # Campo de Busca Unificado
         container_busca = QWidget()
@@ -2140,16 +2030,7 @@ class SmartPortariaScanner(QMainWindow):
         self.web_stack = QStackedWidget()
         self.stack_central.addWidget(self.web_stack)
 
-        # Container para posicionar o overlay sobre o stack do navegador
-        self.container_stack_overlay = QWidget()
-        lay_stack_overlay = QVBoxLayout(self.container_stack_overlay)
-        lay_stack_overlay.setContentsMargins(0, 0, 0, 0)
-        lay_stack_overlay.addWidget(self.stack_central)
-
-        # Re-parent overlay para o container e posiciona
-        self.overlay_transfer.setParent(self.container_stack_overlay)
-
-        layout_web.addWidget(self.container_stack_overlay, 1)
+        layout_web.addWidget(self.stack_central, 1)
         layout_web.addWidget(self.container_pesquisa_zk)
 
         splitter.addWidget(self.painel_lateral)
@@ -2178,7 +2059,6 @@ class SmartPortariaScanner(QMainWindow):
                 QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #e2e8f0; }
-                QLabel#lbl_titulo_busca { color: #3b82f6; }
                 QPushButton { background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #475569; }
                 QTabBar::tab { background: #1e293b; color: #94a3b8; border: 1px solid #475569; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
@@ -2201,7 +2081,6 @@ class SmartPortariaScanner(QMainWindow):
                 QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #d9975d; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
-                QLabel#lbl_titulo_busca { color: #d9975d; }
                 QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #332211; }
                 QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
@@ -2224,7 +2103,6 @@ class SmartPortariaScanner(QMainWindow):
                 QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #334155; }
-                QLabel#lbl_titulo_busca { color: #3b82f6; }
                 QPushButton { background-color: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #cbd5e1; }
                 QTabBar::tab { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
@@ -2273,7 +2151,6 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
-        self.overlay_transfer.apply_theme(modo)
         self.btn_config.setStyleSheet(header_btn_style)
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
@@ -2508,204 +2385,26 @@ class SmartPortariaScanner(QMainWindow):
             js_login = f"""
                 var inputs = document.querySelectorAll('input');
                 var form = document.querySelector('form');
-                var user = {json.dumps(self.creds['portaria_user'])};
-                var passw = {json.dumps(self.creds['portaria_pass'])};
                 inputs.forEach(i => {{
-                    if(i.type=='text') i.value=user;
-                    if(i.type=='password') i.value=passw;
+                    if(i.type=='text') i.value='{self.creds['portaria_user']}';
+                    if(i.type=='password') i.value='{self.creds['portaria_pass']}';
                 }});
                 if(form) form.submit();
             """
             browser_view.page().runJavaScript(js_login)
         elif "bioLogin.do" in url_atual:
             js_login_zk = f"""
-                (function() {{
-                    var userField = document.getElementById('username');
-                    var passField = document.getElementById('password');
-                    var checkbox = document.querySelector('label[for="input_0eee436c9a984f68b47ff2e6778f79d7"]') || document.querySelector('label.zk-checkbox-custom-lab');
-                    var btn = document.querySelector('input[type="button"]') || document.querySelector('button') || document.querySelector('.login-btn');
-
-                    if (userField) {{
-                        userField.value = {json.dumps(self.creds['zk_user'])};
-                        userField.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-                    if (passField) {{
-                        passField.value = {json.dumps(self.creds['zk_pass'])};
-                        passField.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-
-                    setTimeout(function() {{
-                        if (checkbox) checkbox.click();
-                        setTimeout(function() {{
-                            var okBtn = document.querySelector('a[onclick*="policyPopupOk"]');
-                            if (okBtn) okBtn.click();
-                            setTimeout(function() {{
-                                if (btn) btn.click();
-                            }}, 500);
-                        }}, 500);
-                    }}, 500);
-                }})();
+                var userField = document.getElementById('username');
+                var passField = document.getElementById('password');
+                var btn = document.querySelector('input[type="button"]') || document.querySelector('button');
+                if (userField) userField.value = '{self.creds['zk_user']}';
+                if (passField) passField.value = '{self.creds['zk_pass']}';
+                if (btn) btn.click();
             """
             browser_view.page().runJavaScript(js_login_zk)
 
-    def extrair_dados_e_prosseguir(self, view):
-        """Extrai os dados da Portaria Virtual via JS e navega para o ZK Bio"""
-        if not self.transfer_pending_extraction: return
-        self.txt_live.append("📄 Extraindo dados do convite...")
-
-        js_extract = r"""
-        (function() {
-            function getByXpath(path) {
-                return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-            }
-
-            try {
-                var label_visitante = getByXpath("//div[contains(., 'Visitante')]/following::label[1]");
-                var text_visitante = label_visitante ? label_visitante.innerText : "";
-
-                var tel_el = getByXpath("//div[contains(text(), 'Telefone')]/following::label[1] | //label[contains(text(), '(')]");
-                var text_tel = tel_el ? tel_el.innerText : "";
-
-                var email_el = getByXpath("//div[contains(text(), 'Email')]/following::label[1] | //label[contains(text(), '@')]");
-                var text_email = email_el ? email_el.innerText : "";
-
-                return {
-                    visitante: text_visitante,
-                    telefone: text_tel,
-                    email: text_email
-                };
-            } catch(e) {
-                return null;
-            }
-        })();
-        """
-
-        def handle_extraction(result):
-            if not result:
-                self.txt_live.append("❌ Erro ao extrair dados via JavaScript.")
-                self.btn_transferir.setEnabled(True)
-                self.btn_transferir.setText("🚀")
-                self.transfer_pending_extraction = False
-                return
-
-            text_visitante = " ".join(result['visitante'].split())
-            cpf_match = re.search(r'(\d{3}\.\d{3}\.\d{3}-\d{2})|(\d{11})', text_visitante)
-            cpf_numeros = re.sub(r'\D', '', cpf_match.group(0)) if cpf_match else ""
-            nome_completo = text_visitante.split("-")[0].strip()
-
-            partes_nome = nome_completo.split(" ")
-            p_nome = partes_nome[0]
-            s_nome = " ".join(partes_nome[1:]) if len(partes_nome) > 1 else " "
-
-            tel = re.sub(r'\D', '', result['telefone']).strip()
-            eml = result['email'].strip()
-            if "unidade" in eml.lower():
-                # Tenta re-extrair se o primeiro falhou (lógica do original)
-                eml = "" # Simplificado para o exemplo, o ideal seria outra extração se necessário
-
-            self.dados_transferencia = {
-                'p_nome': p_nome,
-                's_nome': s_nome,
-                'cpf': cpf_numeros,
-                'tel': tel,
-                'eml': eml
-            }
-
-            self.txt_live.append(f"✅ Dados extraídos: {p_nome} {s_nome}")
-            self.transfer_pending_extraction = False
-
-            # Muda para a aba ZK Bio e mostra instrução
-            found_zk = False
-            for i in range(self.tabs.count()):
-                if "ZK Bio" in self.tabs.tabText(i):
-                    self.tabs.setCurrentIndex(i)
-                    found_zk = True
-                    break
-
-            if found_zk:
-                self.overlay_transfer.show()
-                self.posicionar_overlay()
-                self.txt_live.append("ℹ️ Instrução: Faça login e clique em 'Novo' no ZK Bio para colar os dados.")
-            else:
-                self.txt_live.append("❌ Aba 'ZK Bio' não encontrada.")
-                self.btn_transferir.setEnabled(True)
-                self.btn_transferir.setText("🚀")
-
-        view.page().runJavaScript(js_extract, handle_extraction)
-
-    def colar_dados_manualmente(self):
-        """Injeta os dados no formulário aberto do ZK Bio"""
-        if not self.dados_transferencia:
-            self.txt_live.append("❌ Erro: Nenhum dado coletado para colar.")
-            return
-
-        # Busca a aba ZK Bio
-        view_zk = None
-        for i in range(self.tabs.count()):
-            if "ZK Bio" in self.tabs.tabText(i):
-                view_zk = self.web_stack.widget(i)
-                break
-
-        if not view_zk:
-            self.txt_live.append("❌ Erro: Aba 'ZK Bio' não encontrada.")
-            return
-
-        self.txt_live.append(f"✍️ Injetando dados para {self.dados_transferencia['p_nome']}...")
-
-        js_fill = f"""
-            (function() {{
-                function triggerEvents(el) {{
-                    el.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    el.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                    el.dispatchEvent(new Event('blur', {{ bubbles: true }}));
-                }}
-
-                var d = {json.dumps(self.dados_transferencia)};
-                var inputs = document.getElementsByTagName('input');
-                var count = 0;
-
-                for (var i = 0; i < inputs.length; i++) {{
-                    var input = inputs[i];
-                    if (input.name == 'name') {{ input.value = d.p_nome; triggerEvents(input); count++; }}
-                    if (input.name == 'lastName') {{ input.value = d.s_nome; triggerEvents(input); count++; }}
-                    if (input.name == 'mobile' || input.name == 'mobilePhone') {{ input.value = d.tel; triggerEvents(input); count++; }}
-                    if (input.name == 'email') {{ input.value = d.eml; triggerEvents(input); count++; }}
-                }}
-
-                var pinField = document.getElementById('pers_pin_register_id');
-                if (pinField) {{
-                    pinField.removeAttribute('readonly');
-                    pinField.value = d.cpf;
-                    triggerEvents(pinField);
-                    count++;
-                }}
-
-                return count;
-            }})();
-        """
-
-        def handle_fill(count):
-            if count > 0:
-                self.txt_live.append(f"✅ Sucesso: {count} campos preenchidos.")
-                self.overlay_transfer.hide()
-                # Reseta o botão de transferência
-                self.btn_transferir.setEnabled(True)
-                self.btn_transferir.setText("🚀")
-                self.dados_transferencia = None
-            else:
-                self.txt_live.append("⚠️ Aviso: Nenhum campo compatível encontrado na página atual. Certifique-se de estar na tela de 'Novo' registro.")
-                QMessageBox.warning(self, "Aviso", "Nenhum campo compatível encontrado. Certifique-se de que clicou em 'Novo' no ZK Bio.")
-
-        view_zk.page().runJavaScript(js_fill, handle_fill)
-
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
-
-        url_str = view.url().toString()
-
-        # Lógica de Transferência Interna
-        if self.transfer_pending_extraction and "/visita/" in url_str and "/detalhes" in url_str:
-            QTimer.singleShot(1500, lambda: self.extrair_dados_e_prosseguir(view))
 
     def exibir_notificacao(self, nome_visitante):
         # Exibe Notificação Toast de forma segura
@@ -2752,7 +2451,7 @@ class SmartPortariaScanner(QMainWindow):
     def realizar_busca_local(self):
         self.timer_busca.start(300)
 
-    def executar_busca_local(self, silent=False):
+    def executar_busca_local(self):
         termo_original = self.input_busca.text().strip()
         apenas_numeros = re.sub(r'\D', '', termo_original)
 
@@ -2788,8 +2487,7 @@ class SmartPortariaScanner(QMainWindow):
             self.local_search_thread.requestInterruption()
 
         # Limpa resultados anteriores enquanto a nova busca processa
-        if not silent:
-            self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
+        self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
 
         current_theme = self.settings.value("theme")
         theme_data = {}
@@ -2797,27 +2495,23 @@ class SmartPortariaScanner(QMainWindow):
             theme_data = {
                 "text_color": "#e2e8f0", "card_bg": "#1e293b", "border_color": "#475569",
                 "accent_color": "#3b82f6", "name_color": "#ffffff", "subtext_color": "#94a3b8",
-                "cor_validade_padrao": "#10b981",
-                "sel_border": "#fbbf24", "sel_accent": "#60a5fa", "sel_highlight": "#f97316"
+                "cor_validade_padrao": "#10b981"
             }
         elif current_theme == "sepia":
             theme_data = {
                 "text_color": "#ffffff", "card_bg": "#000000", "border_color": "#554433",
                 "accent_color": "#d9975d", "name_color": "#ffffff", "subtext_color": "#e2e8f0",
-                "cor_validade_padrao": "#10b981",
-                "sel_border": "#fbbf24", "sel_accent": "#fcd34d", "sel_highlight": "#f97316"
+                "cor_validade_padrao": "#10b981"
             }
         else:
             theme_data = {
                 "text_color": "#1e293b", "card_bg": "#ffffff", "border_color": "#cbd5e1",
                 "accent_color": "#2563eb", "name_color": "#1e293b", "subtext_color": "#64748b",
-                "cor_validade_padrao": "green",
-                "sel_border": "#3b82f6", "sel_accent": "#2563eb", "sel_highlight": "#f97316"
+                "cor_validade_padrao": "green"
             }
 
         termos = termo_db.lower().split()
-        selected_id = self.input_transfer_id.text().strip()
-        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data, selected_id=selected_id)
+        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data)
         self.local_search_thread.results_ready.connect(self.txt_res_busca.setHtml)
         self.local_search_thread.start()
 
@@ -2836,7 +2530,6 @@ class SmartPortariaScanner(QMainWindow):
 
         visita_id = url_str
         self.input_transfer_id.setText(visita_id)
-        self.executar_busca_local(silent=True)
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         for i in range(self.tabs.count()):
             if "Portaria Virtual" in self.tabs.tabText(i):
@@ -3055,27 +2748,7 @@ class SmartPortariaScanner(QMainWindow):
     def on_download_error(self, err):
         self.txt_live.append(f"❌ [Imagem] Erro: {err}")
 
-    def interromper_transferencia(self):
-        """Interrompe qualquer processo de transferência em curso e reseta a UI"""
-        self.transfer_state = None
-        self.dados_transferencia = None
-        self.transfer_pending_extraction = False
-        self.transfer_target_id = None
-
-        if hasattr(self, 'overlay_transfer'):
-            self.overlay_transfer.hide()
-
-        self.btn_transferir.setEnabled(True)
-        self.btn_transferir.setText("🚀")
-        self.btn_transferir.setStyleSheet(self.btn_transferir.styleSheet().replace("background-color: #ef4444;", "")) # Remove cor de erro se houver
-        self.txt_live.append("⏹️ Transferência interrompida pelo usuário.")
-
     def iniciar_transferencia(self, id_convite=None):
-        # Se já estiver transferindo, o botão serve para interromper
-        if self.transfer_pending_extraction or self.transfer_state:
-            self.interromper_transferencia()
-            return
-
         if not id_convite:
             id_convite = self.input_transfer_id.text().strip()
 
@@ -3119,30 +2792,16 @@ class SmartPortariaScanner(QMainWindow):
         elif msg_box.clickedButton() != btn_sim:
             return
 
-        self.btn_transferir.setEnabled(False) # Volta a desabilitar para evitar múltiplos cliques
+        self.btn_transferir.setEnabled(False)
         self.btn_transferir.setText("⏳")
-        self.txt_live.append(f"🚀 Iniciando transferência interna para ID {id_convite}...")
 
-        # Configura estado para extração
-        self.transfer_target_id = id_convite
-        self.transfer_pending_extraction = True
-
-        # Localiza a aba da Portaria Virtual
-        view_portaria = None
-        for i in range(self.tabs.count()):
-            if "Portaria Virtual" in self.tabs.tabText(i):
-                self.tabs.setCurrentIndex(i)
-                view_portaria = self.web_stack.widget(i)
-                break
-
-        if view_portaria:
-            link_detalhes = f"https://portaria-global.governarti.com.br/visita/{id_convite}/detalhes"
-            view_portaria.setUrl(QUrl(link_detalhes))
-        else:
-            self.txt_live.append("❌ Erro: Aba 'Portaria Virtual' não encontrada.")
-            self.btn_transferir.setEnabled(True)
-            self.btn_transferir.setText("🚀")
-            self.transfer_pending_extraction = False
+        self.transfer_thread = TransferThread(id_convite, self.creds)
+        self.transfer_thread.log.connect(lambda msg: self.txt_live.append(f"🤖 [Transfer] {msg}"))
+        self.transfer_thread.success.connect(self.on_transfer_success)
+        self.transfer_thread.error.connect(self.on_transfer_error)
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setEnabled(True))
+        self.transfer_thread.finished.connect(lambda: self.btn_transferir.setText("🚀"))
+        self.transfer_thread.start()
 
     def on_transfer_success(self, msg):
         self.txt_live.append(f"✅ Transferência concluída: {msg.splitlines()[0]}")
@@ -3152,21 +2811,9 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_live.append(f"❌ Erro na transferência: {err}")
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
-    def posicionar_overlay(self):
-        """Helper para posicionar o overlay no canto superior direito"""
-        if hasattr(self, 'overlay_transfer') and hasattr(self, 'container_stack_overlay'):
-            self.overlay_transfer.move(
-                self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
-                20
-            )
-
     def resizeEvent(self, event):
         if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
             self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
-
-        # Posiciona o overlay de transferência no canto superior direito
-        self.posicionar_overlay()
-
         super().resizeEvent(event)
 
     def eventFilter(self, obj, event):
