@@ -854,12 +854,13 @@ class SearchThread(QThread):
 class LocalSearchThread(QThread):
     results_ready = pyqtSignal(str)
 
-    def __init__(self, db, termos, theme_data, selected_id=None):
+    def __init__(self, db, termos, theme_data, selected_id=None, link_encontrado=True):
         super().__init__()
         self.db = db
         self.termos = termos
         self.td = theme_data
         self.selected_id = selected_id
+        self.link_encontrado = link_encontrado
 
     def run(self):
         if not self.db:
@@ -890,12 +891,13 @@ class LocalSearchThread(QThread):
                 extra_btns_html = ""
                 if self.selected_id and str(vid) == str(self.selected_id):
                     arrow_html = "➜"
-                    extra_btns_html = f"""
-                    <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
-                        <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
-                        <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
-                    </div>
-                    """
+                    if self.link_encontrado:
+                        extra_btns_html = f"""
+                        <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
+                            <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
+                            <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
+                        </div>
+                        """
 
                 html += f"""
                 <tr style='background-color: {self.td["card_bg"]};'>
@@ -1904,6 +1906,7 @@ class SmartPortariaScanner(QMainWindow):
         self.last_qr_result = None
 
         self.active_toast = None
+        self.link_convite_encontrado = True
 
     def setup_ui(self):
         self.central = QWidget()
@@ -2663,6 +2666,23 @@ class SmartPortariaScanner(QMainWindow):
         if self.transfer_pending_extraction and "/visita/" in url_str and "/detalhes" in url_str:
             QTimer.singleShot(1500, lambda: self.extrair_dados_e_prosseguir(view))
 
+        # Verificação automática de link de convite
+        if "/visita/" in url_str and "/detalhes" in url_str:
+            visita_id_url = url_str.split("/visita/")[1].split("/detalhes")[0]
+            if visita_id_url == self.input_transfer_id.text().strip():
+                QTimer.singleShot(1500, self.verificar_presenca_link_convite)
+
+    def verificar_presenca_link_convite(self):
+        def callback_verificacao(result):
+            if not result:
+                self.link_convite_encontrado = False
+                self.executar_busca_local(silent=True)
+            else:
+                self.link_convite_encontrado = True
+                self.executar_busca_local(silent=True)
+
+        self.extrair_link_whatsapp(callback_verificacao, silent=True)
+
     def exibir_notificacao(self, nome_visitante):
         # Exibe Notificação Toast de forma segura
         self.active_toast = NotificationToast("Novo convite!", self)
@@ -2770,7 +2790,11 @@ class SmartPortariaScanner(QMainWindow):
 
         termos = termo_db.lower().split()
         selected_id = self.input_transfer_id.text().strip()
-        self.local_search_thread = LocalSearchThread(self.db, termos, theme_data, selected_id=selected_id)
+        self.local_search_thread = LocalSearchThread(
+            self.db, termos, theme_data,
+            selected_id=selected_id,
+            link_encontrado=self.link_convite_encontrado
+        )
         self.local_search_thread.results_ready.connect(self.txt_res_busca.setHtml)
         self.local_search_thread.start()
 
@@ -2799,6 +2823,7 @@ class SmartPortariaScanner(QMainWindow):
 
         visita_id = url_str
         self.input_transfer_id.setText(visita_id)
+        self.link_convite_encontrado = True # Reseta ao trocar de ID
         self.executar_busca_local(silent=True)
         link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
         for i in range(self.tabs.count()):
@@ -2866,7 +2891,10 @@ class SmartPortariaScanner(QMainWindow):
 
     def abrir_qr_na_anonima(self, visita_id=None):
         def on_link_extracted(result):
-            if not result: return
+            if not result:
+                self.link_convite_encontrado = False
+                self.executar_busca_local(silent=True)
+                return
             url = result['url']
 
             for i in range(self.tabs.count()):
@@ -2896,7 +2924,10 @@ class SmartPortariaScanner(QMainWindow):
 
     def mostrar_qr_code(self, visita_id=None):
         def on_link_extracted(result):
-            if not result: return
+            if not result:
+                self.link_convite_encontrado = False
+                self.executar_busca_local(silent=True)
+                return
             url = result['url']
 
             try:
