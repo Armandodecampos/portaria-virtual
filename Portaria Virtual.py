@@ -753,7 +753,7 @@ def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#3b
     <tr style='background-color: {card_bg};'>
         <td style='border: 1px solid {card_border}; padding: 12px;'>
             <span style='font-size: 13px; color: {sub_text_color};'>
-                <b style='color: {accent_color};'>Nome:</b> <span style='font-weight: bold; color: inherit;'>{item['nome']} {item['sobrenome']}</span> {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}
+                <b style='color: {accent_color};'>Nome:</b> <span style='font-weight: bold; color: #ffffff;'>{item['nome']} {item['sobrenome']}</span> {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}
             </span>
     """
 
@@ -1316,13 +1316,16 @@ class ExcelRecordsWidget(QWidget):
             is_outdated = date_str != current_date_str
             color = "#ef4444" if is_outdated else "#3b82f6"
 
-            html = f"{source_name} <span style='color: {color};'>📅 {timestamp}</span>"
-            if is_outdated:
-                html += " <span style='color: #ef4444; font-weight: bold;'>Considere fazer o upload do arquivo atualizado.</span>"
+            if source_name == "Dados do cache":
+                label_text = "Atualizado em:"
+            else:
+                label_text = source_name
 
+            html = f"{label_text} <span style='color: {color};'>{timestamp}</span>"
             self.lbl_file_name.setText(html)
         except:
-            self.lbl_file_name.setText(f"{source_name} 📅 {timestamp}")
+            label_text = "Atualizado em:" if source_name == "Dados do cache" else source_name
+            self.lbl_file_name.setText(f"{label_text} {timestamp}")
 
     def import_excel(self):
         fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Excel", "", "Excel Files (*.xls *.xlsx)")
