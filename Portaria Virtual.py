@@ -1085,12 +1085,12 @@ class ExcelRecordsWidget(QWidget):
 
         if hasattr(self, 'lbl_file_name'):
             self.lbl_file_name.setStyleSheet(f"""
-                background-color: {self.card_bg};
+                background-color: transparent;
                 color: {self.sub_text_color};
                 padding: 5px 12px;
                 border-radius: 12px;
                 font-size: 11px;
-                border: 1px solid {self.card_border};
+                border: none;
             """)
 
         if hasattr(self, 'btn_upload'):
@@ -1925,6 +1925,11 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_config.setFixedSize(38, 38)
         self.btn_config.clicked.connect(self.abrir_configuracoes)
 
+        self.btn_toggle_log = QPushButton("📜")
+        self.btn_toggle_log.setToolTip("Log do Sistema")
+        self.btn_toggle_log.setFixedSize(38, 38)
+        self.btn_toggle_log.clicked.connect(self.toggle_log_panel)
+
         self.btn_instrucao = QPushButton("📖")
         self.btn_instrucao.setToolTip("Instrução")
         self.btn_instrucao.setFixedSize(38, 38)
@@ -1956,6 +1961,7 @@ class SmartPortariaScanner(QMainWindow):
         self.input_transfer_id.setFixedHeight(38)
 
         header_layout.addWidget(self.btn_config)
+        header_layout.addWidget(self.btn_toggle_log)
         header_layout.addWidget(self.btn_instrucao)
         header_layout.addWidget(self.btn_abrir_camera)
         header_layout.addWidget(self.btn_transferir)
@@ -2060,11 +2066,6 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_home.setFixedSize(38, 38)
         self.btn_home.clicked.connect(self.ir_para_home)
 
-        self.btn_toggle_log = QPushButton("📜")
-        self.btn_toggle_log.setToolTip("Log do Sistema")
-        self.btn_toggle_log.setFixedSize(38, 38)
-        self.btn_toggle_log.clicked.connect(self.toggle_log_panel)
-
         self.address_bar = QLineEdit()
         self.address_bar.setFixedHeight(38)
         self.address_bar.setPlaceholderText("Introduza o URL...")
@@ -2081,7 +2082,6 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
         toolbar.addWidget(self.btn_home)
-        toolbar.addWidget(self.btn_toggle_log)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
         layout_web.addLayout(toolbar)
@@ -2137,7 +2137,7 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #0f172a; color: #e2e8f0; }
                 QLineEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
-                QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
+                QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #475569; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #e2e8f0; }
@@ -2160,7 +2160,7 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #1a120b; color: #ffffff; }
                 QLineEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; }
-                QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #d9975d; font-size: 14px; }
+                QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #554433; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
@@ -2183,7 +2183,7 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #f1f5f9; color: #1e293b; }
                 QLineEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; }
-                QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #3b82f6; font-size: 14px; }
+                QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #1e293b; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #94a3b8; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #334155; }
