@@ -791,7 +791,8 @@ class SearchThread(QThread):
         ).lower()
 
     def render_item_card(self, item):
-        return render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'], self.td.get('accent_color', '#3b82f6'))
+        html_row = render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'], self.td.get('accent_color', '#3b82f6'))
+        return html_row
 
     def run(self):
         db_file = "zk_cache.db"
@@ -1102,31 +1103,9 @@ class ExcelRecordsWidget(QWidget):
         layout_main.setContentsMargins(0, 0, 0, 0)
         layout_main.setSpacing(10)
 
-        # === GRUPO PESQUISA ZK ===
-        self.group_pesquisa_zk = QGroupBox("Pesquisa ZK Bio")
-        self.group_pesquisa_zk.setObjectName("group_pesquisa")
-        self.group_pesquisa_zk.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        layout_pesquisa = QVBoxLayout(self.group_pesquisa_zk)
-        layout_pesquisa.setContentsMargins(10, 10, 10, 10)
-        layout_pesquisa.setSpacing(10)
-
-        # Linha Superior: Input e Botão Apagar
-        search_lay = QHBoxLayout()
-        self.input_search = QLineEdit()
-        self.input_search.setPlaceholderText("🔍 Pesquisar ZK Bio...")
-
-        self.btn_clear = QPushButton("Apagar")
-        self.btn_clear.setFixedSize(80, 40)
-        self.btn_clear.clicked.connect(self.input_search.clear)
-        self.btn_clear.hide()
-        self.input_search.textChanged.connect(lambda t: self.btn_clear.setVisible(len(t)>0))
-
-        search_lay.addWidget(self.input_search)
-        search_lay.addWidget(self.btn_clear)
-        layout_pesquisa.addLayout(search_lay)
-
-        # Linha Inferior: Upload e Label do Arquivo
+        # Layout para Upload e Label do Arquivo
         upload_lay = QHBoxLayout()
+        upload_lay.setContentsMargins(5, 5, 5, 5)
         self.btn_upload = QPushButton("Selecionar Excel")
         self.btn_upload.setFixedWidth(120)
         self.btn_upload.clicked.connect(self.import_excel)
@@ -1137,9 +1116,7 @@ class ExcelRecordsWidget(QWidget):
         upload_lay.addWidget(self.btn_upload)
         upload_lay.addWidget(self.lbl_file_name)
         upload_lay.addStretch()
-        layout_pesquisa.addLayout(upload_lay)
-
-        layout_main.addWidget(self.group_pesquisa_zk)
+        layout_main.addLayout(upload_lay)
 
         # === GRUPO REGISTROS ZK ===
         self.group_busca_zk = QGroupBox("Registros - ZK Bio")
@@ -1183,7 +1160,6 @@ class ExcelRecordsWidget(QWidget):
         self.timer_busca = QTimer()
         self.timer_busca.setSingleShot(True)
         self.timer_busca.timeout.connect(self.filter_and_render)
-        self.input_search.textChanged.connect(lambda: self.timer_busca.start(500))
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
@@ -1383,7 +1359,12 @@ class ExcelRecordsWidget(QWidget):
 
     def filter_and_render(self, search_text_raw=None):
         if search_text_raw is None:
-            search_text_raw = self.input_search.text().strip()
+            if hasattr(self, 'input_search'):
+                search_text_raw = self.input_search.text().strip()
+            elif self.parent_window and hasattr(self.parent_window, 'input_busca'):
+                search_text_raw = self.parent_window.input_busca.text().strip()
+            else:
+                search_text_raw = ""
         search_query = self.normalize_text(search_text_raw)
 
         if not search_query:
@@ -1419,7 +1400,8 @@ class ExcelRecordsWidget(QWidget):
     def render_item_card(self, item):
         # Este método agora é usado principalmente para importação imediata,
         # mas a thread tem sua própria versão. Mantemos para consistência.
-        return render_zk_card(item, self.card_bg, self.card_border, self.sub_text_color)
+        html_row = render_zk_card(item, self.card_bg, self.card_border, self.sub_text_color, self.accent_color)
+        return html_row
 
 # --- CONFIGURAÇÕES AMBEV ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -2009,6 +1991,7 @@ class SmartPortariaScanner(QMainWindow):
         self.input_busca = QLineEdit()
         self.input_busca.setPlaceholderText("Nome, ID ou CPF...")
         self.input_busca.textChanged.connect(self.realizar_busca_normal)
+        self.input_busca.textChanged.connect(lambda: self.container_pesquisa_zk.timer_busca.start(500))
         
         self.btn_limpar_busca = QPushButton("Apagar")
         self.btn_limpar_busca.setFixedSize(80, 40)
