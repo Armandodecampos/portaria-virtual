@@ -1995,7 +1995,6 @@ class SmartPortariaScanner(QMainWindow):
         self.input_busca = QLineEdit()
         self.input_busca.setPlaceholderText("Nome, ID ou CPF...")
         self.input_busca.textChanged.connect(self.realizar_busca_normal)
-        self.input_busca.textChanged.connect(lambda: self.container_pesquisa_zk.timer_busca.start(500))
         
         self.btn_limpar_busca = QPushButton("Apagar")
         self.btn_limpar_busca.setFixedSize(80, 40)
