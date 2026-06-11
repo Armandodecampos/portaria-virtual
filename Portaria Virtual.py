@@ -867,10 +867,9 @@ class LocalSearchThread(QThread):
                 self.results_ready.emit("<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
                 return
 
-            html = ""
+            html = f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse;'>"
             hoje = datetime.date.today()
 
-            is_first = True
             for vid, nome, cpf, horario in dados:
                 if self.isInterruptionRequested(): return
 
@@ -887,29 +886,23 @@ class LocalSearchThread(QThread):
                 if self.selected_id and str(vid) == str(self.selected_id):
                     arrow_html = "➜"
 
-                margin_top = "0px" if is_first else "-1px"
-                is_first = False
-
                 html += f"""
-                <div style='background-color: {self.td["card_bg"]}; border: 1px solid {self.td["border_color"]}; border-radius: 0px; padding: 12px; margin: 0px; margin-top: {margin_top};'>
-                    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
-                        <tr>
-                            <td width="30" align="center" valign="middle" style="color: orange; font-size: 24px; font-weight: bold;">
-                                {arrow_html}
-                            </td>
-                            <td>
-                                <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                                    <a href="{vid}" style="text-decoration: none; color: inherit;">
-                                        <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                                        <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                                        <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
+                <tr style='background-color: {self.td["card_bg"]};'>
+                    <td width="30" align="center" valign="middle" style="border: 1px solid {self.td["border_color"]}; color: orange; font-size: 24px; font-weight: bold; padding: 12px 0;">
+                        {arrow_html}
+                    </td>
+                    <td style="border: 1px solid {self.td["border_color"]}; padding: 12px;">
+                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
+                            <a href="{vid}" style="text-decoration: none; color: inherit;">
+                                <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
+                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
                 """
+            html += "</table>"
             self.results_ready.emit(html)
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
