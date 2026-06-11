@@ -872,6 +872,9 @@ class LocalSearchThread(QThread):
                 self.results_ready.emit("<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
                 return
 
+            # Imagem transparente 1x1 base64 para expandir área clicável no QTextBrowser
+            DOT = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
             html = f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse;'>"
             hoje = datetime.date.today()
 
@@ -892,8 +895,9 @@ class LocalSearchThread(QThread):
                 if self.selected_id and str(vid) == str(self.selected_id):
                     arrow_html = "➜"
                     if self.link_encontrado:
+                        # Para os botões extras, mantemos o padding interno
                         extra_btns_html = f"""
-                        <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
+                        <div style='margin-top: 10px; padding: 10px 12px 12px 12px; border-top: 1px solid {self.td["border_color"]};'>
                             <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
                             <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
                         </div>
@@ -901,17 +905,21 @@ class LocalSearchThread(QThread):
 
                 html += f"""
                 <tr style='background-color: {self.td["card_bg"]};'>
-                    <td width="30" align="center" valign="middle" style="border: 1px solid {self.td["border_color"]}; color: orange; font-size: 24px; font-weight: bold; padding: 12px 0;">
-                        {arrow_html}
+                    <td width="30" align="center" valign="middle" style="border: 1px solid {self.td["border_color"]}; color: orange; font-size: 24px; font-weight: bold;">
+                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                            <img src="{DOT}" width="30" height="12"><br>
+                            {arrow_html if arrow_html else '&nbsp;'}<br>
+                            <img src="{DOT}" width="30" height="12">
+                        </a>
                     </td>
-                    <td style="border: 1px solid {self.td["border_color"]}; padding: 12px;">
-                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                            <a href="{vid}" style="text-decoration: none; color: inherit;">
-                                <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                            </a>
-                        </div>
+                    <td style="border: 1px solid {self.td["border_color"]};">
+                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                            <img src="{DOT}" width="400" height="12"><br>
+                            <img src="{DOT}" width="12" height="1"><b style='color: {self.td["accent_color"]}; font-size: 14px;'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold; font-size: 14px;'>{nome}</span><br>
+                            <img src="{DOT}" width="12" height="1"><span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                            <img src="{DOT}" width="12" height="1"><span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span><br>
+                            <img src="{DOT}" width="400" height="12">
+                        </a>
                         {extra_btns_html}
                     </td>
                 </tr>
