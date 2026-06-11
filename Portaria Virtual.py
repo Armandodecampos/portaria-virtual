@@ -1058,8 +1058,8 @@ class ExcelRecordsWidget(QWidget):
     def aplicar_tema(self, modo):
         self.theme = modo
         if modo == "dark":
-            self.setStyleSheet("background-color: #0f172a; color: #e2e8f0;")
-            self.card_bg = "#1e293b"
+            self.setStyleSheet("background-color: #1b1a1f; color: #e2e8f0;")
+            self.card_bg = "#26252b"
             self.card_border = "#334155"
             self.text_color = "#f8fafc"
             self.sub_text_color = "#94a3b8"
@@ -2139,25 +2139,29 @@ class SmartPortariaScanner(QMainWindow):
         if modo == "dark":
             # Estilo ESCURO
             style = """
-                QMainWindow, QWidget { background-color: #0f172a; color: #e2e8f0; }
-                QLineEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
+                QMainWindow, QWidget { background-color: #1b1a1f; color: #e2e8f0; }
+                QLineEdit { background-color: #26252b; color: #e2e8f0; border: 1px solid #475569; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #26252b; color: #e2e8f0; border: 1px solid #475569; border-radius: 4px; }
                 QGroupBox { border: 1px solid #475569; border-radius: 6px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #475569; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #e2e8f0; }
                 QPushButton { background-color: #334155; color: white; border: 1px solid #475569; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #475569; }
-                QTabBar::tab { background: #1e293b; color: #94a3b8; border: 1px solid #475569; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab { background: #26252b; color: #94a3b8; border: 1px solid #475569; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #2563eb; color: white; border-color: #2563eb; }
                 QSplitter::handle { background-color: #475569; }
+                QScrollBar:vertical { border: none; background: #1b1a1f; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar::handle:vertical { background: #3f3e45; min-height: 20px; border-radius: 7px; }
+                QScrollBar::add-line:vertical { background: none; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; }
+                QScrollBar::sub-line:vertical { background: none; height: 18px; subcontrol-position: top; subcontrol-origin: margin; }
             """
             # Cores específicas de botões funcionais
             btn_unlock_style = "background-color: #d97706; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
             btn_anon_style = "background-color: #475569; color: white; padding: 8px; border-radius: 4px;"
             btn_qr_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #1e293b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #475569;"
+            live_log_style = "background: #26252b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #475569;"
 
         elif modo == "sepia":
             # Estilo SEPIA (High Contrast Black & White)
