@@ -1158,9 +1158,9 @@ class ExcelRecordsWidget(QWidget):
         self.browser.anchorClicked.connect(self.handle_copy_link)
         self.browser.setStyleSheet("border: none; background: transparent;")
         layout_busca.addWidget(self.browser)
+        layout_busca.addWidget(self.lbl_file_name)
 
         layout_main.addWidget(self.group_busca_zk, 1)
-        layout_main.addWidget(self.lbl_file_name)
 
         self.aplicar_tema(self.theme)
 
