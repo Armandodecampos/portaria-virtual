@@ -1103,20 +1103,9 @@ class ExcelRecordsWidget(QWidget):
         layout_main.setContentsMargins(0, 0, 0, 0)
         layout_main.setSpacing(10)
 
-        # Layout para Upload e Label do Arquivo
-        upload_lay = QHBoxLayout()
-        upload_lay.setContentsMargins(5, 5, 5, 5)
-        self.btn_upload = QPushButton("Selecionar Excel")
-        self.btn_upload.setFixedWidth(120)
-        self.btn_upload.clicked.connect(self.import_excel)
-
         self.lbl_file_name = QLabel("")
         self.lbl_file_name.setStyleSheet("font-size: 10px;")
-
-        upload_lay.addWidget(self.btn_upload)
-        upload_lay.addWidget(self.lbl_file_name)
-        upload_lay.addStretch()
-        layout_main.addLayout(upload_lay)
+        self.lbl_file_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # === GRUPO REGISTROS ZK ===
         self.group_busca_zk = QGroupBox("Registros - ZK Bio")
@@ -1171,6 +1160,7 @@ class ExcelRecordsWidget(QWidget):
         layout_busca.addWidget(self.browser)
 
         layout_main.addWidget(self.group_busca_zk, 1)
+        layout_main.addWidget(self.lbl_file_name)
 
         self.aplicar_tema(self.theme)
 
@@ -1330,7 +1320,8 @@ class ExcelRecordsWidget(QWidget):
         fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Excel", "", "Excel Files (*.xls *.xlsx)")
         if not fname: return
 
-        self.btn_upload.setEnabled(False)
+        if hasattr(self, 'btn_upload'):
+            self.btn_upload.setEnabled(False)
         self.lbl_file_name.setText("⏳ Processando arquivo Excel...")
 
         self.import_thread = ImportExcelThread(fname, self.normalize_text)
@@ -1339,7 +1330,8 @@ class ExcelRecordsWidget(QWidget):
         self.import_thread.start()
 
     def on_import_success(self, base_name, now_str, new_items):
-        self.btn_upload.setEnabled(True)
+        if hasattr(self, 'btn_upload'):
+            self.btn_upload.setEnabled(True)
         self.update_file_label(f"📂 {base_name}", now_str)
         self.save_to_cache_db(new_items, upload_date=now_str)
         self.render_department_filters()
@@ -1349,7 +1341,8 @@ class ExcelRecordsWidget(QWidget):
             self.parent_window.abrir_dialogo_excel()
 
     def on_import_error(self, err):
-        self.btn_upload.setEnabled(True)
+        if hasattr(self, 'btn_upload'):
+            self.btn_upload.setEnabled(True)
         self.lbl_file_name.setText("❌ Erro na importação.")
         QMessageBox.critical(self, "Erro", f"Erro ao importar Excel: {err}")
 
