@@ -2203,8 +2203,6 @@ class SmartPortariaScanner(QMainWindow):
         self.setStyleSheet(style)
         
         # Reaplica estilos específicos que não devem ser sobrescritos pelo genérico
-        self.btn_open_anon.setStyleSheet(btn_anon_style)
-        self.btn_gen_qr.setStyleSheet(btn_qr_style)
         self.btn_limpar_busca.setStyleSheet(btn_clear_style)
         self.txt_live.setStyleSheet(live_log_style)
         
