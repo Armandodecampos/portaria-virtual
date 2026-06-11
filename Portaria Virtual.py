@@ -750,25 +750,28 @@ def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#3b
         ifood_code = re.sub(r'\D', '', item['celular'])[-4:]
 
     html = f"""
-    <div style='background-color: {card_bg}; border: 1px solid {card_border}; border-left: 5px solid {accent_color}; border-radius: 10px; padding: 16px; margin-bottom: 12px;'>
-        <span style='font-size: 13px; color: {sub_text_color};'><b>Nome:</b> {item['nome']} {item['sobrenome']} {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}</span>
+    <tr style='background-color: {card_bg};'>
+        <td style='border: 1px solid {card_border}; padding: 12px;'>
+            <span style='font-size: 13px; color: {sub_text_color};'>
+                <b style='color: {accent_color};'>Nome:</b> <span style='font-weight: bold; color: inherit;'>{item['nome']} {item['sobrenome']}</span> {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}
+            </span>
     """
 
     if item['id'] != "-":
-        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Documento:</b> {item['id']} {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
+        html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>Documento:</b> {item['id']} {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
 
     if item['email'] != "-":
-        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Email:</b> {item['email']} {copy_btn.format(urllib.parse.quote(item['email']))}</span>"
+        html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>Email:</b> {item['email']} {copy_btn.format(urllib.parse.quote(item['email']))}</span>"
 
     if item['celular'] != "-":
-        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Telefone:</b> {item['celular']} {copy_btn.format(urllib.parse.quote(item['celular']))}</span>"
+        html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>Telefone:</b> {item['celular']} {copy_btn.format(urllib.parse.quote(item['celular']))}</span>"
 
-    html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>ID:</b> {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
+    html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>ID:</b> {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
 
     if ifood_code != "-":
-        html += f"<br><span style='font-size: 13px; color: #10b981; font-weight: bold;'>Código Ifood: {ifood_code} {copy_btn.format(urllib.parse.quote(ifood_code))}</span>"
+        html += f"<br><span style='font-size: 12px; color: #10b981; font-weight: bold;'>Código Ifood: {ifood_code} {copy_btn.format(urllib.parse.quote(ifood_code))}</span>"
 
-    html += "</div>"
+    html += "</td></tr>"
     return html
 
 class SearchThread(QThread):
@@ -822,7 +825,7 @@ class SearchThread(QThread):
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
-            html_parts = ["<div style='font-family: sans-serif;'>"]
+            html_parts = ["<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse; font-family: sans-serif;'>"]
 
             current_dept = None
             for r in rows:
@@ -834,14 +837,14 @@ class SearchThread(QThread):
                     current_dept = item_data["dept"]
                     accent = self.td.get('accent_color', '#3b82f6')
                     html_parts.append(f"""
-                        <div style='background-color: transparent; color: {accent}; padding: 6px 12px; border-radius: 6px;
-                                    border-bottom: 2px solid {accent}; margin-top: 20px; margin-bottom: 12px; font-weight: bold; font-size: 16px;'>
+                        <tr><td style='background-color: transparent; color: {accent}; padding: 6px 12px;
+                                    border-bottom: 2px solid {accent}; padding-top: 20px; padding-bottom: 12px; font-weight: bold; font-size: 16px;'>
                             📂 {current_dept}
-                        </div>
+                        </td></tr>
                     """)
                 html_parts.append(self.render_item_card(item_data))
 
-            html_parts.append("</div>")
+            html_parts.append("</table>")
             self.results_ready.emit("".join(html_parts), total_count)
             conn.close()
         except Exception as e:
@@ -1095,72 +1098,55 @@ class ExcelRecordsWidget(QWidget):
 
     def setup_ui(self):
         self.aplicar_tema(self.theme)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout_main = QVBoxLayout(self)
+        layout_main.setContentsMargins(0, 0, 0, 0)
+        layout_main.setSpacing(10)
 
-        # Cabeçalho: Selecionar Arquivo
-        header_lay = QHBoxLayout()
+        # === GRUPO PESQUISA ZK ===
+        self.group_pesquisa_zk = QGroupBox("Pesquisa ZK Bio")
+        self.group_pesquisa_zk.setObjectName("group_pesquisa")
+        self.group_pesquisa_zk.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        layout_pesquisa = QVBoxLayout(self.group_pesquisa_zk)
+        layout_pesquisa.setContentsMargins(10, 10, 10, 10)
+        layout_pesquisa.setSpacing(10)
 
-        # NOVO: Container que pode ser ocultado se houver dados
-        self.upload_header_widget = QWidget()
-        upload_header_lay = QHBoxLayout(self.upload_header_widget)
-        upload_header_lay.setContentsMargins(0, 0, 0, 0)
-        upload_header_lay.setSpacing(10)
+        # Linha Superior: Input e Botão Apagar
+        search_lay = QHBoxLayout()
+        self.input_search = QLineEdit()
+        self.input_search.setPlaceholderText("🔍 Pesquisar ZK Bio...")
 
-        # Container para o título e o botão de upload
-        upload_container = QVBoxLayout()
-        upload_container.setSpacing(2)
-        self.lbl_title = QLabel("Registros - ZK Bio")
-        self.lbl_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {self.accent_color};")
-        upload_container.addWidget(self.lbl_title)
+        self.btn_clear = QPushButton("Apagar")
+        self.btn_clear.setFixedSize(80, 40)
+        self.btn_clear.clicked.connect(self.input_search.clear)
+        self.btn_clear.hide()
+        self.input_search.textChanged.connect(lambda t: self.btn_clear.setVisible(len(t)>0))
 
-        self.btn_upload = QPushButton("Selecionar arquivo Excel")
-        self.btn_upload.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                font-weight: bold;
-                padding: 10px 15px;
-                border-radius: 5px;
-            }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
+        search_lay.addWidget(self.input_search)
+        search_lay.addWidget(self.btn_clear)
+        layout_pesquisa.addLayout(search_lay)
+
+        # Linha Inferior: Upload e Label do Arquivo
+        upload_lay = QHBoxLayout()
+        self.btn_upload = QPushButton("Selecionar Excel")
+        self.btn_upload.setFixedWidth(120)
         self.btn_upload.clicked.connect(self.import_excel)
-        upload_container.addWidget(self.btn_upload)
-        upload_header_lay.addLayout(upload_container)
 
         self.lbl_file_name = QLabel("")
-        self.lbl_file_name.setStyleSheet("""
-            QLabel {
-                background-color: #1e293b;
-                color: #94a3b8;
-                padding: 5px 12px;
-                border-radius: 12px;
-                font-size: 11px;
-                border: 1px solid #334155;
-            }
-        """)
-        upload_header_lay.addWidget(self.lbl_file_name, alignment=Qt.AlignmentFlag.AlignBottom)
-        upload_header_lay.addStretch()
+        self.lbl_file_name.setStyleSheet("font-size: 10px;")
 
-        header_lay.addWidget(self.upload_header_widget)
+        upload_lay.addWidget(self.btn_upload)
+        upload_lay.addWidget(self.lbl_file_name)
+        upload_lay.addStretch()
+        layout_pesquisa.addLayout(upload_lay)
 
-        # Botão Fechar no cabeçalho
-        self.btn_close = QPushButton("✕")
-        self.btn_close.setFixedSize(30, 30)
-        self.btn_close.clicked.connect(self.fechar_ou_ocultar)
-        self.btn_close.setStyleSheet("""
-            QPushButton {
-                background-color: #ef4444;
-                color: white;
-                font-weight: bold;
-                border-radius: 15px;
-            }
-            QPushButton:hover { background-color: #dc2626; }
-        """)
-        header_lay.addWidget(self.btn_close, alignment=Qt.AlignmentFlag.AlignTop)
+        layout_main.addWidget(self.group_pesquisa_zk)
 
-        layout.addLayout(header_lay)
+        # === GRUPO REGISTROS ZK ===
+        self.group_busca_zk = QGroupBox("Registros - ZK Bio")
+        self.group_busca_zk.setObjectName("group_busca")
+        layout_busca = QVBoxLayout(self.group_busca_zk)
+        layout_busca.setContentsMargins(0, 10, 0, 0)
+        layout_busca.setSpacing(0)
 
         # Filtro de Departamento
         self.btn_toggle_filter = QPushButton("🔍 Filtrar por Departamento")
@@ -1194,26 +1180,10 @@ class ExcelRecordsWidget(QWidget):
         self.btn_toggle_filter.clicked.connect(lambda: self.filter_container.setVisible(not self.filter_container.isVisible()))
         # layout.addWidget(self.filter_container)
 
-        # Pesquisa
-        search_lay = QHBoxLayout()
-        self.input_search = QLineEdit()
-        self.input_search.setPlaceholderText("🔍 Pesquisar...")
-        self.aplicar_tema(self.theme) # Reaplica para garantir estilos dinâmicos
-
         self.timer_busca = QTimer()
         self.timer_busca.setSingleShot(True)
         self.timer_busca.timeout.connect(self.filter_and_render)
         self.input_search.textChanged.connect(lambda: self.timer_busca.start(500))
-
-        self.btn_clear = QPushButton("Apagar")
-        self.btn_clear.setStyleSheet("background-color: #ef4444; color: white; padding: 8px 15px; border-radius: 20px;")
-        self.btn_clear.clicked.connect(self.input_search.clear)
-        self.btn_clear.hide()
-        self.input_search.textChanged.connect(lambda t: self.btn_clear.setVisible(len(t)>0))
-
-        search_lay.addWidget(self.input_search)
-        search_lay.addWidget(self.btn_clear)
-        # layout.addLayout(search_lay)
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
@@ -1222,7 +1192,11 @@ class ExcelRecordsWidget(QWidget):
         self.browser.setOpenLinks(False)
         self.browser.anchorClicked.connect(self.handle_copy_link)
         self.browser.setStyleSheet("border: none; background: transparent;")
-        layout.addWidget(self.browser)
+        layout_busca.addWidget(self.browser)
+
+        layout_main.addWidget(self.group_busca_zk, 1)
+
+        self.aplicar_tema(self.theme)
 
     def handle_copy_link(self, qurl):
         url_str = qurl.toString()
@@ -1909,7 +1883,6 @@ class SmartPortariaScanner(QMainWindow):
 
         # Janela de pesquisa integrada (deve ser criada antes do setup_ui para ser adicionada ao layout)
         self.container_pesquisa_zk = ExcelRecordsWidget(self)
-        self.container_pesquisa_zk.hide()
 
         self.setup_ui()
         self.configurar_navegadores()
@@ -2100,6 +2073,9 @@ class SmartPortariaScanner(QMainWindow):
         layout_qr.addLayout(btns_layout)
         lat.addWidget(group_qr)
 
+        # Registros ZK Bio (Fixo no painel lateral agora)
+        lat.addWidget(self.container_pesquisa_zk, 3)
+
         # --- NAVEGADOR PRINCIPAL ---
         container_web = QWidget()
         layout_web = QVBoxLayout(container_web)
@@ -2166,7 +2142,6 @@ class SmartPortariaScanner(QMainWindow):
         self.overlay_transfer.setParent(self.container_stack_overlay)
 
         layout_web.addWidget(self.container_stack_overlay, 1)
-        layout_web.addWidget(self.container_pesquisa_zk)
 
         splitter.addWidget(self.painel_lateral)
         splitter.addWidget(container_web)
@@ -2445,23 +2420,16 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
-            # Recolher menu na aba ZK Bio
-            titulo = self.tabs.tabText(index)
-            if "ZK Bio" in titulo:
-                self.painel_lateral.hide()
-            else:
-                self.painel_lateral.show()
+            # Mantém painel lateral visível sempre (ajuste conforme necessidade)
+            self.painel_lateral.show()
 
     def importar_excel_zk(self):
         # Abre como diálogo apenas para importação se necessário, ou usa o widget integrado
         self.container_pesquisa_zk.import_excel()
 
     def abrir_dialogo_excel(self):
-        if self.container_pesquisa_zk.isVisible():
-            self.container_pesquisa_zk.hide()
-        else:
-            self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
-            self.container_pesquisa_zk.show()
+        # Agora fixo no painel lateral
+        pass
 
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
@@ -3191,31 +3159,12 @@ class SmartPortariaScanner(QMainWindow):
             self.panel_log_right.setVisible(not self.panel_log_right.isVisible())
 
     def resizeEvent(self, event):
-        if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
-            self.container_pesquisa_zk.setFixedHeight(self.height() // 2)
-
         # Posiciona o overlay de transferência no canto superior direito
         self.posicionar_overlay()
 
         super().resizeEvent(event)
 
     def eventFilter(self, obj, event):
-        if event.type() == QEvent.Type.MouseButtonPress:
-            if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
-                # Obter a posição global do clique
-                pos = event.globalPosition().toPoint()
-
-                # Geometria do container
-                rect_zk = self.container_pesquisa_zk.geometry()
-                rect_zk.moveTo(self.container_pesquisa_zk.mapToGlobal(QPoint(0,0)))
-
-                # Geometria dos componentes de busca (para não fechar ao clicar neles)
-                rect_busca = self.input_busca.geometry()
-                rect_busca.moveTo(self.input_busca.mapToGlobal(QPoint(0,0)))
-
-                if not rect_zk.contains(pos) and not rect_busca.contains(pos):
-                    self.container_pesquisa_zk.hide()
-
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
