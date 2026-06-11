@@ -2744,7 +2744,8 @@ class SmartPortariaScanner(QMainWindow):
             termo_para_check = termo_original
 
         # Para o Relatório ZK Bio (ExcelRecordsWidget)
-        self.container_pesquisa_zk.filter_and_render(termo_zk)
+        if not silent:
+            self.container_pesquisa_zk.filter_and_render(termo_zk)
 
         if termo_para_check and not self.container_pesquisa_zk.isVisible() and self.container_pesquisa_zk.has_data():
             self.abrir_dialogo_excel()
@@ -2755,13 +2756,19 @@ class SmartPortariaScanner(QMainWindow):
             self.txt_res_busca.clear()
             return
 
+        # Captura posição da barra de rolagem se for atualização silenciosa
+        scroll_pos = None
+        if silent:
+            scroll_pos = self.txt_res_busca.verticalScrollBar().value()
+
         # Cancela busca anterior se existir
-        if self.local_search_thread and self.local_search_thread.isRunning():
+        if self.local_search_thread:
             try:
                 self.local_search_thread.results_ready.disconnect()
             except:
                 pass
-            self.local_search_thread.requestInterruption()
+            if self.local_search_thread.isRunning():
+                self.local_search_thread.requestInterruption()
 
         # Limpa resultados anteriores enquanto a nova busca processa
         if not silent:
@@ -2795,8 +2802,21 @@ class SmartPortariaScanner(QMainWindow):
             selected_id=selected_id,
             link_encontrado=self.link_convite_encontrado
         )
-        self.local_search_thread.results_ready.connect(self.txt_res_busca.setHtml)
+        self.local_search_thread.scroll_pos = scroll_pos
+        self.local_search_thread.results_ready.connect(self.on_local_search_finished)
         self.local_search_thread.start()
+
+    def on_local_search_finished(self, html):
+        thread = self.sender()
+        if thread != self.local_search_thread:
+            return
+
+        self.txt_res_busca.setHtml(html)
+        scroll_pos = getattr(thread, 'scroll_pos', None)
+        if scroll_pos is not None:
+            self.txt_res_busca.verticalScrollBar().setValue(scroll_pos)
+            # Garantia após renderização
+            QTimer.singleShot(0, lambda: self.txt_res_busca.verticalScrollBar().setValue(scroll_pos))
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
