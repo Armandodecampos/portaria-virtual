@@ -887,8 +887,15 @@ class LocalSearchThread(QThread):
                     except: pass
 
                 arrow_html = ""
+                extra_btns_html = ""
                 if self.selected_id and str(vid) == str(self.selected_id):
                     arrow_html = "➜"
+                    extra_btns_html = f"""
+                    <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
+                        <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
+                        <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
+                    </div>
+                    """
 
                 html += f"""
                 <tr style='background-color: {self.td["card_bg"]};'>
@@ -903,6 +910,7 @@ class LocalSearchThread(QThread):
                                 <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                             </a>
                         </div>
+                        {extra_btns_html}
                     </td>
                 </tr>
                 """
@@ -1891,9 +1899,6 @@ class SmartPortariaScanner(QMainWindow):
         self.carregar_ultimo_banco()
 
         self.last_qr_result = None
-        self.timer_qr_auto = QTimer(self)
-        self.timer_qr_auto.timeout.connect(self.auto_update_qr_info)
-        self.timer_qr_auto.start(3000)
 
         self.active_toast = None
 
@@ -2027,27 +2032,6 @@ class SmartPortariaScanner(QMainWindow):
         layout_live.addWidget(self.txt_live)
 
 
-        # === GRUPO EXTRATOR DE LINK ===
-        group_qr = QGroupBox("EXTRATOR DE LINK")
-        group_qr.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        layout_qr = QVBoxLayout(group_qr)
-
-        self.lbl_qr_nome_visitante = QLabel("Nenhum convite selecionado")
-        self.lbl_qr_nome_visitante.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_qr_nome_visitante.setStyleSheet("font-weight: bold; font-size: 13px; margin-bottom: 5px;")
-        layout_qr.addWidget(self.lbl_qr_nome_visitante)
-
-        btns_layout = QHBoxLayout()
-        self.btn_open_anon = QPushButton("Finalizar convite")
-        self.btn_open_anon.clicked.connect(self.abrir_qr_na_anonima)
-
-        self.btn_gen_qr = QPushButton("Gerar QR Code")
-        self.btn_gen_qr.clicked.connect(self.mostrar_qr_code)
-
-        btns_layout.addWidget(self.btn_open_anon)
-        btns_layout.addWidget(self.btn_gen_qr)
-        layout_qr.addLayout(btns_layout)
-        lat.addWidget(group_qr)
 
         # Registros ZK Bio (Fixo no painel lateral agora)
         lat.addWidget(self.container_pesquisa_zk, 3)
@@ -2803,6 +2787,16 @@ class SmartPortariaScanner(QMainWindow):
             self.iniciar_transferencia(visita_id)
             return
 
+        if url_str.startswith("invite:"):
+            visita_id = url_str.split(":")[1]
+            self.abrir_qr_na_anonima(visita_id)
+            return
+
+        if url_str.startswith("qr:"):
+            visita_id = url_str.split(":")[1]
+            self.mostrar_qr_code(visita_id)
+            return
+
         visita_id = url_str
         self.input_transfer_id.setText(visita_id)
         self.executar_busca_local(silent=True)
@@ -2821,10 +2815,8 @@ class SmartPortariaScanner(QMainWindow):
     def _handle_auto_qr_result(self, result):
         if result:
             self.last_qr_result = result
-            self.lbl_qr_nome_visitante.setText(result.get('name', 'Visitante'))
         else:
             self.last_qr_result = None
-            self.lbl_qr_nome_visitante.setText("Nenhum convite selecionado")
 
     def extrair_link_whatsapp(self, callback, silent=False):
         """
@@ -2872,12 +2864,10 @@ class SmartPortariaScanner(QMainWindow):
         view_portaria.page().runJavaScript(js_script, handle_result)
 
 
-    def abrir_qr_na_anonima(self):
+    def abrir_qr_na_anonima(self, visita_id=None):
         def on_link_extracted(result):
             if not result: return
             url = result['url']
-            name = result['name']
-            self.lbl_qr_nome_visitante.setText(name)
 
             for i in range(self.tabs.count()):
                 if "anônima" in self.tabs.tabText(i).lower():
@@ -2887,17 +2877,27 @@ class SmartPortariaScanner(QMainWindow):
                     return
             self.add_new_tab(QUrl(url), "Guia anônima", closable=False, profile=self.profile_anonimo)
 
-        if self.last_qr_result:
-            on_link_extracted(self.last_qr_result)
-        else:
-            self.extrair_link_whatsapp(on_link_extracted, silent=False)
+        if visita_id:
+            # Garante que a aba está no ID correto antes de extrair
+            for i in range(self.tabs.count()):
+                if "Portaria Virtual" in self.tabs.tabText(i):
+                    self.tabs.setCurrentIndex(i)
+                    view = self.web_stack.widget(i)
+                    if view:
+                        target_url = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
+                        if view.url().toString() != target_url:
+                            view.setUrl(QUrl(target_url))
+                            # Espera carregar e extrai
+                            view.loadFinished.connect(lambda: QTimer.singleShot(1000, lambda: self.extrair_link_whatsapp(on_link_extracted)))
+                            return
+                        break
 
-    def mostrar_qr_code(self):
+        self.extrair_link_whatsapp(on_link_extracted, silent=False)
+
+    def mostrar_qr_code(self, visita_id=None):
         def on_link_extracted(result):
             if not result: return
             url = result['url']
-            name = result['name']
-            self.lbl_qr_nome_visitante.setText(name)
 
             try:
                 qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -2912,10 +2912,22 @@ class SmartPortariaScanner(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Erro", f"Erro ao gerar QR Code: {str(e)}")
 
-        if self.last_qr_result:
-            on_link_extracted(self.last_qr_result)
-        else:
-            self.extrair_link_whatsapp(on_link_extracted, silent=False)
+        if visita_id:
+             # Garante que a aba está no ID correto antes de extrair
+            for i in range(self.tabs.count()):
+                if "Portaria Virtual" in self.tabs.tabText(i):
+                    self.tabs.setCurrentIndex(i)
+                    view = self.web_stack.widget(i)
+                    if view:
+                        target_url = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
+                        if view.url().toString() != target_url:
+                            view.setUrl(QUrl(target_url))
+                            # Espera carregar e extrai
+                            view.loadFinished.connect(lambda: QTimer.singleShot(1000, lambda: self.extrair_link_whatsapp(on_link_extracted)))
+                            return
+                        break
+
+        self.extrair_link_whatsapp(on_link_extracted, silent=False)
 
     def abrir_camera(self):
         """Abre o diálogo de captura de foto"""
