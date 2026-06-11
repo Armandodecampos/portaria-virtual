@@ -13,6 +13,8 @@ import base64
 import json
 import threading
 
+DOT = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
     from PyQt6.QtCore import (
@@ -887,31 +889,37 @@ class LocalSearchThread(QThread):
                             if data_fim < hoje: cor_validade = "#ef4444"
                     except: pass
 
-                arrow_html = ""
+                arrow_html = "➜" if self.selected_id and str(vid) == str(self.selected_id) else "&nbsp;"
                 extra_btns_html = ""
-                if self.selected_id and str(vid) == str(self.selected_id):
-                    arrow_html = "➜"
-                    if self.link_encontrado:
-                        extra_btns_html = f"""
-                        <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
-                            <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
-                            <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
-                        </div>
-                        """
+                if self.selected_id and str(vid) == str(self.selected_id) and self.link_encontrado:
+                    extra_btns_html = f"""
+                    <div style='padding: 10px 12px 12px 12px; border-top: 1px solid {self.td["border_color"]};'>
+                        <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
+                        <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
+                    </div>
+                    """
 
                 html += f"""
                 <tr style='background-color: {self.td["card_bg"]};'>
-                    <td width="30" align="center" valign="middle" style="border: 1px solid {self.td["border_color"]}; color: orange; font-size: 24px; font-weight: bold; padding: 12px 0;">
-                        {arrow_html}
-                    </td>
-                    <td style="border: 1px solid {self.td["border_color"]}; padding: 12px;">
-                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                            <a href="{vid}" style="text-decoration: none; color: inherit;">
-                                <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
-                            </a>
-                        </div>
+                    <td colspan="2" style="border: 1px solid {self.td["border_color"]}; padding: 0;">
+                        <a href="{vid}" style="text-decoration: none; color: inherit;">
+                            <img src="{DOT}" width="100%" height="12"><br>
+                            <table width="100%" cellpadding="0" cellspacing="0" style="border: none;">
+                                <tr>
+                                    <td width="30" align="center" valign="middle" style="color: orange; font-size: 24px; font-weight: bold; padding: 0;">
+                                        {arrow_html}
+                                    </td>
+                                    <td style="padding: 0 12px 0 0;">
+                                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
+                                            <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
+                                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
+                                            <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                            <img src="{DOT}" width="100%" height="12">
+                        </a>
                         {extra_btns_html}
                     </td>
                 </tr>
