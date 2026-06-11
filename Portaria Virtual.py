@@ -1059,21 +1059,21 @@ class ExcelRecordsWidget(QWidget):
         self.theme = modo
         if modo == "dark":
             self.setStyleSheet("background-color: #1b1a1f; color: #e2e8f0;")
-            self.card_bg = "#26252b"
+            self.card_bg = "transparent"
             self.card_border = "#334155"
             self.text_color = "#f8fafc"
             self.sub_text_color = "#94a3b8"
             self.accent_color = "#3b82f6"
         elif modo == "sepia":
             self.setStyleSheet("background-color: #1a120b; color: #ffffff;")
-            self.card_bg = "#000000"
+            self.card_bg = "transparent"
             self.card_border = "#554433"
             self.text_color = "#ffffff"
             self.sub_text_color = "#e2e8f0"
             self.accent_color = "#d9975d"
         else:
             self.setStyleSheet("background-color: #f1f5f9; color: #334155;")
-            self.card_bg = "#ffffff"
+            self.card_bg = "transparent"
             self.card_border = "#cbd5e1"
             self.text_color = "#334155"
             self.sub_text_color = "#64748b"
@@ -2152,9 +2152,10 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab:selected { background: #2563eb; color: white; border-color: #2563eb; }
                 QSplitter::handle { background-color: #475569; }
                 QScrollBar:vertical { border: none; background: #1b1a1f; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #3f3e45; min-height: 20px; border-radius: 7px; }
-                QScrollBar::add-line:vertical { background: none; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; }
-                QScrollBar::sub-line:vertical { background: none; height: 18px; subcontrol-position: top; subcontrol-origin: margin; }
+                QScrollBar::handle:vertical { background: #3f3e45; min-height: 20px; border-radius: 0px; }
+                QScrollBar::add-line:vertical { background: #334155; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #475569; }
+                QScrollBar::sub-line:vertical { background: #334155; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #475569; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
             """
             # Cores específicas de botões funcionais
             btn_unlock_style = "background-color: #d97706; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
@@ -2178,6 +2179,11 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #d9975d; color: white; border-color: #d9975d; }
                 QSplitter::handle { background-color: #554433; }
+                QScrollBar:vertical { border: none; background: #1a120b; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar::handle:vertical { background: #554433; min-height: 20px; border-radius: 0px; }
+                QScrollBar::add-line:vertical { background: #000000; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #554433; }
+                QScrollBar::sub-line:vertical { background: #000000; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #554433; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
             """
             # Cores específicas
             btn_unlock_style = "background-color: #d9975d; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
@@ -2201,6 +2207,11 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #3b82f6; color: white; border-color: #3b82f6; }
                 QSplitter::handle { background-color: #cbd5e1; }
+                QScrollBar:vertical { border: none; background: #f1f5f9; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar::handle:vertical { background: #cbd5e1; min-height: 20px; border-radius: 0px; }
+                QScrollBar::add-line:vertical { background: #e2e8f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #cbd5e1; }
+                QScrollBar::sub-line:vertical { background: #e2e8f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #cbd5e1; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #334155; }
             """
             # Cores específicas
             btn_unlock_style = "background-color: #f59e0b; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
@@ -2782,19 +2793,19 @@ class SmartPortariaScanner(QMainWindow):
         theme_data = {}
         if current_theme == "dark":
             theme_data = {
-                "text_color": "#e2e8f0", "card_bg": "#1e293b", "border_color": "#475569",
+                "text_color": "#e2e8f0", "card_bg": "transparent", "border_color": "#475569",
                 "accent_color": "#3b82f6", "name_color": "#ffffff", "subtext_color": "#94a3b8",
                 "cor_validade_padrao": "#10b981"
             }
         elif current_theme == "sepia":
             theme_data = {
-                "text_color": "#ffffff", "card_bg": "#000000", "border_color": "#554433",
+                "text_color": "#ffffff", "card_bg": "transparent", "border_color": "#554433",
                 "accent_color": "#d9975d", "name_color": "#ffffff", "subtext_color": "#e2e8f0",
                 "cor_validade_padrao": "#10b981"
             }
         else:
             theme_data = {
-                "text_color": "#1e293b", "card_bg": "#ffffff", "border_color": "#cbd5e1",
+                "text_color": "#1e293b", "card_bg": "transparent", "border_color": "#cbd5e1",
                 "accent_color": "#2563eb", "name_color": "#1e293b", "subtext_color": "#64748b",
                 "cor_validade_padrao": "green"
             }
