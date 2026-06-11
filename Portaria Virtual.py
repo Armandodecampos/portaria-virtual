@@ -2076,7 +2076,6 @@ class SmartPortariaScanner(QMainWindow):
         # Fonte monospace fixa, mas cores geridas pelo tema
         self.txt_live.setStyleSheet("font-family: Consolas, monospace; font-size: 12px;")
         layout_live.addWidget(self.txt_live)
-        lat.addWidget(group_live, 2)
 
 
         # === GRUPO EXTRATOR DE LINK ===
@@ -2125,6 +2124,11 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_home.setFixedSize(38, 38)
         self.btn_home.clicked.connect(self.ir_para_home)
 
+        self.btn_toggle_log = QPushButton("📜")
+        self.btn_toggle_log.setToolTip("Log do Sistema")
+        self.btn_toggle_log.setFixedSize(38, 38)
+        self.btn_toggle_log.clicked.connect(self.toggle_log_panel)
+
         self.address_bar = QLineEdit()
         self.address_bar.setFixedHeight(38)
         self.address_bar.setPlaceholderText("Introduza o URL...")
@@ -2141,6 +2145,7 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_forward)
         toolbar.addWidget(self.btn_reload)
         toolbar.addWidget(self.btn_home)
+        toolbar.addWidget(self.btn_toggle_log)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
         layout_web.addLayout(toolbar)
@@ -2165,6 +2170,17 @@ class SmartPortariaScanner(QMainWindow):
 
         splitter.addWidget(self.painel_lateral)
         splitter.addWidget(container_web)
+
+        # Painel de Log Direito (Inicia escondido)
+        self.panel_log_right = QWidget()
+        self.panel_log_right.setObjectName("panel_log_right")
+        self.panel_log_right.setFixedWidth(350)
+        self.panel_log_right.setVisible(False)
+        layout_log_right = QVBoxLayout(self.panel_log_right)
+        layout_log_right.setContentsMargins(5, 5, 5, 5)
+        layout_log_right.addWidget(group_live)
+        splitter.addWidget(self.panel_log_right)
+
         layout.addWidget(splitter)
 
     # === LÓGICA DE TEMAS ===
@@ -2295,6 +2311,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_forward.setStyleSheet(header_btn_style)
         self.btn_reload.setStyleSheet(header_btn_style)
         self.btn_home.setStyleSheet(header_btn_style)
+        self.btn_toggle_log.setStyleSheet(header_btn_style)
 
         # Propaga o tema para o container ZK
         self.container_pesquisa_zk.aplicar_tema(modo)
@@ -3167,6 +3184,11 @@ class SmartPortariaScanner(QMainWindow):
                 self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
                 20
             )
+
+    def toggle_log_panel(self):
+        """Alterna a visibilidade do painel de log direito"""
+        if hasattr(self, 'panel_log_right'):
+            self.panel_log_right.setVisible(not self.panel_log_right.isVisible())
 
     def resizeEvent(self, event):
         if hasattr(self, 'container_pesquisa_zk') and self.container_pesquisa_zk.isVisible():
