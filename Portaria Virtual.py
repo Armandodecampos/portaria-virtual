@@ -24,9 +24,9 @@ try:
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
         QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox,
-        QListWidget, QListWidgetItem
+        QListWidget, QListWidgetItem, QColorDialog
     )
-    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics
+    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
@@ -77,6 +77,7 @@ class CustomWebPage(QWebEnginePage):
 class TransferInstructionOverlay(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent_window = parent
         self._drag_pos = None
         self.setFixedWidth(300)
         self.setFixedHeight(140)
@@ -144,14 +145,18 @@ class TransferInstructionOverlay(QFrame):
             bg = "#1e293b"
             text = "#f8fafc"
             border = "#3b82f6"
+        elif mode == "custom":
+            bg = self.parent_window.settings.value("c_bg", "#dcddd5")
+            text = self.parent_window.settings.value("c_txt", "#000000")
+            border = self.parent_window.settings.value("c_border", "#b2b3a8")
         elif mode == "sepia":
             bg = "#000000"
             text = "#ffffff"
             border = "#d9975d"
         else:
-            bg = "#beb7ad"
+            bg = "#dcddd5"
             text = "#000000"
-            border = "#958e85"
+            border = "#b2b3a8"
 
         self.setStyleSheet(f"""
             TransferInstructionOverlay {{
@@ -397,14 +402,18 @@ class NotificationToast(QFrame):
             bg_color = "#1e293b"
             text_color = "#e2e8f0"
             border_color = "#334155"
+        elif mode == "custom":
+            bg_color = self.parent_window.settings.value("c_bg", "#dcddd5")
+            text_color = self.parent_window.settings.value("c_txt", "#000000")
+            border_color = self.parent_window.settings.value("c_border", "#b2b3a8")
         elif mode == "sepia":
             bg_color = "#000000"
             text_color = "#ffffff"
             border_color = "#554433"
         else:
-            bg_color = "#beb7ad"
+            bg_color = "#dcddd5"
             text_color = "#000000"
-            border_color = "#958e85"
+            border_color = "#b2b3a8"
 
         self.setStyleSheet(f"""
             NotificationToast {{
@@ -514,12 +523,14 @@ class ConfigDialog(QDialog):
         self.rb_claro = QRadioButton("Modo Claro")
         self.rb_escuro = QRadioButton("Modo Escuro")
         self.rb_sepia = QRadioButton("Modo Sepia")
+        self.rb_custom = QRadioButton("Personalizado")
         
         # Grupo lógico
         self.bg_theme = QButtonGroup(self)
         self.bg_theme.addButton(self.rb_claro, 1)
         self.bg_theme.addButton(self.rb_escuro, 2)
         self.bg_theme.addButton(self.rb_sepia, 3)
+        self.bg_theme.addButton(self.rb_custom, 4)
         
         # Define seleção atual
         current_theme = self.parent_window.settings.value("theme", "light")
@@ -527,6 +538,8 @@ class ConfigDialog(QDialog):
             self.rb_escuro.setChecked(True)
         elif current_theme == "sepia":
             self.rb_sepia.setChecked(True)
+        elif current_theme == "custom":
+            self.rb_custom.setChecked(True)
         else:
             self.rb_claro.setChecked(True)
             
@@ -535,7 +548,41 @@ class ConfigDialog(QDialog):
         lay_theme.addWidget(self.rb_claro)
         lay_theme.addWidget(self.rb_escuro)
         lay_theme.addWidget(self.rb_sepia)
+        lay_theme.addWidget(self.rb_custom)
         layout.addWidget(gb_theme)
+
+        # === SEÇÃO TEMA PERSONALIZADO ===
+        self.gb_custom = QGroupBox("Cores do Tema Personalizado")
+        self.lay_custom_grid = QVBoxLayout(self.gb_custom)
+
+        row1 = QHBoxLayout()
+        self.btn_c_bg = QPushButton("🎨 Fundo")
+        self.btn_c_txt = QPushButton("🎨 Texto")
+        self.btn_c_border = QPushButton("🎨 Bordas")
+        row1.addWidget(self.btn_c_bg)
+        row1.addWidget(self.btn_c_txt)
+        row1.addWidget(self.btn_c_border)
+
+        row2 = QHBoxLayout()
+        self.btn_c_input = QPushButton("🎨 Entradas")
+        self.btn_c_accent = QPushButton("🎨 Destaque")
+        self.btn_c_hover = QPushButton("🎨 Hover")
+        row2.addWidget(self.btn_c_input)
+        row2.addWidget(self.btn_c_accent)
+        row2.addWidget(self.btn_c_hover)
+
+        self.lay_custom_grid.addLayout(row1)
+        self.lay_custom_grid.addLayout(row2)
+
+        self.btn_c_bg.clicked.connect(lambda: self.escolher_cor("c_bg"))
+        self.btn_c_txt.clicked.connect(lambda: self.escolher_cor("c_txt"))
+        self.btn_c_border.clicked.connect(lambda: self.escolher_cor("c_border"))
+        self.btn_c_input.clicked.connect(lambda: self.escolher_cor("c_input"))
+        self.btn_c_accent.clicked.connect(lambda: self.escolher_cor("c_accent"))
+        self.btn_c_hover.clicked.connect(lambda: self.escolher_cor("c_hover"))
+
+        layout.addWidget(self.gb_custom)
+        self.gb_custom.setVisible(current_theme == "custom")
 
 
         # === SEÇÃO CREDENCIAIS ===
@@ -588,6 +635,17 @@ class ConfigDialog(QDialog):
             btn_bg = "#333333"
             hover = "#4d4d4d"
             c_load = "#3b82f6"; c_new = "#10b981"; c_import = "#475569"; c_save = "#2563eb"
+        elif mode == "custom":
+            bg = self.parent_window.settings.value("c_bg", "#dcddd5")
+            text = self.parent_window.settings.value("c_txt", "#000000")
+            border = self.parent_window.settings.value("c_border", "#b2b3a8")
+            input_bg = self.parent_window.settings.value("c_input", "#cfd0c7")
+            btn_bg = self.parent_window.settings.value("c_input", "#cfd0c7")
+            hover = self.parent_window.settings.value("c_hover", "#c2c3ba")
+            c_load = self.parent_window.settings.value("c_accent", "#000000")
+            c_new = self.parent_window.settings.value("c_accent", "#000000")
+            c_import = self.parent_window.settings.value("c_border", "#b2b3a8")
+            c_save = self.parent_window.settings.value("c_accent", "#000000")
         elif mode == "sepia":
             bg = "#1a120b"
             text = "#ffffff"
@@ -597,13 +655,13 @@ class ConfigDialog(QDialog):
             hover = "#332211"
             c_load = "#d9975d"; c_new = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
         else:
-            bg = "#beb7ad"
+            bg = "#dcddd5"
             text = "#000000"
-            border = "#958e85"
-            input_bg = "#b1aaa0"
-            btn_bg = "#b1aaa0"
-            hover = "#a39c92"
-            c_load = "#000000"; c_new = "#000000"; c_import = "#958e85"; c_save = "#000000"
+            border = "#b2b3a8"
+            input_bg = "#cfd0c7"
+            btn_bg = "#cfd0c7"
+            hover = "#c2c3ba"
+            c_load = "#000000"; c_new = "#000000"; c_import = "#b2b3a8"; c_save = "#000000"
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
@@ -618,12 +676,12 @@ class ConfigDialog(QDialog):
 
         # Botões com cores específicas adaptadas
         common = "padding: 8px; border-radius: 4px; font-weight: bold;"
-        if mode == "light":
-            self.btn_load.setStyleSheet(f"background-color: #000000; color: #beb7ad; {common}")
-            self.btn_new.setStyleSheet(f"background-color: #beb7ad; color: #000000; border: 2px solid #958e85; {common}")
-            self.btn_import_zk.setStyleSheet(f"background-color: #b1aaa0; color: #000000; border: 1px solid #958e85; {common} margin-top: 5px;")
-            self.btn_save_creds.setStyleSheet(f"background-color: #000000; color: #beb7ad; {common} margin-top: 5px;")
-            self.btn_fechar.setStyleSheet(f"background-color: #beb7ad; color: #000000; border: 1px solid #958e85; {common} margin-top: 10px;")
+        if mode == "light" or mode == "custom":
+            self.btn_load.setStyleSheet(f"background-color: {c_load}; color: {bg}; {common}")
+            self.btn_new.setStyleSheet(f"background-color: {bg}; color: {text}; border: 2px solid {border}; {common}")
+            self.btn_import_zk.setStyleSheet(f"background-color: {input_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 5px;")
+            self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: {bg}; {common} margin-top: 5px;")
+            self.btn_fechar.setStyleSheet(f"background-color: {bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
         else:
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: white; {common}")
             self.btn_new.setStyleSheet(f"background-color: {c_new}; color: white; {common}")
@@ -660,10 +718,26 @@ class ConfigDialog(QDialog):
             modo = "dark"
         elif id == 3:
             modo = "sepia"
+        elif id == 4:
+            modo = "custom"
         else:
             modo = "light"
+
+        self.gb_custom.setVisible(modo == "custom")
         self.parent_window.aplicar_tema(modo)
         self.aplicar_tema_local(modo)
+
+    def escolher_cor(self, key):
+        current_color = self.parent_window.settings.value(key, "#ffffff")
+        color = QColorDialog.getColor(QColor(current_color), self, "Escolher Cor")
+        if color.isValid():
+            hex_color = color.name()
+            self.parent_window.settings.setValue(key, hex_color)
+            # Garante que o radio button está marcado
+            self.rb_custom.setChecked(True)
+            # Reaplica o tema para atualizar visualmente
+            self.parent_window.aplicar_tema("custom")
+            self.aplicar_tema_local("custom")
 
     def acao_salvar_credenciais(self):
         p_user = self.edit_portaria_user.text().strip()
@@ -695,11 +769,16 @@ class InstrucoesDialog(QDialog):
         if theme == "dark":
             self.setStyleSheet("background-color: #1e293b; color: #e2e8f0;")
             link_color = "#38bdf8"
+        elif theme == "custom":
+            c_bg = parent.settings.value("c_bg", "#dcddd5")
+            c_txt = parent.settings.value("c_txt", "#000000")
+            self.setStyleSheet(f"background-color: {c_bg}; color: {c_txt};")
+            link_color = c_txt
         elif theme == "sepia":
             self.setStyleSheet("background-color: #1a120b; color: #ffffff;")
             link_color = "#d9975d"
         else:
-            self.setStyleSheet("background-color: #beb7ad; color: #000000;")
+            self.setStyleSheet("background-color: #dcddd5; color: #000000;")
             link_color = "#000000"
 
         layout = QVBoxLayout(self)
@@ -1127,6 +1206,28 @@ class ExcelRecordsWidget(QWidget):
             self.text_color = "#ffffff"
             self.sub_text_color = "#9d9d9d"
             self.accent_color = "#ffffff"
+        elif modo == "custom":
+            c_bg = self.parent_window.settings.value("c_bg", "#dcddd5")
+            c_txt = self.parent_window.settings.value("c_txt", "#000000")
+            c_border = self.parent_window.settings.value("c_border", "#b2b3a8")
+            c_input = self.parent_window.settings.value("c_input", "#cfd0c7")
+            c_accent = self.parent_window.settings.value("c_accent", "#000000")
+
+            self.setStyleSheet(f"""
+                background-color: {c_bg}; color: {c_txt};
+                QScrollBar:vertical {{ border: none; background: {c_input}; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: {c_border}; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: {c_bg}; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid {c_border}; }}
+                QScrollBar::sub-line:vertical {{ background: {c_bg}; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid {c_border}; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: {c_txt}; }}
+            """)
+            self.card_bg = "transparent"
+            self.card_border = c_border
+            self.text_color = c_txt
+            self.sub_text_color = "#666666"
+            self.accent_color = c_accent
+            self.name_color = c_txt
+
         elif modo == "sepia":
             self.setStyleSheet(f"""
                 background-color: #1a120b; color: #ffffff;
@@ -1143,15 +1244,15 @@ class ExcelRecordsWidget(QWidget):
             self.accent_color = "#d9975d"
         else:
             self.setStyleSheet(f"""
-                background-color: #beb7ad; color: #000000;
-                QScrollBar:vertical {{ border: none; background: #b1aaa0; width: 14px; margin: 18px 0 18px 0; }}
-                QScrollBar::handle:vertical {{ background: #958e85; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #beb7ad; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #958e85; }}
-                QScrollBar::sub-line:vertical {{ background: #beb7ad; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #958e85; }}
+                background-color: #dcddd5; color: #000000;
+                QScrollBar:vertical {{ border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: #b2b3a8; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: #dcddd5; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #b2b3a8; }}
+                QScrollBar::sub-line:vertical {{ background: #dcddd5; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #b2b3a8; }}
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #000000; }}
             """)
             self.card_bg = "transparent"
-            self.card_border = "#958e85"
+            self.card_border = "#b2b3a8"
             self.text_color = "#000000"
             self.sub_text_color = "#666666"
             self.accent_color = "#000000"
@@ -2243,6 +2344,40 @@ class SmartPortariaScanner(QMainWindow):
             btn_qr_style = "background-color: #838383; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
 
+        elif modo == "custom":
+            c_bg = self.settings.value("c_bg", "#dcddd5")
+            c_txt = self.settings.value("c_txt", "#000000")
+            c_border = self.settings.value("c_border", "#b2b3a8")
+            c_input = self.settings.value("c_input", "#cfd0c7")
+            c_accent = self.settings.value("c_accent", "#000000")
+            c_hover = self.settings.value("c_hover", "#c2c3ba")
+
+            style = f"""
+                QMainWindow, QWidget {{ background-color: {c_bg}; color: {c_txt}; }}
+                QLineEdit {{ background-color: {c_input}; color: {c_txt}; border: 1px solid {c_border}; padding: 6px; border-radius: 4px; }}
+                QTextEdit {{ background-color: {c_input}; color: {c_txt}; border: 1px solid {c_border}; border-radius: 4px; }}
+                QGroupBox {{ border: 1px solid {c_border}; border-radius: 6px; margin-top: 10px; font-weight: bold; color: {c_txt}; font-size: 14px; }}
+                QGroupBox#group_pesquisa, QGroupBox#group_busca {{ border: 1px solid {c_border}; }}
+                QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }}
+                QLabel {{ color: {c_txt}; }}
+                QPushButton {{ background-color: {c_input}; color: {c_txt}; border: 1px solid {c_border}; border-radius: 4px; padding: 6px; }}
+                QPushButton:hover {{ background-color: {c_hover}; }}
+                QTabBar::tab {{ background: {c_input}; color: {c_txt}; border: 1px solid {c_border}; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }}
+                QTabBar::tab:selected {{ background: {c_accent}; color: {c_bg}; border-color: {c_accent}; }}
+                QSplitter::handle {{ background-color: {c_border}; }}
+                QScrollBar:vertical {{ border: none; background: {c_input}; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: {c_border}; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: {c_bg}; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid {c_border}; }}
+                QScrollBar::sub-line:vertical {{ background: {c_bg}; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid {c_border}; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: {c_txt}; }}
+                QTextBrowser#txt_res_busca {{ border: none; background: transparent; margin: 0; padding: 0; }}
+                QTextEdit#txt_live {{ background: {c_input}; color: {c_txt}; font-family: Consolas, monospace; font-size: 12px; border: 1px solid {c_border}; }}
+            """
+            btn_unlock_style = f"background-color: {c_bg}; color: {c_txt}; font-weight: bold; border: 1px solid {c_border}; border-radius: 4px; padding: 5px 10px;"
+            btn_anon_style = f"background-color: {c_input}; color: {c_txt}; border: 1px solid {c_border}; padding: 8px; border-radius: 4px;"
+            btn_qr_style = f"background-color: {c_input}; color: {c_txt}; border: 1px solid {c_border}; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+
         elif modo == "sepia":
             # Estilo SEPIA (High Contrast Black & White)
             style = """
@@ -2275,32 +2410,32 @@ class SmartPortariaScanner(QMainWindow):
         else:
             # Estilo CLARO (High Contrast B&W + Palette Grays)
             style = """
-                QMainWindow, QWidget { background-color: #beb7ad; color: #000000; }
-                QLineEdit { background-color: #b1aaa0; color: #000000; border: 1px solid #958e85; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #b1aaa0; color: #000000; border: 1px solid #958e85; border-radius: 4px; }
-                QGroupBox { border: 1px solid #958e85; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
-                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #958e85; }
+                QMainWindow, QWidget { background-color: #dcddd5; color: #000000; }
+                QLineEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 4px; }
+                QGroupBox { border: 1px solid #b2b3a8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
+                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #b2b3a8; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #000000; }
-                QPushButton { background-color: #b1aaa0; color: #000000; border: 1px solid #958e85; border-radius: 4px; padding: 6px; }
-                QPushButton:hover { background-color: #a39c92; }
-                QTabBar::tab { background: #b1aaa0; color: #666666; border: 1px solid #958e85; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
-                QTabBar::tab:selected { background: #000000; color: #beb7ad; border-color: #000000; }
-                QSplitter::handle { background-color: #958e85; }
-                QScrollBar:vertical { border: none; background: #b1aaa0; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #958e85; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #beb7ad; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #958e85; }
-                QScrollBar::sub-line:vertical { background: #beb7ad; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #958e85; }
+                QPushButton { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 4px; padding: 6px; }
+                QPushButton:hover { background-color: #c2c3ba; }
+                QTabBar::tab { background: #cfd0c7; color: #666666; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab:selected { background: #000000; color: #dcddd5; border-color: #000000; }
+                QSplitter::handle { background-color: #b2b3a8; }
+                QScrollBar:vertical { border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar::handle:vertical { background: #b2b3a8; min-height: 20px; border-radius: 0px; }
+                QScrollBar::add-line:vertical { background: #dcddd5; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #b2b3a8; }
+                QScrollBar::sub-line:vertical { background: #dcddd5; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #b2b3a8; }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #000000; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
-                QTextEdit#txt_live { background: #b1aaa0; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #958e85; }
+                QTextEdit#txt_live { background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #beb7ad; color: #000000; font-weight: bold; border: 1px solid #958e85; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #b1aaa0; color: #000000; border: 1px solid #958e85; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #b1aaa0; color: #000000; border: 1px solid #958e85; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #dcddd5; color: #000000; font-weight: bold; border: 1px solid #b2b3a8; border-radius: 4px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 4px;"
+            btn_qr_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #b1aaa0; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #958e85;"
+            live_log_style = "background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8;"
 
         self.setStyleSheet(style)
         
@@ -2316,9 +2451,13 @@ class SmartPortariaScanner(QMainWindow):
             btn_conf_color = "#000000"
             btn_conf_border = "#554433"
             icon_color = "#ffffff"
+        elif modo == "custom":
+            btn_conf_color = self.settings.value("c_bg", "#dcddd5")
+            btn_conf_border = self.settings.value("c_border", "#b2b3a8")
+            icon_color = self.settings.value("c_txt", "#000000")
         else:
-            btn_conf_color = "#beb7ad"
-            btn_conf_border = "#958e85"
+            btn_conf_color = "#dcddd5"
+            btn_conf_border = "#b2b3a8"
             icon_color = "#000000"
         if modo == "dark":
             btn_text_color = "#ffffff"
@@ -2326,9 +2465,12 @@ class SmartPortariaScanner(QMainWindow):
         elif modo == "sepia":
             btn_text_color = "#ffffff"
             btn_hover_bg = "#332211"
+        elif modo == "custom":
+            btn_text_color = self.settings.value("c_txt", "#000000")
+            btn_hover_bg = self.settings.value("c_hover", "#c2c3ba")
         else:
             btn_text_color = "#000000"
-            btn_hover_bg = "#a39c92"
+            btn_hover_bg = "#c2c3ba"
 
         header_btn_style = f"""
             QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
@@ -2888,9 +3030,16 @@ class SmartPortariaScanner(QMainWindow):
                 "accent_color": "#d9975d", "name_color": "#ffffff", "subtext_color": "#e2e8f0",
                 "cor_validade_padrao": "#10b981"
             }
+        elif current_theme == "custom":
+            c_txt = self.settings.value("c_txt", "#000000")
+            theme_data = {
+                "text_color": c_txt, "card_bg": "transparent", "border_color": self.settings.value("c_border", "#b2b3a8"),
+                "accent_color": self.settings.value("c_accent", "#000000"), "name_color": c_txt, "subtext_color": "#666666",
+                "cor_validade_padrao": "#10b981"
+            }
         else:
             theme_data = {
-                "text_color": "#000000", "card_bg": "transparent", "border_color": "#958e85",
+                "text_color": "#000000", "card_bg": "transparent", "border_color": "#b2b3a8",
                 "accent_color": "#000000", "name_color": "#000000", "subtext_color": "#666666",
                 "cor_validade_padrao": "#10b981"
             }
