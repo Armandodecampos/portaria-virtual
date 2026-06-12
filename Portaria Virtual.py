@@ -211,33 +211,44 @@ class CameraDialog(QDialog):
 
     def __init__(self, parent=None, camera_device=None):
         super().__init__(parent)
+        self.parent_window = parent
         self.setWindowTitle("Captura de Foto")
         self.setModal(True)
         self.setMinimumSize(500, 650)
-        self.setStyleSheet("background-color: #f8fafc; color: #1e293b;")
+
+        # Tema
+        theme = parent.settings.value("theme", "light") if parent else "light"
+        if theme == "dark":
+            bg = "#000000"; text = "#ffffff"; border = "#4d4d4d"; btn_p = "#2563eb"
+        elif theme == "sepia":
+            bg = "#1a120b"; text = "#ffffff"; border = "#554433"; btn_p = "#d9975d"
+        else:
+            bg = "#ffffff"; text = "#000000"; border = "#000000"; btn_p = "#000000"
+
+        self.setStyleSheet(f"background-color: {bg}; color: {text};")
 
         self.layout = QVBoxLayout(self)
 
         # Área de exibição da câmera
         self.lbl_video = QLabel("Iniciando câmera...")
         self.lbl_video.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_video.setStyleSheet("border: 2px solid #cbd5e1; background-color: black; border-radius: 8px;")
+        self.lbl_video.setStyleSheet(f"border: 2px solid {border}; background-color: black; border-radius: 8px;")
         # Proporção 120:141 -> 400x470 (aprox)
         self.lbl_video.setFixedSize(400, 470)
         self.layout.addWidget(self.lbl_video, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Botão principal de captura
         self.btn_capture = QPushButton("📸 Capturar Foto")
-        self.btn_capture.setStyleSheet("""
-            QPushButton {
-                background-color: #2563eb;
+        self.btn_capture.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {btn_p};
                 color: white;
                 font-weight: bold;
                 padding: 12px;
                 border-radius: 8px;
                 font-size: 16px;
-            }
-            QPushButton:hover { background-color: #1d4ed8; }
+            }}
+            QPushButton:hover {{ opacity: 0.8; }}
         """)
         self.btn_capture.clicked.connect(self.capture_photo)
         self.layout.addWidget(self.btn_capture)
@@ -459,25 +470,7 @@ class ConfigDialog(QDialog):
         self.parent_window = parent
         self.setWindowTitle("Configurações do Sistema")
         self.setModal(True)
-        self.setMinimumWidth(400)
-        
-        # Define estilo base do diálogo para garantir legibilidade
-        theme = self.parent_window.settings.value("theme", "light")
-        if theme == "dark":
-            border_color = "#475569"
-        elif theme == "sepia":
-            border_color = "#554433"
-        else:
-            border_color = "#000000"
-
-        self.setStyleSheet(f"""
-            QDialog {{ font-size: 14px; background-color: #ffffff; color: #000000; }}
-            QGroupBox {{ font-weight: bold; border: 1px solid {border_color}; border-radius: 6px; margin-top: 10px; padding-top: 15px; color: #000000; }}
-            QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; color: #000000; }}
-            QLabel {{ color: #000000; }}
-            QPushButton {{ background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 8px; border-radius: 4px; }}
-            QPushButton:hover {{ background-color: #e8e8e8; }}
-        """)
+        self.setMinimumWidth(450)
 
         layout = QVBoxLayout(self)
 
@@ -498,22 +491,19 @@ class ConfigDialog(QDialog):
         lay_db.addWidget(self.lbl_status)
 
         hbox_btns = QHBoxLayout()
-        btn_load = QPushButton("📂 Carregar Banco")
-        btn_load.setStyleSheet("background-color: #3b82f6; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
-        btn_load.clicked.connect(self.acao_carregar)
+        self.btn_load = QPushButton("📂 Carregar Banco")
+        self.btn_load.clicked.connect(self.acao_carregar)
         
-        btn_new = QPushButton("✨ Criar Novo")
-        btn_new.setStyleSheet("background-color: #10b981; color: white; padding: 8px; border-radius: 4px; font-weight: bold;")
-        btn_new.clicked.connect(self.acao_novo)
+        self.btn_new = QPushButton("✨ Criar Novo")
+        self.btn_new.clicked.connect(self.acao_novo)
         
-        hbox_btns.addWidget(btn_load)
-        hbox_btns.addWidget(btn_new)
+        hbox_btns.addWidget(self.btn_load)
+        hbox_btns.addWidget(self.btn_new)
         lay_db.addLayout(hbox_btns)
 
-        btn_import_zk = QPushButton("📊 Importar Relatório ZK Bio (Excel)")
-        btn_import_zk.setStyleSheet("background-color: #475569; color: white; padding: 8px; border-radius: 4px; font-weight: bold; margin-top: 5px;")
-        btn_import_zk.clicked.connect(self.acao_importar_zk)
-        lay_db.addWidget(btn_import_zk)
+        self.btn_import_zk = QPushButton("📊 Importar Relatório ZK Bio (Excel)")
+        self.btn_import_zk.clicked.connect(self.acao_importar_zk)
+        lay_db.addWidget(self.btn_import_zk)
 
         layout.addWidget(gb_db)
 
@@ -574,30 +564,92 @@ class ConfigDialog(QDialog):
         lay_zk.addWidget(self.edit_zk_pass)
         lay_creds.addLayout(lay_zk)
 
-        btn_save_creds = QPushButton("💾 Salvar Credenciais")
-        btn_save_creds.setStyleSheet("background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold; margin-top: 5px;")
-        btn_save_creds.clicked.connect(self.acao_salvar_credenciais)
-        lay_creds.addWidget(btn_save_creds)
+        self.btn_save_creds = QPushButton("💾 Salvar Credenciais")
+        self.btn_save_creds.clicked.connect(self.acao_salvar_credenciais)
+        lay_creds.addWidget(self.btn_save_creds)
 
         layout.addWidget(gb_creds)
 
         # === RODAPÉ ===
-        btn_fechar = QPushButton("Fechar")
-        btn_fechar.clicked.connect(self.accept)
-        btn_fechar.setStyleSheet("padding: 8px; margin-top: 10px;")
-        layout.addWidget(btn_fechar)
+        self.btn_fechar = QPushButton("Fechar")
+        self.btn_fechar.clicked.connect(self.accept)
+        layout.addWidget(self.btn_fechar)
+
+        # Aplica tema inicial
+        theme = self.parent_window.settings.value("theme", "light")
+        self.aplicar_tema_local(theme)
+
+    def aplicar_tema_local(self, mode):
+        if mode == "dark":
+            bg = "#000000"
+            text = "#ffffff"
+            border = "#4d4d4d"
+            input_bg = "#111111"
+            btn_bg = "#333333"
+            hover = "#4d4d4d"
+            c_load = "#3b82f6"; c_new = "#10b981"; c_import = "#475569"; c_save = "#2563eb"
+        elif mode == "sepia":
+            bg = "#1a120b"
+            text = "#ffffff"
+            border = "#554433"
+            input_bg = "#000000"
+            btn_bg = "#000000"
+            hover = "#332211"
+            c_load = "#d9975d"; c_new = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
+        else:
+            bg = "#ffffff"
+            text = "#000000"
+            border = "#000000"
+            input_bg = "#ffffff"
+            btn_bg = "#ffffff"
+            hover = "#e8e8e8"
+            c_load = "#000000"; c_new = "#000000"; c_import = "#000000"; c_save = "#000000"
+
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
+            QGroupBox {{ font-weight: bold; border: 1px solid {border}; border-radius: 6px; margin-top: 12px; padding-top: 15px; color: {text}; background-color: {bg}; }}
+            QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; color: {text}; }}
+            QLabel {{ color: {text}; background: transparent; }}
+            QLineEdit {{ background-color: {input_bg}; color: {text}; border: 1px solid {border}; padding: 5px; border-radius: 4px; }}
+            QRadioButton {{ color: {text}; background: transparent; }}
+            QPushButton {{ background-color: {btn_bg}; color: {text}; border: 1px solid {border}; padding: 8px; border-radius: 4px; }}
+            QPushButton:hover {{ background-color: {hover}; }}
+        """)
+
+        # Botões com cores específicas adaptadas
+        common = "padding: 8px; border-radius: 4px; font-weight: bold;"
+        if mode == "light":
+            self.btn_load.setStyleSheet(f"background-color: #000000; color: #ffffff; {common}")
+            self.btn_new.setStyleSheet(f"background-color: #ffffff; color: #000000; border: 2px solid #000000; {common}")
+            self.btn_import_zk.setStyleSheet(f"background-color: #e8e8e8; color: #000000; border: 1px solid #000000; {common} margin-top: 5px;")
+            self.btn_save_creds.setStyleSheet(f"background-color: #000000; color: #ffffff; {common} margin-top: 5px;")
+            self.btn_fechar.setStyleSheet(f"background-color: #ffffff; color: #000000; border: 1px solid #000000; {common} margin-top: 10px;")
+        else:
+            self.btn_load.setStyleSheet(f"background-color: {c_load}; color: white; {common}")
+            self.btn_new.setStyleSheet(f"background-color: {c_new}; color: white; {common}")
+            self.btn_import_zk.setStyleSheet(f"background-color: {c_import}; color: white; {common} margin-top: 5px;")
+            self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: white; {common} margin-top: 5px;")
+            self.btn_fechar.setStyleSheet(f"background-color: {btn_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
+
+        self.update_status_label()
+
+    def update_status_label(self):
+        status_text = self.lbl_status.text()
+        if "Nenhum" in status_text:
+            self.lbl_status.setStyleSheet("color: #ef4444; font-weight: bold; margin-bottom: 10px; background: transparent;")
+        else:
+            color = "#059669" if self.parent_window.settings.value("theme") == "light" else "#10b981"
+            self.lbl_status.setStyleSheet(f"color: {color}; font-weight: bold; margin-bottom: 10px; background: transparent;")
 
     def acao_carregar(self):
         self.parent_window.abrir_selecao_arquivo()
-        self.lbl_status.setText(self.parent_window.lbl_status_db.text()) # Atualiza label local
-        if "Ativo" in self.lbl_status.text():
-             self.lbl_status.setStyleSheet("color: #10b981; font-weight: bold; margin-bottom: 10px;")
+        self.lbl_status.setText(self.parent_window.lbl_status_db.text())
+        self.update_status_label()
 
     def acao_novo(self):
         self.parent_window.criar_novo_arquivo()
-        self.lbl_status.setText(self.parent_window.lbl_status_db.text()) # Atualiza label local
-        if "Ativo" in self.lbl_status.text():
-             self.lbl_status.setStyleSheet("color: #10b981; font-weight: bold; margin-bottom: 10px;")
+        self.lbl_status.setText(self.parent_window.lbl_status_db.text())
+        self.update_status_label()
 
     def acao_importar_zk(self):
         self.accept()
@@ -611,6 +663,7 @@ class ConfigDialog(QDialog):
         else:
             modo = "light"
         self.parent_window.aplicar_tema(modo)
+        self.aplicar_tema_local(modo)
 
     def acao_salvar_credenciais(self):
         p_user = self.edit_portaria_user.text().strip()
