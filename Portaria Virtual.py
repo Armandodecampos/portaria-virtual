@@ -1157,7 +1157,7 @@ class ExcelRecordsWidget(QWidget):
             self.card_bg = "transparent"
             self.card_border = "#b2b3a8"
             self.text_color = "#000000"
-            self.sub_text_color = "#666666"
+            self.sub_text_color = "#333333"
             self.accent_color = "#000000"
             self.name_color = "#000000"
 
@@ -2291,7 +2291,7 @@ class SmartPortariaScanner(QMainWindow):
                 QLabel { color: #000000; }
                 QPushButton { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #c2c3ba; }
-                QTabBar::tab { background: #cfd0c7; color: #666666; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab { background: #cfd0c7; color: #333333; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #000000; color: #dcddd5; border-color: #000000; }
                 QSplitter::handle { background-color: #b2b3a8; }
                 QScrollBar:vertical { border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }
@@ -2898,7 +2898,7 @@ class SmartPortariaScanner(QMainWindow):
         else:
             theme_data = {
                 "text_color": "#000000", "card_bg": "transparent", "border_color": "#b2b3a8",
-                "accent_color": "#000000", "name_color": "#000000", "subtext_color": "#666666",
+                "accent_color": "#000000", "name_color": "#000000", "subtext_color": "#333333",
                 "cor_validade_padrao": "#10b981"
             }
 
