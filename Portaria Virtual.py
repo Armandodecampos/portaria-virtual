@@ -1058,21 +1058,42 @@ class ExcelRecordsWidget(QWidget):
     def aplicar_tema(self, modo):
         self.theme = modo
         if modo == "dark":
-            self.setStyleSheet("background-color: #1b1a1f; color: #e2e8f0;")
+            self.setStyleSheet(f"""
+                background-color: #1b1a1f; color: #e2e8f0;
+                QScrollBar:vertical {{ border: none; background: #1b1a1f; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: #3f3e45; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: #334155; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #475569; }}
+                QScrollBar::sub-line:vertical {{ background: #334155; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #475569; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: white; }}
+            """)
             self.card_bg = "transparent"
             self.card_border = "#334155"
             self.text_color = "#f8fafc"
             self.sub_text_color = "#94a3b8"
             self.accent_color = "#3b82f6"
         elif modo == "sepia":
-            self.setStyleSheet("background-color: #1a120b; color: #ffffff;")
+            self.setStyleSheet(f"""
+                background-color: #1a120b; color: #ffffff;
+                QScrollBar:vertical {{ border: none; background: #1a120b; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: #554433; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: #000000; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #554433; }}
+                QScrollBar::sub-line:vertical {{ background: #000000; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #554433; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: white; }}
+            """)
             self.card_bg = "transparent"
             self.card_border = "#554433"
             self.text_color = "#ffffff"
             self.sub_text_color = "#e2e8f0"
             self.accent_color = "#d9975d"
         else:
-            self.setStyleSheet("background-color: #f1f5f9; color: #334155;")
+            self.setStyleSheet(f"""
+                background-color: #f1f5f9; color: #334155;
+                QScrollBar:vertical {{ border: none; background: #f1f5f9; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: #cbd5e1; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: #e2e8f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #cbd5e1; }}
+                QScrollBar::sub-line:vertical {{ background: #e2e8f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #cbd5e1; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #334155; }}
+            """)
             self.card_bg = "transparent"
             self.card_border = "#cbd5e1"
             self.text_color = "#334155"
@@ -2066,9 +2087,10 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_forward.clicked.connect(self.navegar_avancar)
         self.btn_reload.clicked.connect(self.recarregar_pagina)
         
-        self.btn_home = QPushButton("🏠")
+        self.btn_home = QPushButton("Início")
         self.btn_home.setToolTip("Página Inicial")
-        self.btn_home.setFixedSize(38, 38)
+        self.btn_home.setFixedHeight(38)
+        self.btn_home.setMinimumWidth(80)
         self.btn_home.clicked.connect(self.ir_para_home)
 
         self.address_bar = QLineEdit()
@@ -2253,6 +2275,10 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
+        header_btn_text_style = f"""
+            QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 16px; padding: 0 10px; }}
+            QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
+        """
         self.overlay_transfer.apply_theme(modo)
         self.btn_config.setStyleSheet(header_btn_style)
         self.btn_instrucao.setStyleSheet(header_btn_style)
@@ -2263,7 +2289,7 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_back.setStyleSheet(header_btn_style)
         self.btn_forward.setStyleSheet(header_btn_style)
         self.btn_reload.setStyleSheet(header_btn_style)
-        self.btn_home.setStyleSheet(header_btn_style)
+        self.btn_home.setStyleSheet(header_btn_text_style)
         self.btn_toggle_log.setStyleSheet(header_btn_style)
 
         # Propaga o tema para o container ZK
