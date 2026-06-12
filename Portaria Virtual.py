@@ -149,9 +149,9 @@ class TransferInstructionOverlay(QFrame):
             text = "#ffffff"
             border = "#d9975d"
         else:
-            bg = "#ffffff"
-            text = "#000000"
-            border = "#000000"
+            bg = "#f4f5f0"
+            text = "#1e293b"
+            border = "#bcbdb8"
 
         self.setStyleSheet(f"""
             TransferInstructionOverlay {{
@@ -402,9 +402,9 @@ class NotificationToast(QFrame):
             text_color = "#ffffff"
             border_color = "#554433"
         else:
-            bg_color = "#ffffff"
-            text_color = "#000000"
-            border_color = "#000000"
+            bg_color = "#f4f5f0"
+            text_color = "#1e293b"
+            border_color = "#bcbdb8"
 
         self.setStyleSheet(f"""
             NotificationToast {{
@@ -597,13 +597,13 @@ class ConfigDialog(QDialog):
             hover = "#332211"
             c_load = "#d9975d"; c_new = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
         else:
-            bg = "#ffffff"
-            text = "#000000"
-            border = "#000000"
-            input_bg = "#ffffff"
-            btn_bg = "#ffffff"
-            hover = "#e8e8e8"
-            c_load = "#000000"; c_new = "#000000"; c_import = "#000000"; c_save = "#000000"
+            bg = "#f4f5f0"
+            text = "#1e293b"
+            border = "#bcbdb8"
+            input_bg = "#e9eae3"
+            btn_bg = "#e9eae3"
+            hover = "#ddded9"
+            c_load = "#1e293b"; c_new = "#1e293b"; c_import = "#bcbdb8"; c_save = "#1e293b"
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
@@ -619,11 +619,11 @@ class ConfigDialog(QDialog):
         # Botões com cores específicas adaptadas
         common = "padding: 8px; border-radius: 4px; font-weight: bold;"
         if mode == "light":
-            self.btn_load.setStyleSheet(f"background-color: #000000; color: #ffffff; {common}")
-            self.btn_new.setStyleSheet(f"background-color: #ffffff; color: #000000; border: 2px solid #000000; {common}")
-            self.btn_import_zk.setStyleSheet(f"background-color: #e8e8e8; color: #000000; border: 1px solid #000000; {common} margin-top: 5px;")
-            self.btn_save_creds.setStyleSheet(f"background-color: #000000; color: #ffffff; {common} margin-top: 5px;")
-            self.btn_fechar.setStyleSheet(f"background-color: #ffffff; color: #000000; border: 1px solid #000000; {common} margin-top: 10px;")
+            self.btn_load.setStyleSheet(f"background-color: #1e293b; color: #f4f5f0; {common}")
+            self.btn_new.setStyleSheet(f"background-color: #f4f5f0; color: #1e293b; border: 2px solid #bcbdb8; {common}")
+            self.btn_import_zk.setStyleSheet(f"background-color: #e9eae3; color: #1e293b; border: 1px solid #bcbdb8; {common} margin-top: 5px;")
+            self.btn_save_creds.setStyleSheet(f"background-color: #1e293b; color: #f4f5f0; {common} margin-top: 5px;")
+            self.btn_fechar.setStyleSheet(f"background-color: #f4f5f0; color: #1e293b; border: 1px solid #bcbdb8; {common} margin-top: 10px;")
         else:
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: white; {common}")
             self.btn_new.setStyleSheet(f"background-color: {c_new}; color: white; {common}")
@@ -638,7 +638,7 @@ class ConfigDialog(QDialog):
         if "Nenhum" in status_text:
             self.lbl_status.setStyleSheet("color: #ef4444; font-weight: bold; margin-bottom: 10px; background: transparent;")
         else:
-            color = "#059669" if self.parent_window.settings.value("theme") == "light" else "#10b981"
+            color = "#10b981" if self.parent_window.settings.value("theme") == "light" else "#10b981"
             self.lbl_status.setStyleSheet(f"color: {color}; font-weight: bold; margin-bottom: 10px; background: transparent;")
 
     def acao_carregar(self):
@@ -699,8 +699,8 @@ class InstrucoesDialog(QDialog):
             self.setStyleSheet("background-color: #1a120b; color: #ffffff;")
             link_color = "#d9975d"
         else:
-            self.setStyleSheet("background-color: #ffffff; color: #000000;")
-            link_color = "#000000"
+            self.setStyleSheet("background-color: #f4f5f0; color: #1e293b;")
+            link_color = "#1e293b"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
@@ -1143,19 +1143,19 @@ class ExcelRecordsWidget(QWidget):
             self.accent_color = "#d9975d"
         else:
             self.setStyleSheet(f"""
-                background-color: #ffffff; color: #000000;
-                QScrollBar:vertical {{ border: none; background: #e8e8e8; width: 14px; margin: 18px 0 18px 0; }}
-                QScrollBar::handle:vertical {{ background: #000000; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #ffffff; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #000000; }}
-                QScrollBar::sub-line:vertical {{ background: #ffffff; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #000000; }}
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #000000; }}
+                background-color: #f4f5f0; color: #1e293b;
+                QScrollBar:vertical {{ border: none; background: #e9eae3; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: #bcbdb8; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: #f4f5f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #bcbdb8; }}
+                QScrollBar::sub-line:vertical {{ background: #f4f5f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #bcbdb8; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #1e293b; }}
             """)
             self.card_bg = "transparent"
-            self.card_border = "#000000"
-            self.text_color = "#000000"
-            self.sub_text_color = "#777777"
-            self.accent_color = "#000000"
-            self.name_color = "#000000"
+            self.card_border = "#bcbdb8"
+            self.text_color = "#1e293b"
+            self.sub_text_color = "#64748b"
+            self.accent_color = "#1e293b"
+            self.name_color = "#1e293b"
 
         if hasattr(self, 'input_search'):
             self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
@@ -2274,32 +2274,32 @@ class SmartPortariaScanner(QMainWindow):
         else:
             # Estilo CLARO (High Contrast B&W + Palette Grays)
             style = """
-                QMainWindow, QWidget { background-color: #ffffff; color: #000000; }
-                QLineEdit { background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #000000; border-radius: 4px; }
-                QGroupBox { border: 1px solid #000000; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
-                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #000000; }
+                QMainWindow, QWidget { background-color: #f4f5f0; color: #1e293b; }
+                QLineEdit { background-color: #e9eae3; color: #1e293b; border: 1px solid #bcbdb8; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #e9eae3; color: #1e293b; border: 1px solid #bcbdb8; border-radius: 4px; }
+                QGroupBox { border: 1px solid #bcbdb8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #1e293b; font-size: 14px; }
+                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #bcbdb8; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
-                QLabel { color: #000000; }
-                QPushButton { background-color: #ffffff; color: #000000; border: 1px solid #000000; border-radius: 4px; padding: 6px; }
-                QPushButton:hover { background-color: #e8e8e8; }
-                QTabBar::tab { background: #e8e8e8; color: #000000; border: 1px solid #000000; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
-                QTabBar::tab:selected { background: #000000; color: #ffffff; border-color: #000000; }
-                QSplitter::handle { background-color: #000000; }
-                QScrollBar:vertical { border: none; background: #e8e8e8; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #000000; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #ffffff; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #000000; }
-                QScrollBar::sub-line:vertical { background: #ffffff; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #000000; }
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #000000; }
+                QLabel { color: #1e293b; }
+                QPushButton { background-color: #e9eae3; color: #1e293b; border: 1px solid #bcbdb8; border-radius: 4px; padding: 6px; }
+                QPushButton:hover { background-color: #ddded9; }
+                QTabBar::tab { background: #e9eae3; color: #64748b; border: 1px solid #bcbdb8; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab:selected { background: #1e293b; color: #f4f5f0; border-color: #1e293b; }
+                QSplitter::handle { background-color: #bcbdb8; }
+                QScrollBar:vertical { border: none; background: #e9eae3; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar::handle:vertical { background: #bcbdb8; min-height: 20px; border-radius: 0px; }
+                QScrollBar::add-line:vertical { background: #f4f5f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #bcbdb8; }
+                QScrollBar::sub-line:vertical { background: #f4f5f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #bcbdb8; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #1e293b; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
-                QTextEdit#txt_live { background: #ffffff; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #000000; }
+                QTextEdit#txt_live { background: #e9eae3; color: #1e293b; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #bcbdb8; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #ffffff; color: #000000; font-weight: bold; border: 1px solid #000000; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #f4f5f0; color: #1e293b; font-weight: bold; border: 1px solid #bcbdb8; border-radius: 4px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #e9eae3; color: #1e293b; border: 1px solid #bcbdb8; padding: 8px; border-radius: 4px;"
+            btn_qr_style = "background-color: #e9eae3; color: #1e293b; border: 1px solid #bcbdb8; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #ffffff; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #000000;"
+            live_log_style = "background: #e9eae3; color: #1e293b; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #bcbdb8;"
 
         self.setStyleSheet(style)
         
@@ -2316,9 +2316,9 @@ class SmartPortariaScanner(QMainWindow):
             btn_conf_border = "#554433"
             icon_color = "#ffffff"
         else:
-            btn_conf_color = "#ffffff"
-            btn_conf_border = "#000000"
-            icon_color = "#000000"
+            btn_conf_color = "#f4f5f0"
+            btn_conf_border = "#bcbdb8"
+            icon_color = "#1e293b"
         if modo == "dark":
             btn_text_color = "#ffffff"
             btn_hover_bg = "#333333"
@@ -2326,8 +2326,8 @@ class SmartPortariaScanner(QMainWindow):
             btn_text_color = "#ffffff"
             btn_hover_bg = "#332211"
         else:
-            btn_text_color = "#000000"
-            btn_hover_bg = "#e8e8e8"
+            btn_text_color = "#1e293b"
+            btn_hover_bg = "#ddded9"
 
         header_btn_style = f"""
             QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
@@ -2889,9 +2889,9 @@ class SmartPortariaScanner(QMainWindow):
             }
         else:
             theme_data = {
-                "text_color": "#000000", "card_bg": "transparent", "border_color": "#000000",
-                "accent_color": "#000000", "name_color": "#000000", "subtext_color": "#777777",
-                "cor_validade_padrao": "#059669"
+                "text_color": "#1e293b", "card_bg": "transparent", "border_color": "#bcbdb8",
+                "accent_color": "#1e293b", "name_color": "#1e293b", "subtext_color": "#64748b",
+                "cor_validade_padrao": "#10b981"
             }
 
         termos = termo_db.lower().split()
