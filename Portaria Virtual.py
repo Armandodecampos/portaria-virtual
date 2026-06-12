@@ -2046,8 +2046,7 @@ class SmartPortariaScanner(QMainWindow):
         self.txt_res_busca.setOpenExternalLinks(False)
         self.txt_res_busca.setOpenLinks(False)
         self.txt_res_busca.document().setDocumentMargin(0)
-        # O estilo base transparente é bom, mas vamos deixar o tema controlar a cor do texto
-        self.txt_res_busca.setStyleSheet("border: none; background: transparent; margin: 0; padding: 0;")
+        self.txt_res_busca.setObjectName("txt_res_busca")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
         lat.addWidget(self.group_busca, 3)
@@ -2058,9 +2057,8 @@ class SmartPortariaScanner(QMainWindow):
         layout_live.setContentsMargins(10, 10, 10, 10)
         layout_live.setSpacing(10)
         self.txt_live = QTextEdit()
+        self.txt_live.setObjectName("txt_live")
         self.txt_live.setReadOnly(True)
-        # Fonte monospace fixa, mas cores geridas pelo tema
-        self.txt_live.setStyleSheet("font-family: Consolas, monospace; font-size: 12px;")
         layout_live.addWidget(self.txt_live)
 
 
@@ -2178,13 +2176,14 @@ class SmartPortariaScanner(QMainWindow):
                 QScrollBar::add-line:vertical { background: #334155; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #475569; }
                 QScrollBar::sub-line:vertical { background: #334155; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #475569; }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
+                QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
+                QTextEdit#txt_live { background: #26252b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #475569; }
             """
             # Cores específicas de botões funcionais
             btn_unlock_style = "background-color: #d97706; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
             btn_anon_style = "background-color: #475569; color: white; padding: 8px; border-radius: 4px;"
             btn_qr_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #26252b; color: #4ade80; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #475569;"
 
         elif modo == "sepia":
             # Estilo SEPIA (High Contrast Black & White)
@@ -2206,13 +2205,14 @@ class SmartPortariaScanner(QMainWindow):
                 QScrollBar::add-line:vertical { background: #000000; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #554433; }
                 QScrollBar::sub-line:vertical { background: #000000; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #554433; }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
+                QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
+                QTextEdit#txt_live { background: #000000; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #554433; }
             """
             # Cores específicas
             btn_unlock_style = "background-color: #d9975d; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
             btn_anon_style = "background-color: #332211; color: white; padding: 8px; border-radius: 4px;"
             btn_qr_style = "background-color: #c08b5c; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #000000; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #554433;"
 
         else:
             # Estilo CLARO (Tons de Cinza)
@@ -2234,6 +2234,8 @@ class SmartPortariaScanner(QMainWindow):
                 QScrollBar::add-line:vertical { background: #e2e8f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #cbd5e1; }
                 QScrollBar::sub-line:vertical { background: #e2e8f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #cbd5e1; }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #334155; }
+                QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
+                QTextEdit#txt_live { background: #f8fafc; color: #1e293b; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #cbd5e1; }
             """
             # Cores específicas
             btn_unlock_style = "background-color: #f59e0b; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
@@ -2246,7 +2248,6 @@ class SmartPortariaScanner(QMainWindow):
         
         # Reaplica estilos específicos que não devem ser sobrescritos pelo genérico
         self.btn_limpar_busca.setStyleSheet(btn_clear_style)
-        self.txt_live.setStyleSheet(live_log_style)
         
         # Ajusta botões do cabeçalho para parecerem com o tema
         if modo == "dark":
