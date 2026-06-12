@@ -150,8 +150,8 @@ class TransferInstructionOverlay(QFrame):
             border = "#d9975d"
         else:
             bg = "#ffffff"
-            text = "#1e293b"
-            border = "#3b82f6"
+            text = "#000000"
+            border = "#000000"
 
         self.setStyleSheet(f"""
             TransferInstructionOverlay {{
@@ -391,9 +391,9 @@ class NotificationToast(QFrame):
             text_color = "#ffffff"
             border_color = "#554433"
         else:
-            bg_color = "#f8fafc"
-            text_color = "#1e293b"
-            border_color = "#cbd5e1"
+            bg_color = "#ffffff"
+            text_color = "#000000"
+            border_color = "#000000"
 
         self.setStyleSheet(f"""
             NotificationToast {{
@@ -468,12 +468,15 @@ class ConfigDialog(QDialog):
         elif theme == "sepia":
             border_color = "#554433"
         else:
-            border_color = "#cbd5e1"
+            border_color = "#000000"
 
         self.setStyleSheet(f"""
-            QDialog {{ font-size: 14px; }}
-            QGroupBox {{ font-weight: bold; border: 1px solid {border_color}; border-radius: 6px; margin-top: 10px; padding-top: 15px; }}
-            QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; }}
+            QDialog {{ font-size: 14px; background-color: #ffffff; color: #000000; }}
+            QGroupBox {{ font-weight: bold; border: 1px solid {border_color}; border-radius: 6px; margin-top: 10px; padding-top: 15px; color: #000000; }}
+            QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; color: #000000; }}
+            QLabel {{ color: #000000; }}
+            QPushButton {{ background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 8px; border-radius: 4px; }}
+            QPushButton:hover {{ background-color: #e8e8e8; }}
         """)
 
         layout = QVBoxLayout(self)
@@ -643,8 +646,8 @@ class InstrucoesDialog(QDialog):
             self.setStyleSheet("background-color: #1a120b; color: #ffffff;")
             link_color = "#d9975d"
         else:
-            self.setStyleSheet("background-color: #f1f5f9; color: #1e293b;")
-            link_color = "#3b82f6"
+            self.setStyleSheet("background-color: #ffffff; color: #000000;")
+            link_color = "#000000"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
@@ -738,7 +741,7 @@ class InstrucoesDialog(QDialog):
 
         QMessageBox.information(self, "Sucesso", "Texto formatado copiado para a área de transferência!")
 
-def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#3b82f6"):
+def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#3b82f6", name_color="#ffffff"):
     """
     Função utilitária para renderizar o card de um registro do ZK Bio.
     """
@@ -753,7 +756,7 @@ def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#3b
     <tr style='background-color: {card_bg};'>
         <td style='border: 1px solid {card_border}; padding: 12px;'>
             <span style='font-size: 13px; color: {sub_text_color};'>
-                <b style='color: {accent_color};'>Nome:</b> <span style='font-weight: bold; color: #ffffff;'>{item['nome']} {item['sobrenome']}</span> {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}
+                <b style='color: {accent_color};'>Nome:</b> <span style='font-weight: bold; color: {name_color};'>{item['nome']} {item['sobrenome']}</span> {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}
             </span>
     """
 
@@ -791,7 +794,7 @@ class SearchThread(QThread):
         ).lower()
 
     def render_item_card(self, item):
-        html_row = render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'], self.td.get('accent_color', '#3b82f6'))
+        html_row = render_zk_card(item, self.td['card_bg'], self.td['card_border'], self.td['sub_text_color'], self.td.get('accent_color', '#3b82f6'), self.td.get('name_color', '#ffffff'))
         return html_row
 
     def run(self):
@@ -1087,18 +1090,19 @@ class ExcelRecordsWidget(QWidget):
             self.accent_color = "#d9975d"
         else:
             self.setStyleSheet(f"""
-                background-color: #f1f5f9; color: #334155;
-                QScrollBar:vertical {{ border: none; background: #f1f5f9; width: 14px; margin: 18px 0 18px 0; }}
-                QScrollBar::handle:vertical {{ background: #cbd5e1; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #e2e8f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #cbd5e1; }}
-                QScrollBar::sub-line:vertical {{ background: #e2e8f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #cbd5e1; }}
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #334155; }}
+                background-color: #ffffff; color: #000000;
+                QScrollBar:vertical {{ border: none; background: #e8e8e8; width: 14px; margin: 18px 0 18px 0; }}
+                QScrollBar::handle:vertical {{ background: #000000; min-height: 20px; border-radius: 0px; }}
+                QScrollBar::add-line:vertical {{ background: #ffffff; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #000000; }}
+                QScrollBar::sub-line:vertical {{ background: #ffffff; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #000000; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #000000; }}
             """)
             self.card_bg = "transparent"
-            self.card_border = "#cbd5e1"
-            self.text_color = "#334155"
-            self.sub_text_color = "#64748b"
-            self.accent_color = "#3b82f6"
+            self.card_border = "#000000"
+            self.text_color = "#000000"
+            self.sub_text_color = "#777777"
+            self.accent_color = "#000000"
+            self.name_color = "#000000"
 
         if hasattr(self, 'input_search'):
             self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
@@ -1427,7 +1431,7 @@ class ExcelRecordsWidget(QWidget):
     def render_item_card(self, item):
         # Este método agora é usado principalmente para importação imediata,
         # mas a thread tem sua própria versão. Mantemos para consistência.
-        html_row = render_zk_card(item, self.card_bg, self.card_border, self.sub_text_color, self.accent_color)
+        html_row = render_zk_card(item, self.card_bg, self.card_border, self.sub_text_color, self.accent_color, getattr(self, 'name_color', '#ffffff'))
         return html_row
 
 # --- CONFIGURAÇÕES AMBEV ---
@@ -2215,34 +2219,34 @@ class SmartPortariaScanner(QMainWindow):
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
 
         else:
-            # Estilo CLARO (Tons de Cinza)
+            # Estilo CLARO (High Contrast B&W + Palette Grays)
             style = """
-                QMainWindow, QWidget { background-color: #f1f5f9; color: #1e293b; }
-                QLineEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; }
-                QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #1e293b; font-size: 14px; }
-                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #94a3b8; }
+                QMainWindow, QWidget { background-color: #ffffff; color: #000000; }
+                QLineEdit { background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #ffffff; color: #000000; border: 1px solid #000000; border-radius: 4px; }
+                QGroupBox { border: 1px solid #000000; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
+                QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #000000; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
-                QLabel { color: #334155; }
-                QPushButton { background-color: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; }
-                QPushButton:hover { background-color: #cbd5e1; }
-                QTabBar::tab { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
-                QTabBar::tab:selected { background: #3b82f6; color: white; border-color: #3b82f6; }
-                QSplitter::handle { background-color: #cbd5e1; }
-                QScrollBar:vertical { border: none; background: #f1f5f9; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #cbd5e1; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #e2e8f0; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #cbd5e1; }
-                QScrollBar::sub-line:vertical { background: #e2e8f0; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #cbd5e1; }
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #334155; }
+                QLabel { color: #000000; }
+                QPushButton { background-color: #ffffff; color: #000000; border: 1px solid #000000; border-radius: 4px; padding: 6px; }
+                QPushButton:hover { background-color: #e8e8e8; }
+                QTabBar::tab { background: #e8e8e8; color: #000000; border: 1px solid #000000; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab:selected { background: #000000; color: #ffffff; border-color: #000000; }
+                QSplitter::handle { background-color: #000000; }
+                QScrollBar:vertical { border: none; background: #e8e8e8; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar::handle:vertical { background: #000000; min-height: 20px; border-radius: 0px; }
+                QScrollBar::add-line:vertical { background: #ffffff; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #000000; }
+                QScrollBar::sub-line:vertical { background: #ffffff; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #000000; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #000000; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
-                QTextEdit#txt_live { background: #f8fafc; color: #1e293b; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #cbd5e1; }
+                QTextEdit#txt_live { background: #ffffff; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #000000; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #f59e0b; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #475569; color: white; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #3b82f6; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #ffffff; color: #000000; font-weight: bold; border: 1px solid #000000; border-radius: 4px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 8px; border-radius: 4px;"
+            btn_qr_style = "background-color: #ffffff; color: #000000; border: 1px solid #000000; padding: 8px; border-radius: 4px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            live_log_style = "background: #f8fafc; color: #1e293b; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #cbd5e1;"
+            live_log_style = "background: #ffffff; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #000000;"
 
         self.setStyleSheet(style)
         
@@ -2259,9 +2263,9 @@ class SmartPortariaScanner(QMainWindow):
             btn_conf_border = "#554433"
             icon_color = "#ffffff"
         else:
-            btn_conf_color = "#e2e8f0"
-            btn_conf_border = "#cbd5e1"
-            icon_color = "#334155"
+            btn_conf_color = "#ffffff"
+            btn_conf_border = "#000000"
+            icon_color = "#000000"
         if modo == "dark":
             btn_text_color = "#ffffff"
             btn_hover_bg = "#333333"
@@ -2269,8 +2273,8 @@ class SmartPortariaScanner(QMainWindow):
             btn_text_color = "#ffffff"
             btn_hover_bg = "#332211"
         else:
-            btn_text_color = "#334155"
-            btn_hover_bg = "#cbd5e1"
+            btn_text_color = "#000000"
+            btn_hover_bg = "#e8e8e8"
 
         header_btn_style = f"""
             QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
@@ -2832,9 +2836,9 @@ class SmartPortariaScanner(QMainWindow):
             }
         else:
             theme_data = {
-                "text_color": "#1e293b", "card_bg": "transparent", "border_color": "#cbd5e1",
-                "accent_color": "#2563eb", "name_color": "#1e293b", "subtext_color": "#64748b",
-                "cor_validade_padrao": "green"
+                "text_color": "#000000", "card_bg": "transparent", "border_color": "#000000",
+                "accent_color": "#000000", "name_color": "#000000", "subtext_color": "#777777",
+                "cor_validade_padrao": "#059669"
             }
 
         termos = termo_db.lower().split()
