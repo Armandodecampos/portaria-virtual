@@ -142,7 +142,7 @@ class TransferInstructionOverlay(QFrame):
 
     def apply_theme(self, mode):
         if mode == "dark":
-            bg = "#1e293b"
+            bg = "#202426"
             text = "#f8fafc"
             border = "#3b82f6"
         elif mode == "custom":
@@ -224,7 +224,7 @@ class CameraDialog(QDialog):
         # Tema
         theme = parent.settings.value("theme", "light") if parent else "light"
         if theme == "dark":
-            bg = "#000000"; text = "#ffffff"; border = "#4d4d4d"; btn_p = "#2563eb"
+            bg = "#202426"; text = "#ffffff"; border = "#4d4d4d"; btn_p = "#2563eb"
         elif theme == "sepia":
             bg = "#1a120b"; text = "#ffffff"; border = "#554433"; btn_p = "#d9975d"
         else:
@@ -399,7 +399,7 @@ class NotificationToast(QFrame):
 
     def apply_toast_theme(self, mode):
         if mode == "dark":
-            bg_color = "#1e293b"
+            bg_color = "#202426"
             text_color = "#e2e8f0"
             border_color = "#334155"
         elif mode == "custom":
@@ -628,10 +628,10 @@ class ConfigDialog(QDialog):
 
     def aplicar_tema_local(self, mode):
         if mode == "dark":
-            bg = "#000000"
+            bg = "#202426"
             text = "#ffffff"
             border = "#4d4d4d"
-            input_bg = "#111111"
+            input_bg = "#2b2f31"
             btn_bg = "#333333"
             hover = "#4d4d4d"
             c_load = "#3b82f6"; c_new = "#10b981"; c_import = "#475569"; c_save = "#2563eb"
@@ -767,7 +767,7 @@ class InstrucoesDialog(QDialog):
         # Tema
         theme = parent.settings.value("theme", "light") if parent else "light"
         if theme == "dark":
-            self.setStyleSheet("background-color: #1e293b; color: #e2e8f0;")
+            self.setStyleSheet("background-color: #202426; color: #e2e8f0;")
             link_color = "#38bdf8"
         elif theme == "custom":
             c_bg = parent.settings.value("c_bg", "#dcddd5")
@@ -1194,11 +1194,11 @@ class ExcelRecordsWidget(QWidget):
         self.theme = modo
         if modo == "dark":
             self.setStyleSheet(f"""
-                background-color: #000000; color: #ffffff;
-                QScrollBar:vertical {{ border: none; background: #111111; width: 14px; margin: 18px 0 18px 0; }}
+                background-color: #202426; color: #ffffff;
+                QScrollBar:vertical {{ border: none; background: #2b2f31; width: 14px; margin: 18px 0 18px 0; }}
                 QScrollBar::handle:vertical {{ background: #4d4d4d; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #111111; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
-                QScrollBar::sub-line:vertical {{ background: #111111; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
+                QScrollBar::add-line:vertical {{ background: #2b2f31; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
+                QScrollBar::sub-line:vertical {{ background: #2b2f31; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: white; }}
             """)
             self.card_bg = "transparent"
@@ -2072,8 +2072,8 @@ class SmartPortariaScanner(QMainWindow):
         self.timer_download_img.timeout.connect(self.verificar_imagem_capturada)
         
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
-        self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
         self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
+        self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
         
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
@@ -2234,10 +2234,13 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.setSpacing(6)
         toolbar.setContentsMargins(5, 5, 5, 5)
         self.btn_back = QPushButton("←")
+        self.btn_back.setToolTip("pra tras")
         self.btn_back.setFixedSize(38, 38)
         self.btn_forward = QPushButton("→")
+        self.btn_forward.setToolTip("pra frente")
         self.btn_forward.setFixedSize(38, 38)
         self.btn_reload = QPushButton("↻")
+        self.btn_reload.setToolTip("Atualizar")
         self.btn_reload.setFixedSize(38, 38)
 
         self.btn_back.clicked.connect(self.navegar_voltar)
@@ -2318,25 +2321,25 @@ class SmartPortariaScanner(QMainWindow):
         if modo == "dark":
             # Estilo ESCURO - Grayscale Palette
             style = """
-                QMainWindow, QWidget { background-color: #000000; color: #ffffff; }
-                QLineEdit { background-color: #111111; color: #ffffff; border: 1px solid #4d4d4d; padding: 6px; border-radius: 4px; }
-                QTextEdit { background-color: #111111; color: #ffffff; border: 1px solid #4d4d4d; border-radius: 4px; }
+                QMainWindow, QWidget { background-color: #202426; color: #ffffff; }
+                QLineEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; padding: 6px; border-radius: 4px; }
+                QTextEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; border-radius: 4px; }
                 QGroupBox { border: 1px solid #4d4d4d; border-radius: 6px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #4d4d4d; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
                 QPushButton { background-color: #333333; color: white; border: 1px solid #4d4d4d; border-radius: 4px; padding: 6px; }
                 QPushButton:hover { background-color: #4d4d4d; }
-                QTabBar::tab { background: #111111; color: #9d9d9d; border: 1px solid #4d4d4d; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab { background: #2b2f31; color: #9d9d9d; border: 1px solid #4d4d4d; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #ffffff; color: #000000; border-color: #ffffff; }
                 QSplitter::handle { background-color: #4d4d4d; }
-                QScrollBar:vertical { border: none; background: #111111; width: 14px; margin: 18px 0 18px 0; }
+                QScrollBar:vertical { border: none; background: #2b2f31; width: 14px; margin: 18px 0 18px 0; }
                 QScrollBar::handle:vertical { background: #4d4d4d; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #111111; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }
-                QScrollBar::sub-line:vertical { background: #111111; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #4d4d4d; }
+                QScrollBar::add-line:vertical { background: #2b2f31; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }
+                QScrollBar::sub-line:vertical { background: #2b2f31; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #4d4d4d; }
                 QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
-                QTextEdit#txt_live { background: #111111; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #4d4d4d; }
+                QTextEdit#txt_live { background: #2b2f31; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #4d4d4d; }
             """
             # Cores específicas de botões funcionais
             btn_unlock_style = "background-color: #696969; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
@@ -2444,7 +2447,7 @@ class SmartPortariaScanner(QMainWindow):
         
         # Ajusta botões do cabeçalho para parecerem com o tema
         if modo == "dark":
-            btn_conf_color = "#111111"
+            btn_conf_color = "#2b2f31"
             btn_conf_border = "#4d4d4d"
             icon_color = "#ffffff"
         elif modo == "sepia":
