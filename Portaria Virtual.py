@@ -81,7 +81,8 @@ class LinkDelegationPage(QWebEnginePage):
     linkClicked = pyqtSignal(QUrl)
 
     def acceptNavigationRequest(self, url, _type, isMainFrame):
-        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+        url_str = url.toString()
+        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked or url_str.startswith("app://"):
             self.linkClicked.emit(url)
             return False
         return super().acceptNavigationRequest(url, _type, isMainFrame)
@@ -832,7 +833,7 @@ def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#00
     """
     Função utilitária para renderizar o card de um registro do ZK Bio.
     """
-    copy_btn = f"<a href='copy:{{}}' style='text-decoration: none; color: {accent_color}; font-size: 10px; margin-left: 5px;'>[Copiar]</a>"
+    copy_btn = f"<a href='app://copy/{{}}' style='text-decoration: none; color: {accent_color}; font-size: 10px; margin-left: 5px;'>[Copiar]</a>"
 
     # Cálculo do Código Ifood (últimos 4 dígitos do telefone)
     ifood_code = "-"
@@ -1021,8 +1022,8 @@ class LocalSearchThread(QThread):
                     if self.link_encontrado:
                         extra_btns_html = f"""
                         <div class='btn-container'>
-                            <a href='invite:{vid}' class='btn btn-invite'>Finalizar convite</a>
-                            <a href='qr:{vid}' class='btn btn-qr'>Gerar QR Code</a>
+                            <a href='app://invite/{vid}' class='btn btn-invite'>Finalizar convite</a>
+                            <a href='app://qr/{vid}' class='btn btn-qr'>Gerar QR Code</a>
                         </div>
                         """
 
@@ -1033,7 +1034,7 @@ class LocalSearchThread(QThread):
                     </td>
                     <td>
                         <div style='font-size: 14px;'>
-                            <a href="{vid}">
+                            <a href="app://select/{vid}">
                                 <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
                                 <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                                 <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
@@ -1327,6 +1328,11 @@ class ExcelRecordsWidget(QWidget):
         url_str = qurl.toString()
         if url_str.startswith("copy:"):
             text_to_copy = urllib.parse.unquote(url_str[5:])
+            QApplication.clipboard().setText(text_to_copy)
+            if self.parent_window:
+                self.parent_window.txt_live.append(f"📋 Copiado: {text_to_copy}")
+        elif url_str.startswith("app://copy/"):
+            text_to_copy = urllib.parse.unquote(url_str[11:])
             QApplication.clipboard().setText(text_to_copy)
             if self.parent_window:
                 self.parent_window.txt_live.append(f"📋 Copiado: {text_to_copy}")
@@ -2422,6 +2428,16 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
         self.overlay_transfer.apply_theme(modo)
+
+        # Atualiza cor de fundo do WebEngine de busca para evitar flickers brancos ou sumiço por transparência
+        if modo == "dark":
+            web_bg = QColor("#202426")
+        elif modo == "sepia":
+            web_bg = QColor("#1a120b")
+        else:
+            web_bg = QColor("#dcddd5")
+        self.txt_res_busca.page().setBackgroundColor(web_bg)
+
         self.btn_config.setStyleSheet(header_btn_style)
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
@@ -3013,39 +3029,68 @@ class SmartPortariaScanner(QMainWindow):
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
-        if url_str.startswith("copy:"):
-            text_to_copy = urllib.parse.unquote(url_str[5:])
+
+        # Robust parsing for app://[acao]/[id] or legacy links
+        acao = ""
+        visita_id = ""
+
+        if url_str.startswith("app://"):
+            path = url_str[6:].strip("/")
+            if "/" in path:
+                acao, visita_id = path.split("/", 1)
+            else:
+                acao = path
+        elif ":" in url_str:
+            acao, visita_id = url_str.split(":", 1)
+        else:
+            acao = "select"
+            visita_id = url_str.split("/")[-1]
+
+        # Limpeza do ID para garantir que seja apenas o número
+        visita_id = visita_id.strip("/")
+
+        if acao == "copy":
+            text_to_copy = urllib.parse.unquote(visita_id)
             QApplication.clipboard().setText(text_to_copy)
             self.txt_live.append(f"📋 Copiado: {text_to_copy}")
             return
 
-        if url_str.startswith("transfer:"):
-            visita_id = url_str.split(":")[1]
+        if acao == "transfer":
             self.iniciar_transferencia(visita_id)
             return
 
-        if url_str.startswith("invite:"):
-            visita_id = url_str.split(":")[1]
+        if acao == "invite":
             self.abrir_qr_na_anonima(visita_id)
             return
 
-        if url_str.startswith("qr:"):
-            visita_id = url_str.split(":")[1]
+        if acao == "qr":
             self.mostrar_qr_code(visita_id)
             return
 
-        visita_id = url_str
-        self.input_transfer_id.setText(visita_id)
-        self.link_convite_encontrado = True # Reseta ao trocar de ID
-        self.executar_busca_local(silent=True)
-        link_final = f"https://portaria-global.governarti.com.br/visita/{visita_id}/detalhes"
-        for i in range(self.tabs.count()):
-            if "Portaria Virtual" in self.tabs.tabText(i):
-                self.tabs.setCurrentIndex(i)
-                view = self.web_stack.widget(i)
-                if view: view.setUrl(QUrl(link_final))
-                return
-        self.add_new_tab(QUrl(link_final), f"ID {visita_id}")
+        if acao == "select" and visita_id:
+            # Garante que o ID é puramente numérico se possível
+            clean_id = re.sub(r'\D', '', visita_id) if visita_id.isdigit() or "/" not in visita_id else visita_id
+
+            self.input_transfer_id.setText(clean_id)
+            self.link_convite_encontrado = True # Reseta ao trocar de ID
+
+            # Refresh silencioso em segundo plano
+            QTimer.singleShot(50, lambda: self.executar_busca_local(silent=True))
+
+            # Navegação na aba principal
+            link_final = f"https://portaria-global.governarti.com.br/visita/{clean_id}/detalhes"
+            found_tab = False
+            for i in range(self.tabs.count()):
+                if "Portaria Virtual" in self.tabs.tabText(i):
+                    self.tabs.setCurrentIndex(i)
+                    view = self.web_stack.widget(i)
+                    if view:
+                        view.setUrl(QUrl(link_final))
+                        found_tab = True
+                    break
+
+            if not found_tab:
+                self.add_new_tab(QUrl(link_final), f"ID {clean_id}")
 
     def auto_update_qr_info(self):
         self.extrair_link_whatsapp(self._handle_auto_qr_result, silent=True)
