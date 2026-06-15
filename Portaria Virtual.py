@@ -13,14 +13,6 @@ import base64
 import json
 import threading
 
-# Determina o diretório do executável ou do script
-if getattr(sys, 'frozen', False):
-    APP_DIR = os.path.dirname(sys.executable)
-else:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
-
-ZK_CACHE_DB = os.path.join(APP_DIR, "zk_cache.db")
-
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
     from PyQt6.QtCore import (
@@ -505,13 +497,9 @@ class ConfigDialog(QDialog):
         
         self.btn_new = QPushButton("✨ Criar Novo")
         self.btn_new.clicked.connect(self.acao_novo)
-
-        self.btn_export = QPushButton("📤 Exportar Banco")
-        self.btn_export.clicked.connect(self.acao_exportar)
         
         hbox_btns.addWidget(self.btn_load)
         hbox_btns.addWidget(self.btn_new)
-        hbox_btns.addWidget(self.btn_export)
         lay_db.addLayout(hbox_btns)
 
         self.btn_import_zk = QPushButton("📊 Importar Relatório ZK Bio (Excel)")
@@ -600,7 +588,7 @@ class ConfigDialog(QDialog):
             input_bg = "#2b2f31"
             btn_bg = "#333333"
             hover = "#4d4d4d"
-            c_load = "#3b82f6"; c_new = "#10b981"; c_export = "#8b5cf6"; c_import = "#475569"; c_save = "#2563eb"
+            c_load = "#3b82f6"; c_new = "#10b981"; c_import = "#475569"; c_save = "#2563eb"
         elif mode == "sepia":
             bg = "#1a120b"
             text = "#ffffff"
@@ -608,7 +596,7 @@ class ConfigDialog(QDialog):
             input_bg = "#000000"
             btn_bg = "#000000"
             hover = "#332211"
-            c_load = "#d9975d"; c_new = "#d9975d"; c_export = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
+            c_load = "#d9975d"; c_new = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
         else:
             bg = "#dcddd5"
             text = "#000000"
@@ -616,7 +604,7 @@ class ConfigDialog(QDialog):
             input_bg = "#cfd0c7"
             btn_bg = "#cfd0c7"
             hover = "#c2c3ba"
-            c_load = "#000000"; c_new = "#000000"; c_export = "#000000"; c_import = "#b2b3a8"; c_save = "#000000"
+            c_load = "#000000"; c_new = "#000000"; c_import = "#b2b3a8"; c_save = "#000000"
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
@@ -634,14 +622,12 @@ class ConfigDialog(QDialog):
         if mode == "light":
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: {bg}; {common}")
             self.btn_new.setStyleSheet(f"background-color: {bg}; color: {text}; border: 2px solid {border}; {common}")
-            self.btn_export.setStyleSheet(f"background-color: {bg}; color: {text}; border: 2px solid {border}; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {input_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: {bg}; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
         else:
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: white; {common}")
             self.btn_new.setStyleSheet(f"background-color: {c_new}; color: white; {common}")
-            self.btn_export.setStyleSheet(f"background-color: {c_export}; color: white; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {c_import}; color: white; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: white; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {btn_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
@@ -665,32 +651,6 @@ class ConfigDialog(QDialog):
         self.parent_window.criar_novo_arquivo()
         self.lbl_status.setText(self.parent_window.lbl_status_db.text())
         self.update_status_label()
-
-    def acao_exportar(self):
-        if not self.parent_window.db:
-            QMessageBox.warning(self, "Aviso", "Nenhum banco de dados carregado para exportar.")
-            return
-
-        try:
-            db_path = self.parent_window.settings.value("last_db_path")
-            if not db_path or not os.path.exists(db_path):
-                QMessageBox.critical(self, "Erro", "Caminho do banco de dados não encontrado.")
-                return
-
-            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
-            agora = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            nome_base = os.path.splitext(os.path.basename(db_path))[0]
-            dest_name = f"backup_{nome_base}_{agora}.db"
-            dest_path = os.path.join(downloads_path, dest_name)
-
-            with self.parent_window.db.lock:
-                dest_conn = sqlite3.connect(dest_path)
-                self.parent_window.db.conn.backup(dest_conn)
-                dest_conn.close()
-
-            QMessageBox.information(self, "Sucesso", f"Banco de dados exportado com sucesso!\nSalvo em: {dest_path}")
-        except Exception as e:
-            QMessageBox.critical(self, "Erro", f"Falha ao exportar banco de dados:\n{e}")
 
     def acao_importar_zk(self):
         self.accept()
@@ -893,7 +853,7 @@ class SearchThread(QThread):
         return html_row
 
     def run(self):
-        db_file = ZK_CACHE_DB
+        db_file = "zk_cache.db"
         if not os.path.exists(db_file): return
 
         try:
@@ -1142,7 +1102,7 @@ class ExcelRecordsWidget(QWidget):
             self.hide()
 
     def get_db_conn(self):
-        db_file = ZK_CACHE_DB
+        db_file = "zk_cache.db"
         if not self.db_conn:
             try:
                 self.db_conn = sqlite3.connect(db_file, check_same_thread=False)
@@ -1318,7 +1278,7 @@ class ExcelRecordsWidget(QWidget):
         self.filter_and_render()
 
     def load_from_cache(self):
-        db_file = ZK_CACHE_DB
+        db_file = "zk_cache.db"
         if os.path.exists(db_file):
             # Verifica integridade do FTS
             try:
@@ -1361,7 +1321,7 @@ class ExcelRecordsWidget(QWidget):
             self.atualizar_visibilidade_header()
 
     def save_to_cache_db(self, new_items, upload_date=None):
-        db_file = ZK_CACHE_DB
+        db_file = "zk_cache.db"
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
@@ -1409,7 +1369,7 @@ class ExcelRecordsWidget(QWidget):
             self.depts_layout.itemAt(i).widget().setParent(None)
 
         self.department_checkboxes = {}
-        db_file = ZK_CACHE_DB
+        db_file = "zk_cache.db"
         if not os.path.exists(db_file): return
 
         try:
