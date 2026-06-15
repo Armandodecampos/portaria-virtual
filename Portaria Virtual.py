@@ -1107,8 +1107,6 @@ class ExcelRecordsWidget(QWidget):
         has = self.has_data()
         if hasattr(self, 'upload_header_widget'):
             self.upload_header_widget.setVisible(has)
-        if not has:
-            self.hide()
 
     def get_db_conn(self):
         db_file = "zk_cache.db"
