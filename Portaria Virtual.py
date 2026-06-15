@@ -945,13 +945,14 @@ class SearchThread(QThread):
 class LocalSearchThread(QThread):
     results_ready = pyqtSignal(str)
 
-    def __init__(self, db, termos, theme_data, selected_id=None, link_encontrado=True):
+    def __init__(self, db, termos, theme_data, selected_id=None, link_encontrado=True, silent=False):
         super().__init__()
         self.db = db
         self.termos = termos
         self.td = theme_data
         self.selected_id = selected_id
         self.link_encontrado = link_encontrado
+        self.silent = silent
 
     def run(self):
         if not self.db:
@@ -3015,7 +3016,8 @@ class SmartPortariaScanner(QMainWindow):
         self.local_search_thread = LocalSearchThread(
             self.db, termos, theme_data,
             selected_id=selected_id,
-            link_encontrado=self.link_convite_encontrado
+            link_encontrado=self.link_convite_encontrado,
+            silent=silent
         )
         self.local_search_thread.results_ready.connect(self.on_local_search_finished)
         self.local_search_thread.start()
@@ -3025,7 +3027,26 @@ class SmartPortariaScanner(QMainWindow):
         if thread != self.local_search_thread:
             return
 
-        self.txt_res_busca.setHtml(html)
+        if thread.silent:
+            def restore_scroll(current_pos):
+                self.txt_res_busca.setHtml(html)
+                if current_pos > 0:
+                    def apply_scroll(ok):
+                        if ok:
+                            self.txt_res_busca.page().runJavaScript(f"window.scrollTo(0, {current_pos});")
+                    # Conecta uma única vez para restaurar o scroll após o carregamento do novo HTML
+                    self.txt_res_busca.loadFinished.connect(apply_scroll)
+                    # Força desconexão após execução para não acumular
+                    def cleanup(ok):
+                        try: self.txt_res_busca.loadFinished.disconnect(apply_scroll)
+                        except: pass
+                        try: self.txt_res_busca.loadFinished.disconnect(cleanup)
+                        except: pass
+                    self.txt_res_busca.loadFinished.connect(cleanup)
+
+            self.txt_res_busca.page().runJavaScript("window.pageYOffset", restore_scroll)
+        else:
+            self.txt_res_busca.setHtml(html)
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
