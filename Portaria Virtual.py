@@ -985,8 +985,8 @@ class LocalSearchThread(QThread):
                     border-radius: 8px;
                     margin-right: 8px;
                 }}
-                .btn-invite {{ background-color: #10b981 !important; }}
-                .btn-qr {{ background-color: #2563eb !important; }}
+                .btn-invite {{ background-color: #0f4b18 !important; }}
+                .btn-qr {{ background-color: #2e3c56 !important; }}
                 a {{ text-decoration: none; color: inherit; }}
 
                 ::-webkit-scrollbar {{ width: 10px; }}
