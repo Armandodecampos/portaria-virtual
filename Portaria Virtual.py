@@ -74,6 +74,29 @@ class CustomWebPage(QWebEnginePage):
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
 
+class LinkDelegationPage(QWebEnginePage):
+    """
+    Página que delega cliques em links para um sinal em vez de navegar.
+    """
+    linkClicked = pyqtSignal(QUrl)
+
+    def acceptNavigationRequest(self, url, _type, isMainFrame):
+        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+            self.linkClicked.emit(url)
+            return False
+        return super().acceptNavigationRequest(url, _type, isMainFrame)
+
+class ClickableWebEngineView(QWebEngineView):
+    """
+    QWebEngineView que emite sinal quando um link é clicado.
+    """
+    anchorClicked = pyqtSignal(QUrl)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setPage(LinkDelegationPage(self.page().profile(), self))
+        self.page().linkClicked.connect(self.anchorClicked.emit)
+
 class TransferInstructionOverlay(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -935,11 +958,48 @@ class LocalSearchThread(QThread):
             return
         try:
             dados = self.db.buscar_por_filtro(self.termos)
+
+            # CSS Base para o QWebEngineView
+            css = f"""
+            <style>
+                body {{
+                    background: transparent;
+                    color: {self.td["text_color"]};
+                    font-family: sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    overflow-x: hidden;
+                }}
+                table {{ width: 100%; border-collapse: collapse; }}
+                td {{ border: 1px solid {self.td["border_color"]}; padding: 12px; }}
+                .arrow-col {{ width: 30px; text-align: center; color: orange; font-size: 24px; font-weight: bold; padding: 12px 0; }}
+                .btn-container {{ margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]}; }}
+                .btn {{
+                    display: inline-block;
+                    color: white;
+                    text-decoration: none;
+                    font-weight: bold;
+                    font-size: 12px;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    margin-right: 8px;
+                }}
+                .btn-invite {{ background-color: #0f4b18; }}
+                .btn-qr {{ background-color: #2e3c56; }}
+                a {{ text-decoration: none; color: inherit; }}
+
+                ::-webkit-scrollbar {{ width: 10px; }}
+                ::-webkit-scrollbar-track {{ background: transparent; }}
+                ::-webkit-scrollbar-thumb {{ background: {self.td["border_color"]}; border-radius: 5px; }}
+                ::-webkit-scrollbar-thumb:hover {{ background: gray; }}
+            </style>
+            """
+
             if not dados:
-                self.results_ready.emit("<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
+                self.results_ready.emit(f"{css}<div style='color: gray; padding: 10px;'>Nenhum resultado encontrado.</div>")
                 return
 
-            html = f"<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse;'>"
+            html_parts = [css, "<table>"]
             hoje = datetime.date.today()
 
             for vid, nome, cpf, horario in dados:
@@ -960,33 +1020,20 @@ class LocalSearchThread(QThread):
                     arrow_html = "➜"
                     if self.link_encontrado:
                         extra_btns_html = f"""
-                        <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
-                            <table cellpadding='0' cellspacing='0' border='0'>
-                                <tr>
-                                    <td bgcolor='#10b981' style='border: 1px solid #10b981; border-radius: 8px;'>
-                                        <a href='invite:{vid}' style='color: white; text-decoration: none; font-weight: bold; font-size: 12px;'>
-                                            <table cellpadding='8' cellspacing='0' border='0'><tr><td>Finalizar convite</td></tr></table>
-                                        </a>
-                                    </td>
-                                    <td width='10'>&nbsp;</td>
-                                    <td bgcolor='#2563eb' style='border: 1px solid #2563eb; border-radius: 8px;'>
-                                        <a href='qr:{vid}' style='color: white; text-decoration: none; font-weight: bold; font-size: 12px;'>
-                                            <table cellpadding='8' cellspacing='0' border='0'><tr><td>Gerar QR Code</td></tr></table>
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
+                        <div class='btn-container'>
+                            <a href='invite:{vid}' class='btn btn-invite'>Finalizar convite</a>
+                            <a href='qr:{vid}' class='btn btn-qr'>Gerar QR Code</a>
                         </div>
                         """
 
-                html += f"""
+                html_parts.append(f"""
                 <tr style='background-color: {self.td["card_bg"]};'>
-                    <td width="30" align="center" valign="middle" style="border: 1px solid {self.td["border_color"]}; color: orange; font-size: 24px; font-weight: bold; padding: 12px 0;">
+                    <td class="arrow-col">
                         {arrow_html}
                     </td>
-                    <td style="border: 1px solid {self.td["border_color"]}; padding: 12px;">
-                        <div style='color: {self.td["text_color"]}; font-size: 14px;'>
-                            <a href="{vid}" style="text-decoration: none; color: inherit;">
+                    <td>
+                        <div style='font-size: 14px;'>
+                            <a href="{vid}">
                                 <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
                                 <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
                                 <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
@@ -995,9 +1042,9 @@ class LocalSearchThread(QThread):
                         {extra_btns_html}
                     </td>
                 </tr>
-                """
-            html += "</table>"
-            self.results_ready.emit(html)
+                """)
+            html_parts.append("</table>")
+            self.results_ready.emit("".join(html_parts))
         except Exception as e:
             print(f"Erro na thread de busca local: {e}")
             self.results_ready.emit(f"<div style='color: red; padding: 10px;'>Erro na busca: {e}</div>")
@@ -2134,12 +2181,9 @@ class SmartPortariaScanner(QMainWindow):
         layout_busca.setSpacing(0)
         layout_busca.setContentsMargins(0, 10, 0, 0)
         
-        self.txt_res_busca = QTextBrowser()
-        self.txt_res_busca.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.txt_res_busca = ClickableWebEngineView()
+        self.txt_res_busca.page().setBackgroundColor(Qt.GlobalColor.transparent)
         self.txt_res_busca.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-        self.txt_res_busca.setOpenExternalLinks(False)
-        self.txt_res_busca.setOpenLinks(False)
-        self.txt_res_busca.document().setDocumentMargin(0)
         self.txt_res_busca.setObjectName("txt_res_busca")
         self.txt_res_busca.anchorClicked.connect(self.abrir_link_resultado)
         layout_busca.addWidget(self.txt_res_busca)
@@ -2913,13 +2957,8 @@ class SmartPortariaScanner(QMainWindow):
         if not self.db: return
 
         if not termo_db:
-            self.txt_res_busca.clear()
+            self.txt_res_busca.setHtml("")
             return
-
-        # Captura posição da barra de rolagem se for atualização silenciosa
-        scroll_pos = None
-        if silent:
-            scroll_pos = self.txt_res_busca.verticalScrollBar().value()
 
         # Cancela busca anterior se existir
         if self.local_search_thread:
@@ -2932,7 +2971,7 @@ class SmartPortariaScanner(QMainWindow):
 
         # Limpa resultados anteriores enquanto a nova busca processa
         if not silent:
-            self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px;'>🔍 Pesquisando...</div>")
+            self.txt_res_busca.setHtml("<div style='color: gray; padding: 10px; font-family: sans-serif;'>🔍 Pesquisando...</div>")
 
         current_theme = self.settings.value("theme")
         theme_data = {}
@@ -2972,11 +3011,6 @@ class SmartPortariaScanner(QMainWindow):
             return
 
         self.txt_res_busca.setHtml(html)
-        scroll_pos = getattr(thread, 'scroll_pos', None)
-        if scroll_pos is not None:
-            self.txt_res_busca.verticalScrollBar().setValue(scroll_pos)
-            # Garantia após renderização
-            QTimer.singleShot(0, lambda: self.txt_res_busca.verticalScrollBar().setValue(scroll_pos))
 
     def abrir_link_resultado(self, url_qurl):
         url_str = url_qurl.toString()
