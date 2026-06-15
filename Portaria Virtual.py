@@ -492,14 +492,18 @@ class ConfigDialog(QDialog):
         lay_db.addWidget(self.lbl_status)
 
         hbox_btns = QHBoxLayout()
-        self.btn_load = QPushButton("📂 Carregar Banco")
+        self.btn_load = QPushButton("Carregar")
         self.btn_load.clicked.connect(self.acao_carregar)
         
-        self.btn_new = QPushButton("✨ Criar Novo")
+        self.btn_new = QPushButton("Novo")
         self.btn_new.clicked.connect(self.acao_novo)
         
+        self.btn_export = QPushButton("Exportar")
+        self.btn_export.clicked.connect(self.acao_exportar)
+
         hbox_btns.addWidget(self.btn_load)
         hbox_btns.addWidget(self.btn_new)
+        hbox_btns.addWidget(self.btn_export)
         lay_db.addLayout(hbox_btns)
 
         self.btn_import_zk = QPushButton("📊 Importar Relatório ZK Bio (Excel)")
@@ -588,7 +592,7 @@ class ConfigDialog(QDialog):
             input_bg = "#2b2f31"
             btn_bg = "#333333"
             hover = "#4d4d4d"
-            c_load = "#3b82f6"; c_new = "#10b981"; c_import = "#475569"; c_save = "#2563eb"
+            c_load = "#3b82f6"; c_new = "#10b981"; c_export = "#8b5cf6"; c_import = "#475569"; c_save = "#2563eb"
         elif mode == "sepia":
             bg = "#1a120b"
             text = "#ffffff"
@@ -596,7 +600,7 @@ class ConfigDialog(QDialog):
             input_bg = "#000000"
             btn_bg = "#000000"
             hover = "#332211"
-            c_load = "#d9975d"; c_new = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
+            c_load = "#d9975d"; c_new = "#d9975d"; c_export = "#d9975d"; c_import = "#554433"; c_save = "#d9975d"
         else:
             bg = "#dcddd5"
             text = "#000000"
@@ -604,7 +608,7 @@ class ConfigDialog(QDialog):
             input_bg = "#cfd0c7"
             btn_bg = "#cfd0c7"
             hover = "#c2c3ba"
-            c_load = "#000000"; c_new = "#000000"; c_import = "#b2b3a8"; c_save = "#000000"
+            c_load = "#000000"; c_new = "#000000"; c_export = "#000000"; c_import = "#b2b3a8"; c_save = "#000000"
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
@@ -622,12 +626,14 @@ class ConfigDialog(QDialog):
         if mode == "light":
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: {bg}; {common}")
             self.btn_new.setStyleSheet(f"background-color: {bg}; color: {text}; border: 2px solid {border}; {common}")
+            self.btn_export.setStyleSheet(f"background-color: {c_export}; color: {bg}; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {input_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: {bg}; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
         else:
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: white; {common}")
             self.btn_new.setStyleSheet(f"background-color: {c_new}; color: white; {common}")
+            self.btn_export.setStyleSheet(f"background-color: {c_export}; color: white; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {c_import}; color: white; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: white; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {btn_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
@@ -651,6 +657,9 @@ class ConfigDialog(QDialog):
         self.parent_window.criar_novo_arquivo()
         self.lbl_status.setText(self.parent_window.lbl_status_db.text())
         self.update_status_label()
+
+    def acao_exportar(self):
+        self.parent_window.exportar_banco()
 
     def acao_importar_zk(self):
         self.accept()
@@ -1790,6 +1799,18 @@ class DatabaseHandler:
         self.criar_tabelas()
         self.migrar_dados_vazios()
 
+    def export_db(self, target_path):
+        with self.lock:
+            try:
+                dest = sqlite3.connect(target_path)
+                with dest:
+                    self.conn.backup(dest)
+                dest.close()
+                return True
+            except Exception as e:
+                print(f"Erro ao exportar banco: {e}")
+                return False
+
     def reprocessar_dados_existentes(self):
         with self.lock:
             self.cursor.execute("SELECT visita_id, conteudo FROM detalhes_visitas")
@@ -2391,6 +2412,27 @@ class SmartPortariaScanner(QMainWindow):
         else:
             self.txt_live.append("⚠️ Nenhum banco anterior encontrado. Configure nas opções.")
             # self.abrir_configuracoes() # Opcional: abrir auto
+
+    def exportar_banco(self):
+        if not self.db:
+            QMessageBox.warning(self, "Exportar Banco", "Não há nenhum banco de dados conectado.")
+            return
+
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+            filename = f"backup_portaria_{timestamp}.db"
+            target_path = os.path.join(downloads_path, filename)
+
+            if self.db.export_db(target_path):
+                self.txt_live.append(f"📦 Banco exportado com sucesso: {filename}")
+                QMessageBox.information(self, "Sucesso", f"Banco de dados exportado para a pasta Downloads:\n{filename}")
+            else:
+                self.txt_live.append("❌ Falha ao exportar banco.")
+                QMessageBox.critical(self, "Erro", "Falha ao exportar o banco de dados.")
+        except Exception as e:
+            self.txt_live.append(f"❌ Erro na exportação: {e}")
+            QMessageBox.critical(self, "Erro", f"Erro inesperado ao exportar: {e}")
 
     def conectar_banco(self, path):
         try:
