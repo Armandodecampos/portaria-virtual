@@ -980,12 +980,12 @@ class LocalSearchThread(QThread):
                     text-decoration: none;
                     font-weight: bold;
                     font-size: 12px;
-                    padding: 8px 16px;
+                    padding: 10px 20px;
                     border-radius: 8px;
                     margin-right: 8px;
                 }}
-                .btn-invite {{ background-color: #0f4b18; }}
-                .btn-qr {{ background-color: #2e3c56; }}
+                .btn-invite {{ background-color: #10b981 !important; }}
+                .btn-qr {{ background-color: #2563eb !important; }}
                 a {{ text-decoration: none; color: inherit; }}
 
                 ::-webkit-scrollbar {{ width: 10px; }}
@@ -1184,7 +1184,7 @@ class ExcelRecordsWidget(QWidget):
         self.theme = modo
         if modo == "dark":
             self.setStyleSheet(f"""
-                background-color: #202426; color: #ffffff;
+                QWidget {{ background-color: #202426; color: #ffffff; }}
                 QScrollBar:vertical {{ border: none; background: #2b2f31; width: 14px; margin: 18px 0 18px 0; }}
                 QScrollBar::handle:vertical {{ background: #4d4d4d; min-height: 20px; border-radius: 0px; }}
                 QScrollBar::add-line:vertical {{ background: #2b2f31; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
@@ -1199,7 +1199,7 @@ class ExcelRecordsWidget(QWidget):
             self.name_color = "#ffffff"
         elif modo == "sepia":
             self.setStyleSheet(f"""
-                background-color: #1a120b; color: #ffffff;
+                QWidget {{ background-color: #1a120b; color: #ffffff; }}
                 QScrollBar:vertical {{ border: none; background: #1a120b; width: 14px; margin: 18px 0 18px 0; }}
                 QScrollBar::handle:vertical {{ background: #554433; min-height: 20px; border-radius: 0px; }}
                 QScrollBar::add-line:vertical {{ background: #000000; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #554433; }}
@@ -1214,7 +1214,7 @@ class ExcelRecordsWidget(QWidget):
             self.name_color = "#ffffff"
         else:
             self.setStyleSheet(f"""
-                background-color: #dcddd5; color: #000000;
+                QWidget {{ background-color: #dcddd5; color: #000000; }}
                 QScrollBar:vertical {{ border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }}
                 QScrollBar::handle:vertical {{ background: #b2b3a8; min-height: 20px; border-radius: 0px; }}
                 QScrollBar::add-line:vertical {{ background: #dcddd5; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #b2b3a8; }}
@@ -3001,7 +3001,6 @@ class SmartPortariaScanner(QMainWindow):
             selected_id=selected_id,
             link_encontrado=self.link_convite_encontrado
         )
-        self.local_search_thread.scroll_pos = scroll_pos
         self.local_search_thread.results_ready.connect(self.on_local_search_finished)
         self.local_search_thread.start()
 
