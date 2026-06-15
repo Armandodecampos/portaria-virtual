@@ -961,8 +961,21 @@ class LocalSearchThread(QThread):
                     if self.link_encontrado:
                         extra_btns_html = f"""
                         <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
-                            <a href='invite:{vid}' style='background-color: #475569; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px; margin-right: 5px;'>Finalizar convite</a>
-                            <a href='qr:{vid}' style='background-color: #2563eb; color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;'>Gerar QR Code</a>
+                            <table cellpadding='0' cellspacing='0' border='0'>
+                                <tr>
+                                    <td bgcolor='#10b981' style='border-radius: 8px;'>
+                                        <a href='invite:{vid}' style='color: white; text-decoration: none; font-weight: bold; font-size: 12px;'>
+                                            <table cellpadding='8' cellspacing='0' border='0'><tr><td>Finalizar convite</td></tr></table>
+                                        </a>
+                                    </td>
+                                    <td width='10'>&nbsp;</td>
+                                    <td bgcolor='#2563eb' style='border-radius: 8px;'>
+                                        <a href='qr:{vid}' style='color: white; text-decoration: none; font-weight: bold; font-size: 12px;'>
+                                            <table cellpadding='8' cellspacing='0' border='0'><tr><td>Gerar QR Code</td></tr></table>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
                         """
 
