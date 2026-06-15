@@ -158,7 +158,7 @@ class TransferInstructionOverlay(QFrame):
             TransferInstructionOverlay {{
                 background-color: {bg};
                 border: 2px solid {border};
-                border-radius: 10px;
+                border-radius: 8px;
             }}
             QLabel {{ color: {text}; background: transparent; }}
             QPushButton#btn_close {{ color: {text}; background: transparent; border: none; font-weight: bold; }}
@@ -612,7 +612,7 @@ class ConfigDialog(QDialog):
 
         self.setStyleSheet(f"""
             QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
-            QGroupBox {{ font-weight: bold; border: 1px solid {border}; border-radius: 6px; margin-top: 12px; padding-top: 15px; color: {text}; background-color: {bg}; }}
+            QGroupBox {{ font-weight: bold; border: 1px solid {border}; border-radius: 8px; margin-top: 12px; padding-top: 15px; color: {text}; background-color: {bg}; }}
             QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; color: {text}; }}
             QLabel {{ color: {text}; background: transparent; }}
             QLineEdit {{ background-color: {input_bg}; color: {text}; border: 1px solid {border}; padding: 5px; border-radius: 4px; }}
@@ -963,13 +963,13 @@ class LocalSearchThread(QThread):
                         <div style='margin-top: 10px; padding-top: 10px; border-top: 1px solid {self.td["border_color"]};'>
                             <table cellpadding='0' cellspacing='0' border='0'>
                                 <tr>
-                                    <td bgcolor='#10b981' style='border-radius: 8px;'>
+                                    <td bgcolor='#10b981' style='border: 1px solid #10b981; border-radius: 8px;'>
                                         <a href='invite:{vid}' style='color: white; text-decoration: none; font-weight: bold; font-size: 12px;'>
                                             <table cellpadding='8' cellspacing='0' border='0'><tr><td>Finalizar convite</td></tr></table>
                                         </a>
                                     </td>
                                     <td width='10'>&nbsp;</td>
-                                    <td bgcolor='#2563eb' style='border-radius: 8px;'>
+                                    <td bgcolor='#2563eb' style='border: 1px solid #2563eb; border-radius: 8px;'>
                                         <a href='qr:{vid}' style='color: white; text-decoration: none; font-weight: bold; font-size: 12px;'>
                                             <table cellpadding='8' cellspacing='0' border='0'><tr><td>Gerar QR Code</td></tr></table>
                                         </a>
@@ -1204,7 +1204,7 @@ class ExcelRecordsWidget(QWidget):
                     color: white;
                     font-weight: bold;
                     padding: 10px 15px;
-                    border-radius: 5px;
+                    border-radius: 8px;
                 }}
                 QPushButton:hover {{ background-color: {self.card_border}; }}
             """)
@@ -1233,7 +1233,7 @@ class ExcelRecordsWidget(QWidget):
                 background-color: #475569;
                 color: white;
                 padding: 8px 12px;
-                border-radius: 5px;
+                border-radius: 8px;
                 text-align: left;
             }
         """)
@@ -2259,13 +2259,13 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #202426; color: #ffffff; }
                 QLineEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; border-radius: 4px; }
-                QGroupBox { border: 1px solid #4d4d4d; border-radius: 6px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
+                QGroupBox { border: 1px solid #4d4d4d; border-radius: 8px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #4d4d4d; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
-                QPushButton { background-color: #333333; color: white; border: 1px solid #4d4d4d; border-radius: 4px; padding: 6px; }
+                QPushButton { background-color: #333333; color: white; border: 1px solid #4d4d4d; border-radius: 8px; padding: 6px; }
                 QPushButton:hover { background-color: #4d4d4d; }
-                QTabBar::tab { background: #2b2f31; color: #9d9d9d; border: 1px solid #4d4d4d; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab { background: #2b2f31; color: #9d9d9d; border: 1px solid #4d4d4d; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #ffffff; color: #000000; border-color: #ffffff; }
                 QSplitter::handle { background-color: #4d4d4d; }
                 QScrollBar:vertical { border: none; background: #2b2f31; width: 14px; margin: 18px 0 18px 0; }
@@ -2277,10 +2277,10 @@ class SmartPortariaScanner(QMainWindow):
                 QTextEdit#txt_live { background: #2b2f31; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #4d4d4d; }
             """
             # Cores específicas de botões funcionais
-            btn_unlock_style = "background-color: #696969; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #333333; color: white; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #838383; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #696969; color: white; font-weight: bold; border-radius: 8px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #333333; color: white; padding: 8px; border-radius: 8px;"
+            btn_qr_style = "background-color: #838383; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
 
         elif modo == "sepia":
             # Estilo SEPIA (High Contrast Black & White)
@@ -2288,13 +2288,13 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #1a120b; color: #ffffff; }
                 QLineEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; }
-                QGroupBox { border: 1px solid #554433; border-radius: 6px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
+                QGroupBox { border: 1px solid #554433; border-radius: 8px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #554433; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
-                QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; padding: 6px; }
+                QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 8px; padding: 6px; }
                 QPushButton:hover { background-color: #332211; }
-                QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #d9975d; color: white; border-color: #d9975d; }
                 QSplitter::handle { background-color: #554433; }
                 QScrollBar:vertical { border: none; background: #1a120b; width: 14px; margin: 18px 0 18px 0; }
@@ -2306,10 +2306,10 @@ class SmartPortariaScanner(QMainWindow):
                 QTextEdit#txt_live { background: #000000; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #554433; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #d9975d; color: white; font-weight: bold; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #332211; color: white; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #c08b5c; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #d9975d; color: white; font-weight: bold; border-radius: 8px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #332211; color: white; padding: 8px; border-radius: 8px;"
+            btn_qr_style = "background-color: #c08b5c; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
 
         else:
             # Estilo CLARO (High Contrast B&W + Palette Grays)
@@ -2317,13 +2317,13 @@ class SmartPortariaScanner(QMainWindow):
                 QMainWindow, QWidget { background-color: #dcddd5; color: #000000; }
                 QLineEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 6px; border-radius: 4px; }
                 QTextEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 4px; }
-                QGroupBox { border: 1px solid #b2b3a8; border-radius: 6px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
+                QGroupBox { border: 1px solid #b2b3a8; border-radius: 8px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #b2b3a8; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #000000; }
-                QPushButton { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 4px; padding: 6px; }
+                QPushButton { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 8px; padding: 6px; }
                 QPushButton:hover { background-color: #c2c3ba; }
-                QTabBar::tab { background: #cfd0c7; color: #333333; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 4px; margin-right: 4px; }
+                QTabBar::tab { background: #cfd0c7; color: #333333; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #000000; color: #dcddd5; border-color: #000000; }
                 QSplitter::handle { background-color: #b2b3a8; }
                 QScrollBar:vertical { border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }
@@ -2335,10 +2335,10 @@ class SmartPortariaScanner(QMainWindow):
                 QTextEdit#txt_live { background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8; }
             """
             # Cores específicas
-            btn_unlock_style = "background-color: #dcddd5; color: #000000; font-weight: bold; border: 1px solid #b2b3a8; border-radius: 4px; padding: 5px 10px;"
-            btn_anon_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 4px;"
-            btn_qr_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 4px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 4px; font-weight: bold;"
+            btn_unlock_style = "background-color: #dcddd5; color: #000000; font-weight: bold; border: 1px solid #b2b3a8; border-radius: 8px; padding: 5px 10px;"
+            btn_anon_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 8px;"
+            btn_qr_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
             live_log_style = "background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8;"
 
         self.setStyleSheet(style)
@@ -2370,11 +2370,11 @@ class SmartPortariaScanner(QMainWindow):
             btn_hover_bg = "#c2c3ba"
 
         header_btn_style = f"""
-            QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 20px; }}
+            QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 8px; font-size: 20px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
         header_btn_text_style = f"""
-            QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 6px; font-size: 16px; padding: 0 10px; }}
+            QPushButton {{ background-color: {btn_conf_color}; color: {btn_text_color}; border: 1px solid {btn_conf_border}; border-radius: 8px; font-size: 16px; padding: 0 10px; }}
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
         self.overlay_transfer.apply_theme(modo)
