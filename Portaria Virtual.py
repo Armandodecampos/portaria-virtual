@@ -3201,7 +3201,12 @@ class SmartPortariaScanner(QMainWindow):
                         if view.url().toString() != target_url:
                             view.setUrl(QUrl(target_url))
                             # Espera carregar e extrai
-                            view.loadFinished.connect(lambda: QTimer.singleShot(1000, lambda: self.extrair_link_whatsapp(on_link_extracted)))
+                            def once_loaded(ok):
+                                try: view.loadFinished.disconnect(once_loaded)
+                                except: pass
+                                if ok:
+                                    QTimer.singleShot(1000, lambda: self.extrair_link_whatsapp(on_link_extracted))
+                            view.loadFinished.connect(once_loaded)
                             return
                         break
 
@@ -3239,7 +3244,12 @@ class SmartPortariaScanner(QMainWindow):
                         if view.url().toString() != target_url:
                             view.setUrl(QUrl(target_url))
                             # Espera carregar e extrai
-                            view.loadFinished.connect(lambda: QTimer.singleShot(1000, lambda: self.extrair_link_whatsapp(on_link_extracted)))
+                            def once_loaded_qr(ok):
+                                try: view.loadFinished.disconnect(once_loaded_qr)
+                                except: pass
+                                if ok:
+                                    QTimer.singleShot(1000, lambda: self.extrair_link_whatsapp(on_link_extracted))
+                            view.loadFinished.connect(once_loaded_qr)
                             return
                         break
 
