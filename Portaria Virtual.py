@@ -1187,11 +1187,12 @@ class ExcelRecordsWidget(QWidget):
         if modo == "dark":
             self.setStyleSheet(f"""
                 QWidget {{ background-color: #202426; color: #ffffff; }}
-                QScrollBar:vertical {{ border: none; background: #2b2f31; width: 14px; margin: 18px 0 18px 0; }}
-                QScrollBar::handle:vertical {{ background: #4d4d4d; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #2b2f31; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
-                QScrollBar::sub-line:vertical {{ background: #2b2f31; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #4d4d4d; }}
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: white; }}
+                QScrollBar:vertical {{ border: none; background: transparent; width: 10px; margin: 0px; }}
+                QScrollBar::handle:vertical {{ background: #4d4d4d; min-height: 20px; border-radius: 5px; }}
+                QScrollBar::handle:vertical:hover {{ background: gray; }}
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ background: none; border: none; height: 0px; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ background: none; border: none; }}
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
             """)
             self.card_bg = "transparent"
             self.card_border = "#4d4d4d"
@@ -1202,11 +1203,12 @@ class ExcelRecordsWidget(QWidget):
         elif modo == "sepia":
             self.setStyleSheet(f"""
                 QWidget {{ background-color: #1a120b; color: #ffffff; }}
-                QScrollBar:vertical {{ border: none; background: #1a120b; width: 14px; margin: 18px 0 18px 0; }}
-                QScrollBar::handle:vertical {{ background: #554433; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #000000; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #554433; }}
-                QScrollBar::sub-line:vertical {{ background: #000000; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #554433; }}
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: white; }}
+                QScrollBar:vertical {{ border: none; background: transparent; width: 10px; margin: 0px; }}
+                QScrollBar::handle:vertical {{ background: #554433; min-height: 20px; border-radius: 5px; }}
+                QScrollBar::handle:vertical:hover {{ background: gray; }}
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ background: none; border: none; height: 0px; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ background: none; border: none; }}
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
             """)
             self.card_bg = "transparent"
             self.card_border = "#554433"
@@ -1217,11 +1219,12 @@ class ExcelRecordsWidget(QWidget):
         else:
             self.setStyleSheet(f"""
                 QWidget {{ background-color: #dcddd5; color: #000000; }}
-                QScrollBar:vertical {{ border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }}
-                QScrollBar::handle:vertical {{ background: #b2b3a8; min-height: 20px; border-radius: 0px; }}
-                QScrollBar::add-line:vertical {{ background: #dcddd5; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #b2b3a8; }}
-                QScrollBar::sub-line:vertical {{ background: #dcddd5; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #b2b3a8; }}
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ width: 3px; height: 3px; background: #000000; }}
+                QScrollBar:vertical {{ border: none; background: transparent; width: 10px; margin: 0px; }}
+                QScrollBar::handle:vertical {{ background: #b2b3a8; min-height: 20px; border-radius: 5px; }}
+                QScrollBar::handle:vertical:hover {{ background: gray; }}
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ background: none; border: none; height: 0px; }}
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {{ background: none; border: none; }}
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
             """)
             self.card_bg = "transparent"
             self.card_border = "#b2b3a8"
@@ -2319,11 +2322,12 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab { background: #2b2f31; color: #9d9d9d; border: 1px solid #4d4d4d; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #ffffff; color: #000000; border-color: #ffffff; }
                 QSplitter::handle { background-color: #4d4d4d; }
-                QScrollBar:vertical { border: none; background: #2b2f31; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #4d4d4d; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #2b2f31; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #4d4d4d; }
-                QScrollBar::sub-line:vertical { background: #2b2f31; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #4d4d4d; }
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
+                QScrollBar:vertical { border: none; background: transparent; width: 10px; margin: 0px; }
+                QScrollBar::handle:vertical { background: #4d4d4d; min-height: 20px; border-radius: 5px; }
+                QScrollBar::handle:vertical:hover { background: gray; }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { background: none; border: none; height: 0px; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { background: none; border: none; }
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
                 QTextEdit#txt_live { background: #2b2f31; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #4d4d4d; }
             """
@@ -2348,11 +2352,12 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #d9975d; color: white; border-color: #d9975d; }
                 QSplitter::handle { background-color: #554433; }
-                QScrollBar:vertical { border: none; background: #1a120b; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #554433; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #000000; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #554433; }
-                QScrollBar::sub-line:vertical { background: #000000; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #554433; }
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: white; }
+                QScrollBar:vertical { border: none; background: transparent; width: 10px; margin: 0px; }
+                QScrollBar::handle:vertical { background: #554433; min-height: 20px; border-radius: 5px; }
+                QScrollBar::handle:vertical:hover { background: gray; }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { background: none; border: none; height: 0px; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { background: none; border: none; }
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
                 QTextEdit#txt_live { background: #000000; color: #ffffff; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #554433; }
             """
@@ -2377,11 +2382,12 @@ class SmartPortariaScanner(QMainWindow):
                 QTabBar::tab { background: #cfd0c7; color: #333333; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #000000; color: #dcddd5; border-color: #000000; }
                 QSplitter::handle { background-color: #b2b3a8; }
-                QScrollBar:vertical { border: none; background: #cfd0c7; width: 14px; margin: 18px 0 18px 0; }
-                QScrollBar::handle:vertical { background: #b2b3a8; min-height: 20px; border-radius: 0px; }
-                QScrollBar::add-line:vertical { background: #dcddd5; height: 18px; subcontrol-position: bottom; subcontrol-origin: margin; border: 1px solid #b2b3a8; }
-                QScrollBar::sub-line:vertical { background: #dcddd5; height: 18px; subcontrol-position: top; subcontrol-origin: margin; border: 1px solid #b2b3a8; }
-                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { width: 3px; height: 3px; background: #000000; }
+                QScrollBar:vertical { border: none; background: transparent; width: 10px; margin: 0px; }
+                QScrollBar::handle:vertical { background: #b2b3a8; min-height: 20px; border-radius: 5px; }
+                QScrollBar::handle:vertical:hover { background: gray; }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { background: none; border: none; height: 0px; }
+                QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical { background: none; border: none; }
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
                 QTextBrowser#txt_res_busca { border: none; background: transparent; margin: 0; padding: 0; }
                 QTextEdit#txt_live { background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8; }
             """
