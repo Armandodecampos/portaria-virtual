@@ -945,7 +945,7 @@ class SearchThread(QThread):
 class LocalSearchThread(QThread):
     results_ready = pyqtSignal(str)
 
-    def __init__(self, db, termos, theme_data, selected_id=None, link_encontrado=True, silent=False):
+    def __init__(self, db, termos, theme_data, selected_id=None, link_encontrado=False, silent=False):
         super().__init__()
         self.db = db
         self.termos = termos
@@ -2075,7 +2075,7 @@ class SmartPortariaScanner(QMainWindow):
         self.last_qr_result = None
 
         self.active_toast = None
-        self.link_convite_encontrado = True
+        self.link_convite_encontrado = False
 
     def setup_ui(self):
         self.central = QWidget()
@@ -3093,7 +3093,7 @@ class SmartPortariaScanner(QMainWindow):
             clean_id = re.sub(r'\D', '', visita_id) if visita_id.isdigit() or "/" not in visita_id else visita_id
 
             self.input_transfer_id.setText(clean_id)
-            self.link_convite_encontrado = True # Reseta ao trocar de ID
+            self.link_convite_encontrado = False # Reseta ao trocar de ID
 
             # Refresh silencioso em segundo plano
             QTimer.singleShot(50, lambda: self.executar_busca_local(silent=True))
