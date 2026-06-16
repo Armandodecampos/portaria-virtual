@@ -27,7 +27,7 @@ try:
         QListWidget, QListWidgetItem, QColorDialog
     )
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor
-    from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
+    from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices, QMediaPlayer, QAudioOutput
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
     import qrcode
@@ -2044,6 +2044,17 @@ class SmartPortariaScanner(QMainWindow):
         # Janela de pesquisa integrada (deve ser criada antes do setup_ui para ser adicionada ao layout)
         self.container_pesquisa_zk = ExcelRecordsWidget(self)
 
+        # Inicialização de Áudio
+        self.player_open = QMediaPlayer()
+        self.audio_output_open = QAudioOutput()
+        self.player_open.setAudioOutput(self.audio_output_open)
+        self.player_open.setSource(QUrl("https://dl.dropbox.com/scl/fi/yjb97af868w3ge9sjeowr/porta-abre.mp3?rlkey=zb51lodk583gmto3iklt0t9tf&st=a03mgapm&dl=1"))
+
+        self.player_close = QMediaPlayer()
+        self.audio_output_close = QAudioOutput()
+        self.player_close.setAudioOutput(self.audio_output_close)
+        self.player_close.setSource(QUrl("https://dl.dropbox.com/scl/fi/2ao06e3otbges6ls4rwih/porta-fecha.mp3?rlkey=9ntzo034ol0fj7eqr6hjxx0yz&st=l3dt7o22&dl=1"))
+
         self.setup_ui()
         self.configurar_navegadores()
 
@@ -2123,6 +2134,16 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_unlock.setFixedSize(38, 38)
         self.btn_unlock.clicked.connect(self.executar_desbloqueio)
 
+        self.btn_abrir_pj = QPushButton("🚪🔓")
+        self.btn_abrir_pj.setToolTip("Abrir Portas e Janelas")
+        self.btn_abrir_pj.setFixedSize(38, 38)
+        self.btn_abrir_pj.clicked.connect(self.play_sound_open)
+
+        self.btn_fechar_pj = QPushButton("🚪🔒")
+        self.btn_fechar_pj.setToolTip("Fechar Portas e Janelas")
+        self.btn_fechar_pj.setFixedSize(38, 38)
+        self.btn_fechar_pj.clicked.connect(self.play_sound_close)
+
         self.btn_transferir = QPushButton("🚀")
         self.btn_transferir.setToolTip("Transferir")
         self.btn_transferir.setFixedSize(38, 38)
@@ -2145,6 +2166,8 @@ class SmartPortariaScanner(QMainWindow):
         header_layout.addWidget(self.btn_transferir)
         header_layout.addWidget(self.btn_download_img)
         header_layout.addWidget(self.btn_unlock)
+        header_layout.addWidget(self.btn_abrir_pj)
+        header_layout.addWidget(self.btn_fechar_pj)
         header_layout.addWidget(self.input_transfer_id)
         self.input_transfer_id.hide()
         header_layout.addStretch()
@@ -2449,6 +2472,8 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_instrucao.setStyleSheet(header_btn_style)
         self.btn_abrir_camera.setStyleSheet(header_btn_style)
         self.btn_unlock.setStyleSheet(header_btn_style)
+        self.btn_abrir_pj.setStyleSheet(header_btn_style)
+        self.btn_fechar_pj.setStyleSheet(header_btn_style)
         self.btn_transferir.setStyleSheet(header_btn_style)
         self.btn_download_img.setStyleSheet(header_btn_style)
         self.btn_back.setStyleSheet(header_btn_style)
@@ -2581,6 +2606,7 @@ class SmartPortariaScanner(QMainWindow):
         })();
         """
         view.page().runJavaScript(js_hack)
+        self.play_sound_open()
 
     def ir_para_url(self):
         url_texto = self.address_bar.text().strip()
@@ -3480,6 +3506,20 @@ class SmartPortariaScanner(QMainWindow):
 
     def eventFilter(self, obj, event):
         return super().eventFilter(obj, event)
+
+    def play_sound_open(self):
+        """Reproduz o som de abertura"""
+        if self.player_open:
+            self.player_open.stop()
+            self.player_open.play()
+            self.txt_live.append("🔊 Som: Abrindo portas e janelas")
+
+    def play_sound_close(self):
+        """Reproduz o som de fechamento"""
+        if self.player_close:
+            self.player_close.stop()
+            self.player_close.play()
+            self.txt_live.append("🔊 Som: Fechando portas e janelas")
 
     def closeEvent(self, event):
         if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
