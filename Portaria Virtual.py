@@ -2013,6 +2013,99 @@ class DatabaseHandler:
 
         return clean_nome, cpf, horario
 
+class SearchPageWidget(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.setFixedWidth(350)
+        self.setFixedHeight(50)
+
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(10, 5, 10, 5)
+        self.layout.setSpacing(5)
+
+        self.input_search = QLineEdit()
+        self.input_search.setPlaceholderText("Pesquisar na página...")
+
+        self.btn_prev = QPushButton("🔼")
+        self.btn_prev.setFixedSize(30, 30)
+        self.btn_prev.setToolTip("Anterior")
+
+        self.btn_next = QPushButton("🔽")
+        self.btn_next.setFixedSize(30, 30)
+        self.btn_next.setToolTip("Próximo")
+
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setFixedSize(30, 30)
+        self.btn_close.setToolTip("Fechar")
+
+        self.layout.addWidget(self.input_search)
+        self.layout.addWidget(self.btn_prev)
+        self.layout.addWidget(self.btn_next)
+        self.layout.addWidget(self.btn_close)
+
+        self.btn_next.clicked.connect(self.find_next)
+        self.btn_prev.clicked.connect(self.find_prev)
+        self.btn_close.clicked.connect(self.hide)
+        self.input_search.returnPressed.connect(self.find_next)
+
+        self.hide()
+
+    def find_next(self):
+        text = self.input_search.text()
+        if text:
+            view = self.parent_window.web_stack.currentWidget()
+            if view:
+                view.findText(text)
+
+    def find_prev(self):
+        text = self.input_search.text()
+        if text:
+            view = self.parent_window.web_stack.currentWidget()
+            if view:
+                view.findText(text, QWebEnginePage.FindFlag.FindBackward)
+
+    def apply_theme(self, mode):
+        if mode == "dark":
+            bg = "#202426"
+            text = "#ffffff"
+            border = "#4d4d4d"
+            input_bg = "#2b2f31"
+        elif mode == "sepia":
+            bg = "#1a120b"
+            text = "#ffffff"
+            border = "#554433"
+            input_bg = "#000000"
+        else:
+            bg = "#dcddd5"
+            text = "#000000"
+            border = "#b2b3a8"
+            input_bg = "#cfd0c7"
+
+        self.setStyleSheet(f"""
+            SearchPageWidget {{
+                background-color: {bg};
+                border: 2px solid {border};
+                border-radius: 8px;
+            }}
+            QLineEdit {{
+                background-color: {input_bg};
+                color: {text};
+                border: 1px solid {border};
+                border-radius: 4px;
+                padding: 2px 5px;
+            }}
+            QPushButton {{
+                background-color: {input_bg};
+                color: {text};
+                border: 1px solid {border};
+                border-radius: 4px;
+            }}
+            QPushButton:hover {{
+                background-color: {border};
+            }}
+        """)
+
 class SmartPortariaScanner(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -2043,6 +2136,9 @@ class SmartPortariaScanner(QMainWindow):
 
         # Janela de pesquisa integrada (deve ser criada antes do setup_ui para ser adicionada ao layout)
         self.container_pesquisa_zk = ExcelRecordsWidget(self)
+
+        # Widget de pesquisa na página (deve ser criado antes do setup_ui ou logo após se não for parte do layout fixo)
+        self.search_page_widget = SearchPageWidget(self)
 
         self.setup_ui()
         self.configurar_navegadores()
@@ -2260,6 +2356,13 @@ class SmartPortariaScanner(QMainWindow):
         toolbar.addWidget(self.btn_home)
         toolbar.addWidget(self.address_bar)
         toolbar.addWidget(self.tabs)
+
+        self.btn_search_page = QPushButton("🔍")
+        self.btn_search_page.setToolTip("Pesquisar na página")
+        self.btn_search_page.setFixedSize(38, 38)
+        self.btn_search_page.clicked.connect(self.toggle_search_page)
+        toolbar.addWidget(self.btn_search_page)
+
         layout_web.addLayout(toolbar)
 
         # Stack para navegação e pesquisa
@@ -2276,6 +2379,7 @@ class SmartPortariaScanner(QMainWindow):
 
         # Re-parent overlay para o container e posiciona
         self.overlay_transfer.setParent(self.container_stack_overlay)
+        self.search_page_widget.setParent(self.container_stack_overlay)
 
         layout_web.addWidget(self.container_stack_overlay, 1)
 
@@ -2456,9 +2560,11 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_reload.setStyleSheet(header_btn_style)
         self.btn_home.setStyleSheet(header_btn_text_style)
         self.btn_toggle_log.setStyleSheet(header_btn_style)
+        self.btn_search_page.setStyleSheet(header_btn_style)
 
-        # Propaga o tema para o container ZK
+        # Propaga o tema para os containers
         self.container_pesquisa_zk.aplicar_tema(modo)
+        self.search_page_widget.apply_theme(modo)
 
     # === MÉTODOS DE CONTROLE DO BANCO DE DADOS ===
     def abrir_configuracoes(self):
@@ -2567,8 +2673,10 @@ class SmartPortariaScanner(QMainWindow):
     def executar_desbloqueio(self):
         view = self.web_stack.currentWidget()
         if not view: return
+        self.txt_live.append("🔓 Aplicando desbloqueio de elementos e seleção...")
         js_hack = """
         (function() {
+            // 1. Desbloqueia botões e inputs desabilitados
             var disabledEls = document.querySelectorAll('*[disabled], .disabled, .blocked, .locked, [aria-disabled="true"]');
             disabledEls.forEach(el => {
                 el.removeAttribute('disabled');
@@ -2578,6 +2686,31 @@ class SmartPortariaScanner(QMainWindow):
                 el.style.opacity = '1';
                 el.style.cursor = 'pointer';
             });
+
+            // 2. Habilita seleção de texto e menus de contexto
+            var style = document.createElement('style');
+            style.innerHTML = `
+                * {
+                    -webkit-user-select: text !important;
+                    -moz-user-select: text !important;
+                    -ms-user-select: text !important;
+                    user-select: text !important;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Remove listeners que bloqueiam seleção e clique direito
+            var events = ['contextmenu', 'copy', 'cut', 'paste', 'mousedown', 'mouseup', 'selectstart'];
+            events.forEach(function(event) {
+                document.addEventListener(event, function(e) {
+                    e.stopPropagation();
+                }, true);
+            });
+
+            // Reseta propriedades via JS caso o CSS não baste
+            document.oncontextmenu = null;
+            document.onselectstart = null;
+            document.onmousedown = null;
         })();
         """
         view.page().runJavaScript(js_hack)
@@ -3460,17 +3593,34 @@ class SmartPortariaScanner(QMainWindow):
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
     def posicionar_overlay(self):
-        """Helper para posicionar o overlay no canto superior direito"""
-        if hasattr(self, 'overlay_transfer') and hasattr(self, 'container_stack_overlay'):
-            self.overlay_transfer.move(
-                self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
-                20
-            )
+        """Helper para posicionar os overlays no canto superior direito"""
+        if hasattr(self, 'container_stack_overlay'):
+            # Posicionamento do overlay de instrução (centro superior)
+            if hasattr(self, 'overlay_transfer'):
+                self.overlay_transfer.move(
+                    self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
+                    20
+                )
+            # Posicionamento da barra de pesquisa na página (abaixo do botão de lupa)
+            if hasattr(self, 'search_page_widget'):
+                self.search_page_widget.move(
+                    self.container_stack_overlay.width() - self.search_page_widget.width() - 5,
+                    5
+                )
 
     def toggle_log_panel(self):
         """Alterna a visibilidade do painel de log direito"""
         if hasattr(self, 'panel_log_right'):
             self.panel_log_right.setVisible(not self.panel_log_right.isVisible())
+
+    def toggle_search_page(self):
+        """Exibe/Oculta a janela de pesquisa na página"""
+        if self.search_page_widget.isVisible():
+            self.search_page_widget.hide()
+        else:
+            self.search_page_widget.show()
+            self.posicionar_overlay()
+            self.search_page_widget.input_search.setFocus()
 
     def resizeEvent(self, event):
         # Posiciona o overlay de transferência no canto superior direito
