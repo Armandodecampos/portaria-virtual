@@ -29,7 +29,7 @@ try:
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
-    from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile, QWebEngineScript
+    from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
     import qrcode
     import openpyxl
     import xlrd
@@ -2690,7 +2690,6 @@ class SmartPortariaScanner(QMainWindow):
         view = self.web_stack.currentWidget()
         if not view: return
         self.txt_live.append("🔓 Aplicando desbloqueio de elementos e seleção...")
-
         js_hack = """
         (function() {
             // 1. Desbloqueia botões e inputs desabilitados
@@ -2704,9 +2703,8 @@ class SmartPortariaScanner(QMainWindow):
                 el.style.cursor = 'pointer';
             });
 
-            // 2. Habilita seleção de texto e menus de contexto
+            // 2. Habilita seleção de texto, menus de contexto e garante visibilidade de checkboxes
             var style = document.createElement('style');
-            style.id = 'desbloqueio-selecao-style';
             style.innerHTML = `
                 * {
                     -webkit-user-select: text !important;
@@ -2714,10 +2712,21 @@ class SmartPortariaScanner(QMainWindow):
                     -ms-user-select: text !important;
                     user-select: text !important;
                 }
+                input[type="checkbox"], input[type="radio"] {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    display: inline-block !important;
+                    width: 16px !important;
+                    height: 16px !important;
+                    -webkit-appearance: checkbox !important;
+                    appearance: checkbox !important;
+                }
+                input[type="radio"] {
+                    -webkit-appearance: radio !important;
+                    appearance: radio !important;
+                }
             `;
-            if (!document.getElementById('desbloqueio-selecao-style')) {
-                document.head.appendChild(style);
-            }
+            document.head.appendChild(style);
 
             // Remove listeners que bloqueiam seleção e clique direito
             var events = ['contextmenu', 'copy', 'cut', 'paste', 'mousedown', 'mouseup', 'selectstart'];
@@ -2797,81 +2806,8 @@ class SmartPortariaScanner(QMainWindow):
             self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
     def configurar_navegadores(self):
-        """Configura scripts globais para injetar correções em todas as páginas"""
-        script = QWebEngineScript()
-        js_code = """
-        (function() {
-            var styleId = 'fix-checkbox-visibility-style';
-            function applyFix() {
-                if (!document.head || !document.body) return;
-                var existingStyle = document.getElementById(styleId);
-                if (!existingStyle) {
-                    var style = document.createElement('style');
-                    style.id = styleId;
-                    style.innerHTML = `
-                        input[type="checkbox"], input[type="radio"] {
-                            -webkit-appearance: none !important;
-                            appearance: none !important;
-                            opacity: 1 !important;
-                            visibility: visible !important;
-                            display: inline-block !important;
-                            width: 22px !important;
-                            height: 22px !important;
-                            min-width: 22px !important;
-                            min-height: 22px !important;
-                            position: relative !important;
-                            z-index: 2147483647 !important;
-                            border: 2px solid #2563eb !important;
-                            background-color: white !important;
-                            margin: 5px !important;
-                            cursor: pointer !important;
-                            pointer-events: auto !important;
-                            box-sizing: border-box !important;
-                            left: auto !important;
-                            top: auto !important;
-                        }
-                        input[type="checkbox"]:checked {
-                            background-color: #2563eb !important;
-                            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") !important;
-                            background-size: 80% !important;
-                            background-position: center !important;
-                            background-repeat: no-repeat !important;
-                        }
-                        input[type="radio"] {
-                            border-radius: 50% !important;
-                        }
-                        input[type="radio"]:checked {
-                            background-color: #2563eb !important;
-                            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3C/svg%3E") !important;
-                            background-size: 60% !important;
-                            background-position: center !important;
-                            background-repeat: no-repeat !important;
-                        }
-                    `;
-                    document.head.appendChild(style);
-                }
-
-                var inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-                inputs.forEach(el => {
-                    el.style.setProperty('opacity', '1', 'important');
-                    el.style.setProperty('visibility', 'visible', 'important');
-                    el.style.setProperty('display', 'inline-block', 'important');
-                    el.style.setProperty('pointer-events', 'auto', 'important');
-                });
-            }
-
-            setInterval(applyFix, 1000);
-            applyFix();
-        })();
-        """
-        script.setSourceCode(js_code)
-        script.setName("FixCheckboxes")
-        script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentReady)
-        script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
-        script.setRunsOnSubFrames(True)
-
-        QWebEngineProfile.defaultProfile().scripts().insert(script)
-        self.profile_anonimo.scripts().insert(script)
+        # Configurações globais se necessário
+        pass
 
     def carregar_ultimo_id(self):
         if not self.db: return
