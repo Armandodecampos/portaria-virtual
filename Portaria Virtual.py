@@ -653,7 +653,7 @@ class ConfigDialog(QDialog):
             QRadioButton, QCheckBox {{ color: {text}; background: transparent; }}
             QRadioButton::indicator, QCheckBox::indicator {{ width: 18px; height: 18px; border: 1px solid {border}; border-radius: 9px; background-color: {input_bg}; }}
             QCheckBox::indicator {{ border-radius: 4px; }}
-            QRadioButton::indicator:checked, QCheckBox::indicator:checked {{ background-color: {check_bg}; border-color: {check_bg}; image: url({checkmark_svg}); }}
+            QRadioButton::indicator:checked, QCheckBox::indicator:checked {{ background-color: {check_bg}; border-color: {check_bg}; image: url('{checkmark_svg}'); }}
             QPushButton {{ background-color: {btn_bg}; color: {text}; border: 1px solid {border}; padding: 8px; border-radius: 4px; }}
             QPushButton:hover {{ background-color: {hover}; }}
         """)
@@ -1033,7 +1033,13 @@ class LocalSearchThread(QThread):
                 extra_btns_html = ""
                 if self.selected_id and str(vid) == str(self.selected_id):
                     arrow_html = "➜"
-                    if self.link_encontrado:
+                    if self.link_encontrado == "loading":
+                        extra_btns_html = f"""
+                        <div class='btn-container'>
+                            <span style='color: orange; font-size: 12px; font-weight: bold;'>⏳ Aguarde... verificando link</span>
+                        </div>
+                        """
+                    elif self.link_encontrado:
                         extra_btns_html = f"""
                         <div class='btn-container'>
                             <a href='app://invite/{vid}' class='btn btn-invite'>Finalizar convite</a>
@@ -1219,7 +1225,7 @@ class ExcelRecordsWidget(QWidget):
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
             QCheckBox {{ background: transparent; color: {text}; }}
             QCheckBox::indicator {{ width: 18px; height: 18px; border: 1px solid {border}; border-radius: 4px; background-color: {input_bg}; }}
-            QCheckBox::indicator:checked {{ background-color: {check_bg}; border-color: {check_bg}; image: url({checkmark_svg}); }}
+            QCheckBox::indicator:checked {{ background-color: {check_bg}; border-color: {check_bg}; image: url('{checkmark_svg}'); }}
         """)
         self.card_bg = "transparent"
         self.card_border = border
@@ -2425,7 +2431,7 @@ class SmartPortariaScanner(QMainWindow):
                 QPushButton { background-color: #333333; color: white; border: 1px solid #4d4d4d; border-radius: 8px; padding: 6px; }
                 QPushButton:hover { background-color: #4d4d4d; }
                 QCheckBox::indicator, QRadioButton::indicator { width: 18px; height: 18px; border: 1px solid #4d4d4d; border-radius: 4px; background-color: #2b2f31; }
-                QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: #ffffff; border-color: #ffffff; image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMyMDI0MjYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIyMCA2IDkgMTcgNCAxMiI+PC9wb2x5bGluZT48L3N2Zz4=); }
+                QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: #ffffff; border-color: #ffffff; image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMyMDI0MjYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIyMCA2IDkgMTcgNCAxMiI+PC9wb2x5bGluZT48L3N2Zz4='); }
                 QRadioButton::indicator { border-radius: 9px; }
                 QTabBar::tab { background: #2b2f31; color: #9d9d9d; border: 1px solid #4d4d4d; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #ffffff; color: #000000; border-color: #ffffff; }
@@ -2458,7 +2464,7 @@ class SmartPortariaScanner(QMainWindow):
                 QPushButton { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 8px; padding: 6px; }
                 QPushButton:hover { background-color: #332211; }
                 QCheckBox::indicator, QRadioButton::indicator { width: 18px; height: 18px; border: 1px solid #554433; border-radius: 4px; background-color: #000000; }
-                QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: #d9975d; border-color: #d9975d; image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjAgNiA5IDE3IDQgMTIiPjwvcG9seWxpbmU+PC9zdmc+); }
+                QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: #d9975d; border-color: #d9975d; image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjAgNiA5IDE3IDQgMTIiPjwvcG9seWxpbmU+PC9zdmc+'); }
                 QRadioButton::indicator { border-radius: 9px; }
                 QTabBar::tab { background: #000000; color: #d4c3a1; border: 1px solid #554433; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #d9975d; color: white; border-color: #d9975d; }
@@ -2491,7 +2497,7 @@ class SmartPortariaScanner(QMainWindow):
                 QPushButton { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 8px; padding: 6px; }
                 QPushButton:hover { background-color: #c2c3ba; }
                 QCheckBox::indicator, QRadioButton::indicator { width: 18px; height: 18px; border: 1px solid #b2b3a8; border-radius: 4px; background-color: #cfd0c7; }
-                QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: #000000; border-color: #000000; image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNkY2RkZDUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIyMCA2IDkgMTcgNCAxMiI+PC9wb2x5bGluZT48L3N2Zz4=); }
+                QCheckBox::indicator:checked, QRadioButton::indicator:checked { background-color: #000000; border-color: #000000; image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNkY2RkZDUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIyMCA2IDkgMTcgNCAxMiI+PC9wb2x5bGluZT48L3N2Zz4='); }
                 QRadioButton::indicator { border-radius: 9px; }
                 QTabBar::tab { background: #cfd0c7; color: #333333; border: 1px solid #b2b3a8; padding: 8px 30px 8px 12px; border-radius: 8px; margin-right: 4px; }
                 QTabBar::tab:selected { background: #000000; color: #dcddd5; border-color: #000000; }
@@ -2697,7 +2703,7 @@ class SmartPortariaScanner(QMainWindow):
                 el.style.cursor = 'pointer';
             });
 
-            // 2. Habilita seleção de texto e menus de contexto
+            // 2. Habilita seleção de texto, menus de contexto e garante visibilidade de checkboxes
             var style = document.createElement('style');
             style.innerHTML = `
                 * {
@@ -2705,6 +2711,19 @@ class SmartPortariaScanner(QMainWindow):
                     -moz-user-select: text !important;
                     -ms-user-select: text !important;
                     user-select: text !important;
+                }
+                input[type="checkbox"], input[type="radio"] {
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    display: inline-block !important;
+                    width: 16px !important;
+                    height: 16px !important;
+                    -webkit-appearance: checkbox !important;
+                    appearance: checkbox !important;
+                }
+                input[type="radio"] {
+                    -webkit-appearance: radio !important;
+                    appearance: radio !important;
                 }
             `;
             document.head.appendChild(style);
@@ -3242,7 +3261,7 @@ class SmartPortariaScanner(QMainWindow):
             clean_id = re.sub(r'\D', '', visita_id) if visita_id.isdigit() or "/" not in visita_id else visita_id
 
             self.input_transfer_id.setText(clean_id)
-            self.link_convite_encontrado = False # Reseta ao trocar de ID
+            self.link_convite_encontrado = "loading" # Reseta para loading ao trocar de ID
 
             # Refresh silencioso em segundo plano
             QTimer.singleShot(50, lambda: self.executar_busca_local(silent=True))
