@@ -2673,8 +2673,10 @@ class SmartPortariaScanner(QMainWindow):
     def executar_desbloqueio(self):
         view = self.web_stack.currentWidget()
         if not view: return
+        self.txt_live.append("🔓 Aplicando desbloqueio de elementos e seleção...")
         js_hack = """
         (function() {
+            // 1. Desbloqueia botões e inputs desabilitados
             var disabledEls = document.querySelectorAll('*[disabled], .disabled, .blocked, .locked, [aria-disabled="true"]');
             disabledEls.forEach(el => {
                 el.removeAttribute('disabled');
@@ -2684,6 +2686,31 @@ class SmartPortariaScanner(QMainWindow):
                 el.style.opacity = '1';
                 el.style.cursor = 'pointer';
             });
+
+            // 2. Habilita seleção de texto e menus de contexto
+            var style = document.createElement('style');
+            style.innerHTML = `
+                * {
+                    -webkit-user-select: text !important;
+                    -moz-user-select: text !important;
+                    -ms-user-select: text !important;
+                    user-select: text !important;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Remove listeners que bloqueiam seleção e clique direito
+            var events = ['contextmenu', 'copy', 'cut', 'paste', 'mousedown', 'mouseup', 'selectstart'];
+            events.forEach(function(event) {
+                document.addEventListener(event, function(e) {
+                    e.stopPropagation();
+                }, true);
+            });
+
+            // Reseta propriedades via JS caso o CSS não baste
+            document.oncontextmenu = null;
+            document.onselectstart = null;
+            document.onmousedown = null;
         })();
         """
         view.page().runJavaScript(js_hack)
