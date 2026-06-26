@@ -2690,6 +2690,10 @@ class SmartPortariaScanner(QMainWindow):
         view = self.web_stack.currentWidget()
         if not view: return
         self.txt_live.append("🔓 Aplicando desbloqueio de elementos e seleção...")
+
+        # Garante visibilidade dos checkboxes de forma otimizada
+        self.garantir_visibilidade_checkboxes(view)
+
         js_hack = """
         (function() {
             // 1. Desbloqueia botões e inputs desabilitados
@@ -2703,7 +2707,7 @@ class SmartPortariaScanner(QMainWindow):
                 el.style.cursor = 'pointer';
             });
 
-            // 2. Habilita seleção de texto, menus de contexto e garante visibilidade de checkboxes
+            // 2. Habilita seleção de texto e menus de contexto
             var style = document.createElement('style');
             style.innerHTML = `
                 * {
@@ -2711,19 +2715,6 @@ class SmartPortariaScanner(QMainWindow):
                     -moz-user-select: text !important;
                     -ms-user-select: text !important;
                     user-select: text !important;
-                }
-                input[type="checkbox"], input[type="radio"] {
-                    opacity: 1 !important;
-                    visibility: visible !important;
-                    display: inline-block !important;
-                    width: 16px !important;
-                    height: 16px !important;
-                    -webkit-appearance: checkbox !important;
-                    appearance: checkbox !important;
-                }
-                input[type="radio"] {
-                    -webkit-appearance: radio !important;
-                    appearance: radio !important;
                 }
             `;
             document.head.appendChild(style);
@@ -3046,8 +3037,48 @@ class SmartPortariaScanner(QMainWindow):
 
         view_zk.page().runJavaScript(js_fill, handle_fill)
 
+    def garantir_visibilidade_checkboxes(self, view=None):
+        if not view:
+            view = self.web_stack.currentWidget()
+        if not view: return
+
+        js_hack = """
+        (function() {
+            function applyFix() {
+                var inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+                inputs.forEach(function(input) {
+                    var style = window.getComputedStyle(input);
+                    // Se o checkbox está escondido, vamos torná-lo minimamente visível para interação
+                    // mas sem forçar a aparência nativa completa que causa duplicação visual
+                    if (style.opacity === '0' || style.visibility === 'hidden' || style.display === 'none') {
+                        input.style.setProperty('display', 'inline-block', 'important');
+                        input.style.setProperty('visibility', 'visible', 'important');
+                        input.style.setProperty('opacity', '0.15', 'important');
+                        input.style.setProperty('position', 'relative', 'important');
+                        input.style.setProperty('z-index', '9999', 'important');
+                    }
+                    input.style.setProperty('accent-color', '#2563eb', 'important');
+                });
+            }
+
+            applyFix();
+
+            if (!window._checkboxObserver) {
+                window._checkboxObserver = new MutationObserver(function(mutations) {
+                    applyFix();
+                });
+                window._checkboxObserver.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        })();
+        """
+        view.page().runJavaScript(js_hack)
+
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
+        self.garantir_visibilidade_checkboxes(view)
 
         url_str = view.url().toString()
 
