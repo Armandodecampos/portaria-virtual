@@ -2691,8 +2691,8 @@ class SmartPortariaScanner(QMainWindow):
         if not view: return
         self.txt_live.append("🔓 Aplicando desbloqueio de elementos e seleção...")
 
-        # Garante visibilidade dos checkboxes de forma otimizada
-        self.garantir_visibilidade_checkboxes(view)
+        # Garante visibilidade dos checkboxes de forma forçada no desbloqueio
+        self.garantir_visibilidade_checkboxes(view, force=True)
 
         js_hack = """
         (function() {
@@ -3037,51 +3037,53 @@ class SmartPortariaScanner(QMainWindow):
 
         view_zk.page().runJavaScript(js_fill, handle_fill)
 
-    def garantir_visibilidade_checkboxes(self, view=None):
+    def garantir_visibilidade_checkboxes(self, view=None, force=False):
         if not view:
             view = self.web_stack.currentWidget()
         if not view: return
 
-        js_hack = """
-        (function() {
-            function applyFix() {
+        js_hack = f"""
+        (function() {{
+            window._forceCheckboxes = {'true' if force else 'false'};
+
+            function applyFix() {{
                 var inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
-                inputs.forEach(function(input) {
-                    var style = window.getComputedStyle(input);
-                    // Se o checkbox está escondido, vamos torná-lo funcional mas invisível (opacity 0.01)
-                    // para evitar a duplicação visual percebida pelo usuário
-                    if (style.opacity === '0' || style.visibility === 'hidden' || style.display === 'none') {
+                inputs.forEach(function(input) {{
+                    if (window._forceCheckboxes) {{
+                        // MODO FORÇADO: Garante que o input nativo seja visível e clicável,
+                        // mesmo que cause duplicação visual, para destravar sites restritos.
                         input.style.setProperty('display', 'inline-block', 'important');
                         input.style.setProperty('visibility', 'visible', 'important');
-                        input.style.setProperty('opacity', '0.01', 'important');
-                        input.style.setProperty('position', 'absolute', 'important');
-                        input.style.setProperty('width', '20px', 'important');
-                        input.style.setProperty('height', '20px', 'important');
-                        input.style.setProperty('z-index', '9999', 'important');
+                        input.style.setProperty('opacity', '1', 'important');
+                        input.style.setProperty('-webkit-appearance', input.type, 'important');
+                        input.style.setProperty('appearance', input.type, 'important');
+                        input.style.setProperty('width', '16px', 'important');
+                        input.style.setProperty('height', '16px', 'important');
+                        input.style.setProperty('position', 'relative', 'important');
                         input.style.setProperty('pointer-events', 'auto', 'important');
-                    }
+                    }}
                     input.style.setProperty('accent-color', '#2563eb', 'important');
-                });
-            }
+                }});
+            }}
 
             applyFix();
 
-            if (!window._checkboxObserver) {
-                window._checkboxObserver = new MutationObserver(function(mutations) {
+            if (!window._checkboxObserver) {{
+                window._checkboxObserver = new MutationObserver(function(mutations) {{
                     applyFix();
-                });
-                window._checkboxObserver.observe(document.body, {
+                }});
+                window._checkboxObserver.observe(document.body, {{
                     childList: true,
                     subtree: true
-                });
-            }
-        })();
+                }});
+            }}
+        }})();
         """
         view.page().runJavaScript(js_hack)
 
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
-        self.garantir_visibilidade_checkboxes(view)
+        self.garantir_visibilidade_checkboxes(view, force=False)
 
         url_str = view.url().toString()
 
