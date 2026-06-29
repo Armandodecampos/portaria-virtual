@@ -3048,14 +3048,17 @@ class SmartPortariaScanner(QMainWindow):
                 var inputs = document.querySelectorAll('input[type="checkbox"], input[type="radio"]');
                 inputs.forEach(function(input) {
                     var style = window.getComputedStyle(input);
-                    // Se o checkbox está escondido, vamos torná-lo minimamente visível para interação
-                    // mas sem forçar a aparência nativa completa que causa duplicação visual
+                    // Se o checkbox está escondido, vamos torná-lo funcional mas invisível (opacity 0.01)
+                    // para evitar a duplicação visual percebida pelo usuário
                     if (style.opacity === '0' || style.visibility === 'hidden' || style.display === 'none') {
                         input.style.setProperty('display', 'inline-block', 'important');
                         input.style.setProperty('visibility', 'visible', 'important');
-                        input.style.setProperty('opacity', '0.15', 'important');
-                        input.style.setProperty('position', 'relative', 'important');
+                        input.style.setProperty('opacity', '0.01', 'important');
+                        input.style.setProperty('position', 'absolute', 'important');
+                        input.style.setProperty('width', '20px', 'important');
+                        input.style.setProperty('height', '20px', 'important');
                         input.style.setProperty('z-index', '9999', 'important');
+                        input.style.setProperty('pointer-events', 'auto', 'important');
                     }
                     input.style.setProperty('accent-color', '#2563eb', 'important');
                 });
