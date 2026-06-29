@@ -2127,6 +2127,7 @@ class SmartPortariaScanner(QMainWindow):
         self.overlay_transfer = TransferInstructionOverlay(self)
         self.overlay_transfer.hide()
         self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
+        self.overlay_transfer.btn_close.clicked.connect(self.interromper_transferencia)
 
         # Configurações e UI
         self.setWindowTitle("Monitor Portaria - Gestão de Dados")
