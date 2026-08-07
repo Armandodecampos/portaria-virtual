@@ -12,19 +12,24 @@ import urllib.parse
 import base64
 import json
 import threading
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email import encoders
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
     from PyQt6.QtCore import (
         Qt, QUrl, QTimer, QSettings, QSize, pyqtSignal, QMimeData,
-        QPropertyAnimation, QEasingCurve, QPoint, QThread, QEvent, QObject
+        QPropertyAnimation, QEasingCurve, QPoint, QThread, QEvent, QObject, QTime
     )
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
         QLineEdit, QPushButton, QLabel, QSplitter, QTextEdit, QTextBrowser, QGroupBox,
         QStackedWidget, QTabBar, QMessageBox, QDialog, QFileDialog, QFrame,
         QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox,
-        QListWidget, QListWidgetItem, QColorDialog
+        QListWidget, QListWidgetItem, QColorDialog, QTimeEdit
     )
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
@@ -652,6 +657,79 @@ class ConfigDialog(QDialog):
 
         layout.addWidget(gb_creds)
 
+        # === SEÇÃO BACKUP POR E-MAIL ===
+        gb_email = QGroupBox("Envio Automático de Backup por E-mail")
+        lay_email = QVBoxLayout(gb_email)
+
+        # Checkbox para ativar/desativar
+        self.cb_email_enabled = QCheckBox("Ativar envio diário")
+        is_enabled = self.parent_window.settings.value("email_backup_enabled", "false") == "true"
+        self.cb_email_enabled.setChecked(is_enabled)
+        lay_email.addWidget(self.cb_email_enabled)
+
+        # Destinatário e Horário
+        lay_dest_time = QHBoxLayout()
+        lay_dest_time.addWidget(QLabel("Destino:"))
+        self.edit_email_dest = QLineEdit(self.parent_window.settings.value("email_backup_dest", ""))
+        self.edit_email_dest.setPlaceholderText("E-mail do Destinatário")
+        lay_dest_time.addWidget(self.edit_email_dest)
+
+        lay_dest_time.addWidget(QLabel("Horário:"))
+        self.time_email_backup = QTimeEdit()
+        self.time_email_backup.setDisplayFormat("HH:mm")
+        time_str = self.parent_window.settings.value("email_backup_time", "18:00")
+        qtime_val = QTime.fromString(time_str, "HH:mm")
+        if not qtime_val.isValid():
+            qtime_val = QTime(18, 0)
+        self.time_email_backup.setTime(qtime_val)
+        lay_dest_time.addWidget(self.time_email_backup)
+        lay_email.addLayout(lay_dest_time)
+
+        # SMTP Configs
+        lay_smtp_host = QHBoxLayout()
+        lay_smtp_host.addWidget(QLabel("Servidor SMTP:"))
+        self.edit_smtp_server = QLineEdit(self.parent_window.settings.value("email_backup_smtp_server", "smtp.gmail.com"))
+        self.edit_smtp_server.setPlaceholderText("smtp.gmail.com")
+        lay_smtp_host.addWidget(self.edit_smtp_server)
+
+        lay_smtp_host.addWidget(QLabel("Porta:"))
+        self.edit_smtp_port = QLineEdit(self.parent_window.settings.value("email_backup_smtp_port", "587"))
+        self.edit_smtp_port.setPlaceholderText("587")
+        self.edit_smtp_port.setFixedWidth(60)
+        lay_smtp_host.addWidget(self.edit_smtp_port)
+        lay_email.addLayout(lay_smtp_host)
+
+        lay_smtp_auth = QHBoxLayout()
+        lay_smtp_auth.addWidget(QLabel("Usuário SMTP:"))
+        self.edit_smtp_user = QLineEdit(self.parent_window.settings.value("email_backup_smtp_user", ""))
+        self.edit_smtp_user.setPlaceholderText("remetente@gmail.com")
+        lay_smtp_auth.addWidget(self.edit_smtp_user)
+
+        lay_smtp_auth.addWidget(QLabel("Senha:"))
+        self.edit_smtp_pass = QLineEdit(self.parent_window.settings.value("email_backup_smtp_pass", ""))
+        self.edit_smtp_pass.setPlaceholderText("Senha / Senha de App")
+        self.edit_smtp_pass.setEchoMode(QLineEdit.EchoMode.Password)
+        lay_smtp_auth.addWidget(self.edit_smtp_pass)
+        lay_email.addLayout(lay_smtp_auth)
+
+        # Checkbox SSL
+        self.cb_smtp_ssl = QCheckBox("Usar SSL/TLS (Normalmente porta 465)")
+        is_ssl = self.parent_window.settings.value("email_backup_ssl", "false") == "true"
+        self.cb_smtp_ssl.setChecked(is_ssl)
+        lay_email.addWidget(self.cb_smtp_ssl)
+
+        # Botões da seção de e-mail
+        lay_email_btns = QHBoxLayout()
+        self.btn_test_email = QPushButton("📧 Testar Envio")
+        self.btn_test_email.clicked.connect(self.acao_testar_envio)
+        self.btn_save_email_config = QPushButton("💾 Salvar Configurações de Backup")
+        self.btn_save_email_config.clicked.connect(self.acao_salvar_config_email)
+        lay_email_btns.addWidget(self.btn_test_email)
+        lay_email_btns.addWidget(self.btn_save_email_config)
+        lay_email.addLayout(lay_email_btns)
+
+        layout.addWidget(gb_email)
+
         # === RODAPÉ ===
         self.btn_fechar = QPushButton("Fechar")
         self.btn_fechar.clicked.connect(self.accept)
@@ -702,7 +780,7 @@ class ConfigDialog(QDialog):
             QGroupBox {{ font-weight: bold; border: 1px solid {border}; border-radius: 8px; margin-top: 12px; padding-top: 15px; color: {text}; background-color: {bg}; }}
             QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; color: {text}; }}
             QLabel {{ color: {text}; background: transparent; }}
-            QLineEdit {{ background-color: {input_bg}; color: {text}; border: 1px solid {border}; padding: 5px; border-radius: 4px; }}
+            QLineEdit, QTimeEdit {{ background-color: {input_bg}; color: {text}; border: 1px solid {border}; padding: 5px; border-radius: 4px; }}
             QRadioButton, QCheckBox {{ color: {text}; background: transparent; }}
             QRadioButton::indicator, QCheckBox::indicator {{ width: 18px; height: 18px; border: 1px solid {border}; border-radius: 9px; background-color: {input_bg}; }}
             QCheckBox::indicator {{ border-radius: 4px; }}
@@ -719,6 +797,8 @@ class ConfigDialog(QDialog):
             self.btn_export.setStyleSheet(f"background-color: {c_export}; color: {bg}; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {input_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: {bg}; {common} margin-top: 5px;")
+            self.btn_test_email.setStyleSheet(f"background-color: {input_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 5px;")
+            self.btn_save_email_config.setStyleSheet(f"background-color: {c_save}; color: {bg}; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
         else:
             self.btn_load.setStyleSheet(f"background-color: {c_load}; color: white; {common}")
@@ -726,6 +806,8 @@ class ConfigDialog(QDialog):
             self.btn_export.setStyleSheet(f"background-color: {c_export}; color: white; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {c_import}; color: white; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: white; {common} margin-top: 5px;")
+            self.btn_test_email.setStyleSheet(f"background-color: {c_import}; color: white; {common} margin-top: 5px;")
+            self.btn_save_email_config.setStyleSheet(f"background-color: {c_save}; color: white; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {btn_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
 
         self.update_status_label()
@@ -787,6 +869,72 @@ class ConfigDialog(QDialog):
 
         self.parent_window.carregar_credenciais()
         QMessageBox.information(self, "Sucesso", "Credenciais salvas com sucesso!")
+
+    def acao_salvar_config_email(self):
+        enabled = "true" if self.cb_email_enabled.isChecked() else "false"
+        dest = self.edit_email_dest.text().strip()
+        time_str = self.time_email_backup.time().toString("HH:mm")
+        smtp_server = self.edit_smtp_server.text().strip()
+        smtp_port = self.edit_smtp_port.text().strip()
+        smtp_user = self.edit_smtp_user.text().strip()
+        smtp_pass = self.edit_smtp_pass.text().strip()
+        ssl_enabled = "true" if self.cb_smtp_ssl.isChecked() else "false"
+
+        if enabled == "true" and (not dest or not smtp_server or not smtp_port or not smtp_user or not smtp_pass):
+            QMessageBox.warning(self, "Aviso", "Para ativar o envio diário, todos os campos de e-mail e SMTP devem ser preenchidos.")
+            return
+
+        self.parent_window.settings.setValue("email_backup_enabled", enabled)
+        self.parent_window.settings.setValue("email_backup_dest", dest)
+        self.parent_window.settings.setValue("email_backup_time", time_str)
+        self.parent_window.settings.setValue("email_backup_smtp_server", smtp_server)
+        self.parent_window.settings.setValue("email_backup_smtp_port", smtp_port)
+        self.parent_window.settings.setValue("email_backup_smtp_user", smtp_user)
+        self.parent_window.settings.setValue("email_backup_smtp_pass", smtp_pass)
+        self.parent_window.settings.setValue("email_backup_ssl", ssl_enabled)
+
+        if hasattr(self.parent_window, "carregar_config_email_backup"):
+            self.parent_window.carregar_config_email_backup()
+
+        QMessageBox.information(self, "Sucesso", "Configurações de backup por e-mail salvas com sucesso!")
+
+    def acao_testar_envio(self):
+        if not self.parent_window.db or not self.parent_window.settings.value("last_db_path"):
+            QMessageBox.warning(self, "Erro", "Não há nenhum banco de dados conectado para enviar.")
+            return
+
+        dest = self.edit_email_dest.text().strip()
+        smtp_server = self.edit_smtp_server.text().strip()
+        smtp_port = self.edit_smtp_port.text().strip()
+        smtp_user = self.edit_smtp_user.text().strip()
+        smtp_pass = self.edit_smtp_pass.text().strip()
+        ssl_enabled = self.cb_smtp_ssl.isChecked()
+
+        if not dest or not smtp_server or not smtp_port or not smtp_user or not smtp_pass:
+            QMessageBox.warning(self, "Aviso", "Preencha todos os campos de e-mail e SMTP para realizar o teste.")
+            return
+
+        self.btn_test_email.setEnabled(False)
+        self.btn_test_email.setText("⌛ Enviando...")
+
+        db_path = self.parent_window.settings.value("last_db_path")
+
+        self.test_thread = EmailBackupThread(
+            smtp_server, smtp_port, smtp_user, smtp_pass, ssl_enabled, dest, db_path
+        )
+        self.test_thread.finished_success.connect(self.on_test_email_success)
+        self.test_thread.finished_error.connect(self.on_test_email_error)
+        self.test_thread.start()
+
+    def on_test_email_success(self, msg):
+        self.btn_test_email.setEnabled(True)
+        self.btn_test_email.setText("📧 Testar Envio")
+        QMessageBox.information(self, "Sucesso", msg)
+
+    def on_test_email_error(self, err):
+        self.btn_test_email.setEnabled(True)
+        self.btn_test_email.setText("📧 Testar Envio")
+        QMessageBox.critical(self, "Erro no Envio", f"Falha ao enviar o e-mail de teste:\n{err}")
 
 class InstrucoesDialog(QDialog):
     def __init__(self, parent=None):
@@ -1214,6 +1362,95 @@ class DownloadImageThread(QThread):
                     self.error.emit(f"Erro HTTP {response.status_code}")
         except Exception as e:
             self.error.emit(str(e))
+
+class EmailBackupThread(QThread):
+    finished_success = pyqtSignal(str)
+    finished_error = pyqtSignal(str)
+
+    def __init__(self, smtp_server, smtp_port, smtp_user, smtp_pass, ssl_enabled, recipient, db_path):
+        super().__init__()
+        self.smtp_server = smtp_server
+        self.smtp_port = int(smtp_port) if smtp_port else 587
+        self.smtp_user = smtp_user
+        self.smtp_pass = smtp_pass
+        self.ssl_enabled = ssl_enabled
+        self.recipient = recipient
+        self.db_path = db_path
+
+    def run(self):
+        try:
+            if not os.path.exists(self.db_path):
+                self.finished_error.emit(f"Arquivo do banco de dados não encontrado: {self.db_path}")
+                return
+
+            temp_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+            os.makedirs(temp_dir, exist_ok=True)
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            temp_backup_name = f"temp_backup_email_{timestamp}.db"
+            temp_backup_path = os.path.join(temp_dir, temp_backup_name)
+
+            try:
+                src_conn = sqlite3.connect(self.db_path)
+                dest_conn = sqlite3.connect(temp_backup_path)
+                with dest_conn:
+                    src_conn.backup(dest_conn)
+                dest_conn.close()
+                src_conn.close()
+            except Exception as backup_err:
+                import shutil
+                shutil.copy2(self.db_path, temp_backup_path)
+
+            msg = MIMEMultipart()
+            msg['From'] = self.smtp_user
+            msg['To'] = self.recipient
+            msg['Subject'] = f"Backup Automático Diário - Portaria Virtual - {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+
+            body = (
+                "Olá,\n\n"
+                f"Segue em anexo o backup do banco de dados da Portaria Virtual correspondente ao dia de hoje.\n\n"
+                f"Data/Hora do Envio: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n"
+                f"Arquivo Original: {os.path.basename(self.db_path)}\n\n"
+                "Este é um e-mail automático enviado pelo sistema Monitor Portaria.\n"
+            )
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+            filename = os.path.basename(temp_backup_path)
+            dest_filename = filename.replace("temp_backup_email_", "backup_portaria_")
+
+            with open(temp_backup_path, "rb") as attachment:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(attachment.read())
+                encoders.encode_base64(part)
+                part.add_header(
+                    "Content-Disposition",
+                    f"attachment; filename= {dest_filename}",
+                )
+                msg.attach(part)
+
+            if self.ssl_enabled:
+                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, timeout=15)
+            else:
+                server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=15)
+                server.ehlo()
+                try:
+                    server.starttls()
+                    server.ehlo()
+                except Exception as tls_err:
+                    print(f"STARTTLS não disponível ou falhou: {tls_err}")
+
+            server.login(self.smtp_user, self.smtp_pass)
+            text = msg.as_string()
+            server.sendmail(self.smtp_user, self.recipient, text)
+            server.quit()
+
+            try:
+                os.remove(temp_backup_path)
+            except Exception:
+                pass
+
+            self.finished_success.emit(f"Backup enviado com sucesso para {self.recipient}!")
+        except Exception as e:
+            self.finished_error.emit(str(e))
 
 class ExcelRecordsWidget(QWidget):
     def __init__(self, parent=None):
@@ -2213,6 +2450,7 @@ class SmartPortariaScanner(QMainWindow):
 
         # Carrega credenciais e tema
         self.carregar_credenciais()
+        self.carregar_config_email_backup()
         saved_theme = self.settings.value("theme", "light")
         self.aplicar_tema(saved_theme)
 
@@ -2254,6 +2492,13 @@ class SmartPortariaScanner(QMainWindow):
 
         self.active_toast = None
         self.link_convite_encontrado = False
+
+        # Timer de verificação para envio automático de backup diário
+        self.timer_email_backup = QTimer(self)
+        self.timer_email_backup.setInterval(60000) # 60 segundos
+        self.timer_email_backup.timeout.connect(self.verificar_envio_automatico_backup)
+        self.timer_email_backup.start()
+        self.email_backup_thread_auto = None
 
     def setup_ui(self):
         self.central = QWidget()
@@ -2488,6 +2733,59 @@ class SmartPortariaScanner(QMainWindow):
             'lib_user': self.settings.value("lib_user", ""),
             'lib_pass': self.settings.value("lib_pass", "")
         }
+
+    def carregar_config_email_backup(self):
+        self.email_backup_enabled = self.settings.value("email_backup_enabled", "false") == "true"
+        self.email_backup_dest = self.settings.value("email_backup_dest", "").strip()
+        self.email_backup_time = self.settings.value("email_backup_time", "18:00").strip()
+        self.email_backup_smtp_server = self.settings.value("email_backup_smtp_server", "smtp.gmail.com").strip()
+        self.email_backup_smtp_port = self.settings.value("email_backup_smtp_port", "587").strip()
+        self.email_backup_smtp_user = self.settings.value("email_backup_smtp_user", "").strip()
+        self.email_backup_smtp_pass = self.settings.value("email_backup_smtp_pass", "").strip()
+        self.email_backup_ssl = self.settings.value("email_backup_ssl", "false") == "true"
+        self.email_backup_last_sent = self.settings.value("email_backup_last_sent", "").strip()
+
+    def verificar_envio_automatico_backup(self):
+        if not self.email_backup_enabled:
+            return
+
+        if not self.db or not self.settings.value("last_db_path"):
+            return
+
+        if self.email_backup_thread_auto and self.email_backup_thread_auto.isRunning():
+            return
+
+        agora = datetime.datetime.now()
+        hora_min_atual = agora.strftime("%H:%M")
+
+        if hora_min_atual == self.email_backup_time:
+            data_hoje = agora.strftime("%Y-%m-%d")
+            if self.email_backup_last_sent != data_hoje:
+                self.txt_live.append("📧 Iniciando envio automático diário do banco de dados por e-mail...")
+
+                db_path = self.settings.value("last_db_path")
+
+                self.email_backup_thread_auto = EmailBackupThread(
+                    self.email_backup_smtp_server,
+                    self.email_backup_smtp_port,
+                    self.email_backup_smtp_user,
+                    self.email_backup_smtp_pass,
+                    self.email_backup_ssl,
+                    self.email_backup_dest,
+                    db_path
+                )
+                self.email_backup_thread_auto.finished_success.connect(self.on_auto_email_success)
+                self.email_backup_thread_auto.finished_error.connect(self.on_auto_email_error)
+                self.email_backup_thread_auto.start()
+
+    def on_auto_email_success(self, msg):
+        self.txt_live.append(f"📧 [Sucesso] {msg}")
+        data_hoje = datetime.datetime.now().strftime("%Y-%m-%d")
+        self.email_backup_last_sent = data_hoje
+        self.settings.setValue("email_backup_last_sent", data_hoje)
+
+    def on_auto_email_error(self, err):
+        self.txt_live.append(f"❌ [Erro no Envio de Backup] Falha automática: {err}")
 
     def aplicar_tema(self, modo):
         self.settings.setValue("theme", modo)
