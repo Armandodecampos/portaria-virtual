@@ -74,6 +74,48 @@ class CustomWebPage(QWebEnginePage):
         new_view = self.browser_window.add_new_tab(QUrl(""), "Nova Guia", profile=current_profile)
         return new_view.page()
 
+class CustomTabBar(QTabBar):
+    """
+    TabBar customizada que permite alterar o background e cor de uma aba específica
+    durante um estado de alerta/blink.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.alerta_index = -1
+        self.alerta_state = False
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.alerta_index != -1 and self.alerta_state:
+            from PyQt6.QtGui import QPainter, QPainterPath
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            rect = self.tabRect(self.alerta_index)
+
+            painter.save()
+            # Desenha o background vermelho com cantos arredondados (mesmo estilo do QTabBar::tab)
+            radius = 8
+            path = QPainterPath()
+            path.moveTo(rect.x(), rect.y() + rect.height())
+            path.lineTo(rect.x(), rect.y() + radius)
+            path.quadTo(rect.x(), rect.y(), rect.x() + radius, rect.y())
+            path.lineTo(rect.x() + rect.width() - radius, rect.y())
+            path.quadTo(rect.x() + rect.width(), rect.y(), rect.x() + rect.width(), rect.y() + radius)
+            path.lineTo(rect.x() + rect.width(), rect.y() + rect.height())
+            path.closeSubpath()
+
+            painter.fillPath(path, QColor("#ef4444")) # Background Vermelho
+
+            # Fonte branca e negrito para contraste
+            painter.setPen(QColor("#ffffff"))
+            font = self.font()
+            font.setBold(True)
+            painter.setFont(font)
+
+            txt = self.tabText(self.alerta_index)
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, txt)
+            painter.restore()
+
 class LinkDelegationPage(QWebEnginePage):
     """
     Página que delega cliques em links para um sinal em vez de navegar.
@@ -2171,7 +2213,7 @@ class SmartPortariaScanner(QMainWindow):
         self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
         self.view_liberacoes = self.add_new_tab(QUrl("https://armandodecampos.github.io/controledecessos/"), "Liberações", closable=False)
-        
+
         # Inicializa timers e estados para a guia Liberações
         self.timer_sonda_liberacoes = QTimer(self)
         self.timer_sonda_liberacoes.setInterval(1000)
@@ -2365,7 +2407,7 @@ class SmartPortariaScanner(QMainWindow):
         self.address_bar.setPlaceholderText("Introduza o URL...")
         self.address_bar.returnPressed.connect(self.ir_para_url)
 
-        self.tabs = QTabBar()
+        self.tabs = CustomTabBar()
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
         # Estilos do TabBar agora serão definidos no aplicar_tema
@@ -3188,6 +3230,9 @@ class SmartPortariaScanner(QMainWindow):
             return
         self.alerta_ativo = True
         self.blink_state = False
+        idx = self.encontrar_aba_liberacoes()
+        self.tabs.alerta_index = idx
+        self.tabs.alerta_state = False
         self.timer_blink_liberacoes.start()
 
     def parar_alerta_liberacoes(self):
@@ -3195,22 +3240,18 @@ class SmartPortariaScanner(QMainWindow):
             return
         self.alerta_ativo = False
         self.timer_blink_liberacoes.stop()
-        idx = self.encontrar_aba_liberacoes()
-        if idx != -1:
-            self.tabs.setTabText(idx, "Liberações")
-            self.tabs.setTabTextColor(idx, QColor())
+        self.tabs.alerta_index = -1
+        self.tabs.alerta_state = False
+        self.tabs.update()
 
     def blink_liberacoes_tick(self):
         idx = self.encontrar_aba_liberacoes()
         if idx == -1:
             return
         self.blink_state = not self.blink_state
-        if self.blink_state:
-            self.tabs.setTabText(idx, "🔴 Liberações")
-            self.tabs.setTabTextColor(idx, QColor("#ef4444"))
-        else:
-            self.tabs.setTabText(idx, "Liberações")
-            self.tabs.setTabTextColor(idx, QColor())
+        self.tabs.alerta_index = idx
+        self.tabs.alerta_state = self.blink_state
+        self.tabs.update()
 
     def sondar_resultados_liberacoes(self):
         if not hasattr(self, 'view_liberacoes') or not self.view_liberacoes:
