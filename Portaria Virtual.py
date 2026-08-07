@@ -3175,9 +3175,131 @@ class SmartPortariaScanner(QMainWindow):
         """
         view.page().runJavaScript(js_hack)
 
+    def injetar_date_picker_patch(self, view):
+        """
+        Injeta uma correção para inputs do tipo data (HTML5 date) usando Flatpickr,
+        visto que o QWebEngineView nativo pode não renderizar ou abrir o calendário nativo
+        corretamente para esses elementos (por exemplo, no modal do controle de acessos).
+        """
+        js_patch = r"""
+        (function() {
+            // Se já injetou o patch principal, não faz de novo
+            if (window._datePickerPatchInjected) return;
+            window._datePickerPatchInjected = true;
+
+            // Função para carregar dinamicamente CSS
+            function loadCSS(url) {
+                if (document.querySelector(`link[href="${url}"]`)) return;
+                var link = document.createElement("link");
+                link.rel = "stylesheet";
+                link.href = url;
+                document.head.appendChild(link);
+            }
+
+            // Função para carregar dinamicamente JS
+            function loadJS(url, callback) {
+                if (document.querySelector(`script[src="${url}"]`)) {
+                    if (callback) callback();
+                    return;
+                }
+                var script = document.createElement("script");
+                script.src = url;
+                script.onload = callback;
+                document.head.appendChild(script);
+            }
+
+            // Carrega o CSS do Flatpickr (versão escura combinando com o tema do modal se aplicável, ou tema padrão)
+            loadCSS("https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css");
+            loadCSS("https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css");
+
+            // Carrega o JS do Flatpickr e a tradução para português
+            loadJS("https://cdn.jsdelivr.net/npm/flatpickr", function() {
+                loadJS("https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js", function() {
+                    // Inicializa os date pickers
+                    initAllDatePickers();
+                    setupMutationObserver();
+                });
+            });
+
+            // Guarda os wrappers de inputs já inicializados para evitar re-inicialização
+            var initializedElements = new Set();
+
+            function initAllDatePickers() {
+                if (typeof flatpickr === "undefined") return;
+
+                var inputs = document.querySelectorAll('input[type="date"]');
+                inputs.forEach(function(input) {
+                    if (initializedElements.has(input)) return;
+                    initializedElements.add(input);
+
+                    // Para manter compatibilidade com frameworks ou scripts da página,
+                    // precisamos lidar com alterações do atributo .value de forma sutil.
+                    var flatpickrInstance = flatpickr(input, {
+                        locale: "pt",
+                        dateFormat: "Y-m-d", // Formato ISO usado pelo input type="date"
+                        disableMobile: true,  // Força o Flatpickr em vez do date picker nativo do mobile/emulador
+                        allowInput: true,
+                        static: true, // Renderiza o calendário abaixo do input dentro do mesmo fluxo/container (evita problemas de z-index em modals)
+                        onChange: function(selectedDates, dateStr, instance) {
+                            // Dispara eventos normais para que o JavaScript da página original (ex: React, Vue, vanilla JS) reaja à mudança
+                            var event = new Event('change', { bubbles: true });
+                            input.dispatchEvent(event);
+                            var inputEvent = new Event('input', { bubbles: true });
+                            input.dispatchEvent(inputEvent);
+                        }
+                    });
+
+                    // Sobrescreve o setter de value para que se o código JS da página mudar o valor programaticamente, o Flatpickr atualize
+                    var descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+                    Object.defineProperty(input, 'value', {
+                        get: function() {
+                            return descriptor.get.call(this);
+                        },
+                        set: function(val) {
+                            descriptor.set.call(this, val);
+                            if (flatpickrInstance) {
+                                flatpickrInstance.setDate(val, false);
+                            }
+                        },
+                        configurable: true
+                    });
+                });
+            }
+
+            function setupMutationObserver() {
+                var observer = new MutationObserver(function(mutations) {
+                    var needInit = false;
+                    mutations.forEach(function(mutation) {
+                        if (mutation.addedNodes.length > 0) {
+                            mutation.addedNodes.forEach(function(node) {
+                                if (node.nodeType === Node.ELEMENT_NODE) {
+                                    if (node.tagName === 'INPUT' && node.type === 'date') {
+                                        needInit = true;
+                                    } else if (node.querySelectorAll('input[type="date"]').length > 0) {
+                                        needInit = true;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    if (needInit) {
+                        initAllDatePickers();
+                    }
+                });
+
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        })();
+        """
+        view.page().runJavaScript(js_patch)
+
     def on_tab_load_finished(self, ok, view):
         self.injetar_login(view)
         self.garantir_visibilidade_checkboxes(view)
+        self.injetar_date_picker_patch(view)
 
         url_str = view.url().toString()
 
