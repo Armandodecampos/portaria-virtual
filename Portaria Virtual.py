@@ -3250,16 +3250,27 @@ class SmartPortariaScanner(QMainWindow):
                     });
 
                     // Sobrescreve o setter de value para que se o código JS da página mudar o valor programaticamente, o Flatpickr atualize
+                    var isSettingValue = false;
                     var descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
                     Object.defineProperty(input, 'value', {
                         get: function() {
                             return descriptor.get.call(this);
                         },
                         set: function(val) {
+                            if (isSettingValue) {
+                                descriptor.set.call(this, val);
+                                return;
+                            }
+                            isSettingValue = true;
                             descriptor.set.call(this, val);
                             if (flatpickrInstance) {
-                                flatpickrInstance.setDate(val, false);
+                                try {
+                                    flatpickrInstance.setDate(val, false);
+                                } catch (e) {
+                                    console.error("Erro ao definir data no Flatpickr:", e);
+                                }
                             }
+                            isSettingValue = false;
                         },
                         configurable: true
                     });
