@@ -113,7 +113,7 @@ class CustomTabBar(QTabBar):
             painter.setFont(font)
 
             txt = self.tabText(self.alerta_index)
-            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, txt)
+            painter.drawText(rect.adjusted(12, 0, -12, 0), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, txt)
             painter.restore()
 
 class LinkDelegationPage(QWebEnginePage):
@@ -635,6 +635,17 @@ class ConfigDialog(QDialog):
         lay_zk.addWidget(self.edit_zk_pass)
         lay_creds.addLayout(lay_zk)
 
+        lay_lib = QHBoxLayout()
+        lay_lib.addWidget(QLabel("Liberações:"))
+        self.edit_lib_user = QLineEdit(self.parent_window.creds.get('lib_user', ''))
+        self.edit_lib_user.setPlaceholderText("Usuário")
+        self.edit_lib_pass = QLineEdit(self.parent_window.creds.get('lib_pass', ''))
+        self.edit_lib_pass.setPlaceholderText("Senha")
+        self.edit_lib_pass.setEchoMode(QLineEdit.EchoMode.Password)
+        lay_lib.addWidget(self.edit_lib_user)
+        lay_lib.addWidget(self.edit_lib_pass)
+        lay_creds.addLayout(lay_lib)
+
         self.btn_save_creds = QPushButton("💾 Salvar Credenciais")
         self.btn_save_creds.clicked.connect(self.acao_salvar_credenciais)
         lay_creds.addWidget(self.btn_save_creds)
@@ -760,15 +771,19 @@ class ConfigDialog(QDialog):
         p_pass = self.edit_portaria_pass.text().strip()
         z_user = self.edit_zk_user.text().strip()
         z_pass = self.edit_zk_pass.text().strip()
+        l_user = self.edit_lib_user.text().strip()
+        l_pass = self.edit_lib_pass.text().strip()
 
         if not p_user or not p_pass or not z_user or not z_pass:
-            QMessageBox.warning(self, "Aviso", "Todos os campos de credenciais devem ser preenchidos.")
+            QMessageBox.warning(self, "Aviso", "Os campos de credenciais da Portaria e ZK Bio devem ser preenchidos.")
             return
 
         self.parent_window.settings.setValue("portaria_user", p_user)
         self.parent_window.settings.setValue("portaria_pass", p_pass)
         self.parent_window.settings.setValue("zk_user", z_user)
         self.parent_window.settings.setValue("zk_pass", z_pass)
+        self.parent_window.settings.setValue("lib_user", l_user)
+        self.parent_window.settings.setValue("lib_pass", l_pass)
 
         self.parent_window.carregar_credenciais()
         QMessageBox.information(self, "Sucesso", "Credenciais salvas com sucesso!")
@@ -2469,7 +2484,9 @@ class SmartPortariaScanner(QMainWindow):
             'portaria_user': self.settings.value("portaria_user", "armando.junior"),
             'portaria_pass': self.settings.value("portaria_pass", "armandocampos.1"),
             'zk_user': self.settings.value("zk_user", "armando.campos"),
-            'zk_pass': self.settings.value("zk_pass", "armandocampos.1")
+            'zk_pass': self.settings.value("zk_pass", "armandocampos.1"),
+            'lib_user': self.settings.value("lib_user", ""),
+            'lib_pass': self.settings.value("lib_pass", "")
         }
 
     def aplicar_tema(self, modo):
@@ -2807,6 +2824,8 @@ class SmartPortariaScanner(QMainWindow):
             titulo = self.tabs.tabText(idx)
             if "ZK Bio" in titulo:
                 view.setUrl(QUrl(f"{ZK_SERVER}/bioLogin.do"))
+            elif "Liberações" in titulo:
+                view.setUrl(QUrl("https://armandodecampos.github.io/controledecessos/"))
             elif view.page().profile() == self.profile_anonimo:
                 view.setUrl(QUrl("https://www.google.com"))
             else:
@@ -2943,6 +2962,29 @@ class SmartPortariaScanner(QMainWindow):
                 }})();
             """
             browser_view.page().runJavaScript(js_login_zk)
+        elif "controledecessos" in url_atual:
+            if self.creds.get('lib_user') and self.creds.get('lib_pass'):
+                js_login_lib = f"""
+                (function() {{
+                    var emailField = document.getElementById('email');
+                    var passField = document.getElementById('password');
+                    var btn = document.querySelector('button[type="submit"]') || document.querySelector('button');
+
+                    if (emailField && passField && emailField.offsetParent !== null) {{
+                        emailField.value = {json.dumps(self.creds['lib_user'])};
+                        emailField.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                        passField.value = {json.dumps(self.creds['lib_pass'])};
+                        passField.dispatchEvent(new Event('input', {{ bubbles: true }}));
+
+                        setTimeout(function() {{
+                            if (btn && btn.textContent.includes('Entrar')) {{
+                                btn.click();
+                            }}
+                        }}, 500);
+                    }}
+                }})();
+                """
+                browser_view.page().runJavaScript(js_login_lib)
 
     def extrair_dados_e_prosseguir(self, view):
         """Extrai os dados da Portaria Virtual via JS e navega para o ZK Bio"""
