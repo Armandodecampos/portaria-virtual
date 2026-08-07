@@ -2170,7 +2170,21 @@ class SmartPortariaScanner(QMainWindow):
         self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
         self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
+        self.view_liberacoes = self.add_new_tab(QUrl("https://armandodecampos.github.io/controledecessos/"), "Liberações", closable=False)
         
+        # Inicializa timers e estados para a guia Liberações
+        self.timer_sonda_liberacoes = QTimer(self)
+        self.timer_sonda_liberacoes.setInterval(1000)
+        self.timer_sonda_liberacoes.timeout.connect(self.sondar_resultados_liberacoes)
+        self.timer_sonda_liberacoes.start()
+
+        self.timer_blink_liberacoes = QTimer(self)
+        self.timer_blink_liberacoes.setInterval(500)
+        self.timer_blink_liberacoes.timeout.connect(self.blink_liberacoes_tick)
+
+        self.blink_state = False
+        self.alerta_ativo = False
+
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
 
@@ -2777,7 +2791,7 @@ class SmartPortariaScanner(QMainWindow):
 
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
-        if "Portaria Virtual" in titulo or "anônima" in titulo.lower() or "ZK Bio" in titulo: return
+        if "Portaria Virtual" in titulo or "anônima" in titulo.lower() or "ZK Bio" in titulo or "Liberações" in titulo: return
         widget = self.web_stack.widget(index)
         if widget:
             self.web_stack.removeWidget(widget)
@@ -2788,7 +2802,7 @@ class SmartPortariaScanner(QMainWindow):
         index = self.web_stack.indexOf(view)
         if index != -1:
             current_text = self.tabs.tabText(index)
-            if "Portaria Virtual" in current_text or "anônima" in current_text.lower() or "ZK Bio" in current_text: return
+            if "Portaria Virtual" in current_text or "anônima" in current_text.lower() or "ZK Bio" in current_text or "Liberações" in current_text: return
             display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
             self.tabs.setTabText(index, display_title)
 
@@ -3149,8 +3163,101 @@ class SmartPortariaScanner(QMainWindow):
     def realizar_busca_local(self):
         self.timer_busca.start(300)
 
+    def pesquisar_em_liberacoes(self, termo):
+        if hasattr(self, 'view_liberacoes') and self.view_liberacoes:
+            js_search = f"""
+            (function() {{
+                var input = document.getElementById('search-input');
+                if (input) {{
+                    input.value = {json.dumps(termo)};
+                    input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }})();
+            """
+            self.view_liberacoes.page().runJavaScript(js_search)
+
+    def encontrar_aba_liberacoes(self):
+        for i in range(self.tabs.count()):
+            txt = self.tabs.tabText(i)
+            if "Liberações" in txt:
+                return i
+        return -1
+
+    def iniciar_alerta_liberacoes(self):
+        if self.alerta_ativo:
+            return
+        self.alerta_ativo = True
+        self.blink_state = False
+        self.timer_blink_liberacoes.start()
+
+    def parar_alerta_liberacoes(self):
+        if not self.alerta_ativo:
+            return
+        self.alerta_ativo = False
+        self.timer_blink_liberacoes.stop()
+        idx = self.encontrar_aba_liberacoes()
+        if idx != -1:
+            self.tabs.setTabText(idx, "Liberações")
+            self.tabs.setTabTextColor(idx, QColor())
+
+    def blink_liberacoes_tick(self):
+        idx = self.encontrar_aba_liberacoes()
+        if idx == -1:
+            return
+        self.blink_state = not self.blink_state
+        if self.blink_state:
+            self.tabs.setTabText(idx, "🔴 Liberações")
+            self.tabs.setTabTextColor(idx, QColor("#ef4444"))
+        else:
+            self.tabs.setTabText(idx, "Liberações")
+            self.tabs.setTabTextColor(idx, QColor())
+
+    def sondar_resultados_liberacoes(self):
+        if not hasattr(self, 'view_liberacoes') or not self.view_liberacoes:
+            return
+
+        js_check = """
+        (function() {
+            var searchInput = document.getElementById('search-input');
+            if (!searchInput) return false;
+            var term = searchInput.value.trim();
+            if (!term) return false;
+
+            var hasHighlight = document.querySelectorAll('.search-match').length > 0;
+            if (hasHighlight) return true;
+
+            var resCount = document.getElementById('search-results-count');
+            if (resCount && !resCount.classList.contains('hidden')) {
+                var txt = resCount.textContent;
+                if (txt && txt.indexOf('de') !== -1 && txt.indexOf('0 de 0') === -1) {
+                    return true;
+                }
+            }
+
+            var list = document.getElementById('liberacoes-list');
+            if (list) {
+                var hasNoResultsMsg = list.textContent.indexOf('Nenhuma liberação encontrada') !== -1;
+                var hasCards = list.querySelectorAll('div').length > 0;
+                if (hasCards && !hasNoResultsMsg) {
+                    return true;
+                }
+            }
+
+            return false;
+        })()
+        """
+
+        def handle_check(result):
+            if result:
+                self.iniciar_alerta_liberacoes()
+            else:
+                self.parar_alerta_liberacoes()
+
+        self.view_liberacoes.page().runJavaScript(js_check, handle_check)
+
     def executar_busca_local(self, silent=False):
         termo_original = self.input_busca.text().strip()
+        self.pesquisar_em_liberacoes(termo_original)
         apenas_numeros = re.sub(r'\D', '', termo_original)
 
         # Identifica se é uma busca por CPF (somente números e até 11 dígitos)
