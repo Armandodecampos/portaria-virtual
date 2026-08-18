@@ -1986,9 +1986,9 @@ class DatabaseHandler:
             self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_cpf ON detalhes_visitas(cpf)")
             self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_horario ON detalhes_visitas(horario)")
 
-            if versao < 1:
+            if versao < 2:
                 self.reprocessar_dados_existentes()
-                self.cursor.execute("PRAGMA user_version = 1")
+                self.cursor.execute("PRAGMA user_version = 2")
             self.conn.commit()
 
     def salvar_visita(self, visita_id, nome, cpf, horario, conteudo, url):
@@ -2065,13 +2065,29 @@ class DatabaseHandler:
             raw_nome = raw_nome.replace(cpf, "")
 
         # Remove labels que podem ter ficado grudados
-        labels = ["Telefone", "CPF", "Celular", "Horário", "Empresa", "E-mail"]
+        labels = ["Telefone", "CPF", "Celular", "Horário", "Empresa", "E-mail", "RG", "Documento"]
         clean_nome = raw_nome
         for label in labels:
             if label in clean_nome:
                 clean_nome = clean_nome.split(label)[0]
 
         clean_nome = clean_nome.strip(" -|")
+
+        # Se CPF não foi encontrado, verifica se no nome há um ID/Documento (ex: "Ira Joshi - B8025462")
+        if cpf == "N/A" and clean_nome != "Desconhecido":
+            m_id = re.search(r'[\s\-\/]+([A-Za-z0-9]{4,20})\s*$', clean_nome)
+            if m_id:
+                codigo = m_id.group(1)
+                if re.search(r'\d', codigo):
+                    cpf = codigo
+                    clean_nome = clean_nome[:m_id.start()].strip(" -|")
+
+        # Se CPF ainda não foi encontrado, procura por rótulos de documento no conteúdo
+        if cpf == "N/A":
+            m_doc = re.search(r'(?:CPF|Documento|RG|ID|Passaporte):\s*([A-Za-z0-9\.\-]{4,20})', conteudo, re.IGNORECASE)
+            if m_doc:
+                cpf = m_doc.group(1).strip()
+
         if not clean_nome: clean_nome = "Desconhecido"
 
         return clean_nome, cpf, horario
