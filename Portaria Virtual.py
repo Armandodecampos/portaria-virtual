@@ -2018,8 +2018,13 @@ class DatabaseHandler:
             params = []
             for t in termos:
                 t_norm = self.remove_accents(t)
-                conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ?)")
-                params.extend([f"%{t_norm}%", f"%{t}%"])
+                t_digits = re.sub(r'\D', '', t)
+                if t_digits:
+                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ? OR replace(replace(cpf, '.', ''), '-', '') LIKE ?)")
+                    params.extend([f"%{t_norm}%", f"%{t}%", f"%{t_digits}%"])
+                else:
+                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ?)")
+                    params.extend([f"%{t_norm}%", f"%{t}%"])
             query += " AND ".join(conditions)
             query += " ORDER BY visita_id DESC LIMIT 50"
             self.cursor.execute(query, params)
@@ -3357,23 +3362,6 @@ class SmartPortariaScanner(QMainWindow):
             return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:9]}-{numeros[9:]}"
 
     def realizar_busca_normal(self):
-        texto = self.input_busca.text().strip()
-        # Se o texto for puramente numérico ou parecer um CPF em digitação, formata automaticamente
-        apenas_numeros = re.sub(r'\D', '', texto)
-        if apenas_numeros and apenas_numeros.isdigit() and len(apenas_numeros) <= 11:
-            # Só formata se o que foi digitado for apenas números ou já tiver separadores de CPF
-            # Isso evita formatar IDs que podem ser numéricos mas curtos,
-            # embora no Brasil CPFs sejam muito comuns com 11 dígitos.
-            # Se o usuário está digitando algo que só tem números, assumimos CPF.
-            if all(c.isdigit() or c in ".-" for c in texto):
-                cpf_formatado = self.formatar_cpf(apenas_numeros)
-                if texto != cpf_formatado:
-                    cursor_pos = self.input_busca.cursorPosition()
-                    self.input_busca.blockSignals(True)
-                    self.input_busca.setText(cpf_formatado)
-                    self.input_busca.setCursorPosition(cursor_pos + (len(cpf_formatado) - len(texto)))
-                    self.input_busca.blockSignals(False)
-
         self.timer_busca.start(300)
 
 
@@ -3474,29 +3462,17 @@ class SmartPortariaScanner(QMainWindow):
     def executar_busca_local(self, silent=False):
         termo_original = self.input_busca.text().strip()
         self.pesquisar_em_liberacoes(termo_original)
-        apenas_numeros = re.sub(r'\D', '', termo_original)
-
-        # Identifica se é uma busca por CPF (somente números e até 11 dígitos)
-        # Se for CPF, termo_db será formatado e termo_zk será apenas números.
-        if apenas_numeros and apenas_numeros.isdigit() and len(apenas_numeros) <= 11 and all(c.isdigit() or c in ".-" for c in termo_original):
-            termo_db = self.formatar_cpf(apenas_numeros)
-            termo_zk = apenas_numeros
-            termo_para_check = termo_original
-        else:
-            termo_db = termo_original
-            termo_zk = termo_original
-            termo_para_check = termo_original
 
         # Para o Relatório ZK Bio (ExcelRecordsWidget)
         if not silent:
-            self.container_pesquisa_zk.filter_and_render(termo_zk)
+            self.container_pesquisa_zk.filter_and_render(termo_original)
 
-        if termo_para_check and not self.container_pesquisa_zk.isVisible() and self.container_pesquisa_zk.has_data():
+        if termo_original and not self.container_pesquisa_zk.isVisible() and self.container_pesquisa_zk.has_data():
             self.abrir_dialogo_excel()
 
         if not self.db: return
 
-        if not termo_db:
+        if not termo_original:
             self.txt_res_busca.setHtml("")
             return
 
@@ -3534,7 +3510,7 @@ class SmartPortariaScanner(QMainWindow):
                 "cor_validade_padrao": "#10b981"
             }
 
-        termos = termo_db.lower().split()
+        termos = termo_original.lower().split()
         selected_id = self.input_transfer_id.text().strip()
         self.local_search_thread = LocalSearchThread(
             self.db, termos, theme_data,
