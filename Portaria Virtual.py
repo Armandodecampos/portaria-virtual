@@ -1138,30 +1138,78 @@ class ImportExcelThread(QThread):
 
     def run(self):
         try:
+            import pandas as pd
             now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+            df = None
+            sucesso = False
+
+            # Tenta converter/ler em múltiplos formatos (HTML table, Excel, CSV)
+            # 1. Tentar ler como HTML (comum em arquivos exportados como .xls falsa web)
+            try:
+                # Tenta primeiro com utf-8, fallback para latin-1 se necessário
+                try:
+                    tabelas = pd.read_html(self.fname, encoding="utf-8")
+                except Exception:
+                    tabelas = pd.read_html(self.fname, encoding="latin-1")
+
+                if tabelas and len(tabelas) > 0:
+                    df = tabelas[0]
+                    sucesso = True
+            except Exception:
+                pass
+
+            # 2. Tentar ler como Excel nativo (.xls ou .xlsx)
+            if not sucesso:
+                try:
+                    df = pd.read_excel(self.fname)
+                    sucesso = True
+                except Exception:
+                    pass
+
+            # 3. Tentar ler como CSV
+            if not sucesso:
+                try:
+                    df = pd.read_csv(self.fname, sep=None, engine="python")
+                    sucesso = True
+                except Exception:
+                    pass
+
             rows = []
-            if self.fname.lower().endswith(".xls"):
-                wb = xlrd.open_workbook(self.fname)
-                ws = wb.sheet_by_index(0)
-                for row_idx in range(1, ws.nrows):
-                    rows.append(ws.row_values(row_idx))
+            if sucesso and df is not None:
+                # Converte dataframe para lista de linhas (ignorando o cabeçalho)
+                rows = df.values.tolist()
             else:
-                wb = openpyxl.load_workbook(self.fname, data_only=True)
-                ws = wb.active
-                for row in ws.iter_rows(min_row=2, values_only=True):
-                    rows.append(row)
+                # Fallback legado usando xlrd / openpyxl
+                if self.fname.lower().endswith(".xls"):
+                    wb = xlrd.open_workbook(self.fname)
+                    ws = wb.sheet_by_index(0)
+                    for row_idx in range(1, ws.nrows):
+                        rows.append(ws.row_values(row_idx))
+                else:
+                    wb = openpyxl.load_workbook(self.fname, data_only=True)
+                    ws = wb.active
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        rows.append(row)
 
             new_items = {}
             for row in rows:
-                if not any(row): continue
+                if not any(row if isinstance(row, (list, tuple)) else pd.notna(row)): continue
                 row_len = len(row)
-                vid = str(row[0]) if row_len > 0 and row[0] is not None else "-"
-                nome = str(row[1]).strip() if row_len > 1 and row[1] else "-"
-                sobrenome = str(row[2]).strip() if row_len > 2 and row[2] else "-"
-                dept = str(row[4]).strip() if row_len > 4 and row[4] else "Portaria Virtual"
-                celular = str(row[7]) if row_len > 7 and row[7] is not None else "-"
-                cartao = str(row[8]) if row_len > 8 and row[8] is not None else "-"
-                email = str(row[9]) if row_len > 9 and row[9] is not None else "-"
+                def clean_val(val):
+                    if val is None or pd.isna(val): return "-"
+                    s = str(val).strip()
+                    if s.endswith('.0') and s[:-2].isdigit():
+                        s = s[:-2]
+                    return s if s else "-"
+
+                vid = clean_val(row[0]) if row_len > 0 else "-"
+                nome = clean_val(row[1]) if row_len > 1 else "-"
+                sobrenome = clean_val(row[2]) if row_len > 2 else "-"
+                dept = clean_val(row[4]) if row_len > 4 else "Portaria Virtual"
+                if dept == "-": dept = "Portaria Virtual"
+                celular = clean_val(row[7]) if row_len > 7 else "-"
+                cartao = clean_val(row[8]) if row_len > 8 else "-"
+                email = clean_val(row[9]) if row_len > 9 else "-"
 
                 if vid == "-" and nome == "-": continue
 
@@ -1547,7 +1595,7 @@ class ExcelRecordsWidget(QWidget):
             self.lbl_file_name.setText(f"{label_text} {timestamp}")
 
     def import_excel(self):
-        fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Excel", "", "Excel Files (*.xls *.xlsx)")
+        fname, _ = QFileDialog.getOpenFileName(self, "Selecionar Relatório ZK Bio", "", "Arquivos Excel / HTML / CSV (*.xls *.xlsx *.csv *.html);;Todos os arquivos (*.*)")
         if not fname: return
 
         if hasattr(self, 'btn_upload'):
