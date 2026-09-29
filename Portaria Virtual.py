@@ -665,7 +665,7 @@ class NetworkMonitorOverlay(QFrame):
         main_layout.addWidget(self.lbl_title)
 
         # Mensagem Explicativa
-        self.lbl_message = QLabel("Seu computador perdeu o acesso à rede.\nPor favor, conecte-se ao Wi-Fi novamente.")
+        self.lbl_message = QLabel("Seu computador perdeu o acesso à rede.\nPor favor, conecte-se à rede Wi-Fi OneABI.")
         self.lbl_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_message.setWordWrap(True)
         self.lbl_message.setStyleSheet(f"font-size: 12px; color: {self.text_color}; background: transparent;")
