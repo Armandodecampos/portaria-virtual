@@ -567,7 +567,6 @@ class NetworkChecker:
 
         # Teste 2: Conexão rápida via Socket no DNS do Google
         try:
-            socket.setdefaulttimeout(timeout)
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(timeout)
             s.connect((host, port))
@@ -2491,6 +2490,9 @@ class SearchPageWidget(QFrame):
             }}
         """)
 
+    def aplicar_tema(self, mode):
+        self.apply_theme(mode)
+
 class SmartPortariaScanner(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -2961,7 +2963,7 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
         self.overlay_transfer.apply_theme(modo)
-        self.search_page_widget.aplicar_tema(modo)
+        self.search_page_widget.apply_theme(modo)
         self.overlay_network.apply_overlay_theme(modo)
 
         # Atualiza cor de fundo do WebEngine de busca para evitar flickers brancos ou sumiço por transparência
