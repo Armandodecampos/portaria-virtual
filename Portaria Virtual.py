@@ -3244,7 +3244,7 @@ class SmartPortariaScanner(QMainWindow):
 
         for name, strategy, delay in configs_robos:
             robo = RoboCapture(name, strategy, self.db, self)
-            robo.log_signal.connect(lambda msg: self.txt_live.append(msg))
+            robo.log_signal.connect(self.log)
             robo.new_visit_signal.connect(self.exibir_notificacao)
             self.robos.append(robo)
             if delay == 0:
@@ -4307,9 +4307,12 @@ class SmartPortariaScanner(QMainWindow):
     def log(self, mensagem: str):
         """Escreve uma mensagem de log na caixa de texto ao vivo (txt_live)"""
         if hasattr(self, 'txt_live') and self.txt_live is not None:
-            self.txt_live.append(mensagem)
+            try:
+                self.txt_live.append(mensagem)
+            except Exception as e:
+                print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {mensagem}")
         else:
-            print(mensagem)
+            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {mensagem}")
 
     def on_network_status_changed(self, connected: bool):
         if connected:
