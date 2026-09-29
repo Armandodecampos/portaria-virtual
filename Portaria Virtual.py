@@ -4304,6 +4304,13 @@ class SmartPortariaScanner(QMainWindow):
                 y = max(0, (self.container_stack_overlay.height() - self.overlay_network.height()) // 2)
                 self.overlay_network.move(x, y)
 
+    def log(self, mensagem: str):
+        """Escreve uma mensagem de log na caixa de texto ao vivo (txt_live)"""
+        if hasattr(self, 'txt_live') and self.txt_live is not None:
+            self.txt_live.append(mensagem)
+        else:
+            print(mensagem)
+
     def on_network_status_changed(self, connected: bool):
         if connected:
             self.overlay_network.hide()
