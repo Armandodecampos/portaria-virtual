@@ -12,6 +12,9 @@ import urllib.parse
 import base64
 import json
 import threading
+import socket
+import platform
+import subprocess
 
 # --- BLOCO DE PROTEÇÃO DE IMPORTAÇÃO ---
 try:
@@ -529,6 +532,255 @@ class NotificationToast(QFrame):
         self.anim_hide.setEasingCurve(QEasingCurve.Type.InCubic)
         self.anim_hide.finished.connect(self.deleteLater)
         self.anim_hide.start()
+
+# --- MONITOR DE CONEXÃO WI-FI / REDE ---
+class NetworkChecker:
+    """Classe responsável por testar a conectividade de rede e Wi-Fi."""
+
+    @staticmethod
+    def is_wifi_connected_windows() -> bool:
+        """Verifica se a interface de Wi-Fi do Windows está conectada via netsh."""
+        if platform.system().lower() == "windows":
+            try:
+                output = subprocess.check_output(
+                    ["netsh", "wlan", "show", "interfaces"],
+                    stderr=subprocess.STDOUT,
+                    timeout=2
+                ).decode("utf-8", errors="ignore")
+
+                # Se o adaptador Wi-Fi estiver desconectado ou desligado
+                output_lower = output.lower()
+                if "disconnected" in output_lower or "desconectado" in output_lower:
+                    return False
+                if "state" in output_lower and "connected" not in output_lower and "conectado" not in output_lower:
+                    return False
+            except Exception:
+                pass
+        return True
+
+    @staticmethod
+    def is_connected(host="8.8.8.8", port=53, timeout=1.0) -> bool:
+        """Verifica a conexão com múltiplos testes rápidos."""
+        # Teste 1: Verificar se a placa Wi-Fi está ativa no Windows
+        if not NetworkChecker.is_wifi_connected_windows():
+            return False
+
+        # Teste 2: Conexão rápida via Socket no DNS do Google
+        try:
+            socket.setdefaulttimeout(timeout)
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            s.connect((host, port))
+            s.close()
+            return True
+        except Exception:
+            pass
+
+        # Teste 3: Servidor alternativo (Cloudflare DNS)
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            s.connect(("1.1.1.1", port))
+            s.close()
+            return True
+        except Exception:
+            pass
+
+        return False
+
+
+class NetworkMonitorThread(QThread):
+    """Thread em segundo plano para monitoramento contínuo da conexão."""
+    status_changed = pyqtSignal(bool)
+    anim_tick = pyqtSignal(str)
+
+    def __init__(self, check_interval=2, parent=None):
+        super().__init__(parent)
+        self.check_interval = check_interval
+        self.is_monitoring = True
+        self.is_connected_state = True
+
+    def stop(self):
+        self.is_monitoring = False
+
+    def run(self):
+        anim_frames = ["🔄 Aguardando rede.", "🔄 Aguardando rede..", "🔄 Aguardando rede..."]
+        anim_idx = 0
+
+        # Verificação inicial
+        initial_check = NetworkChecker.is_connected()
+        self.is_connected_state = initial_check
+        self.status_changed.emit(initial_check)
+
+        while self.is_monitoring:
+            is_now_connected = NetworkChecker.is_connected()
+
+            if is_now_connected != self.is_connected_state:
+                self.is_connected_state = is_now_connected
+                self.status_changed.emit(is_now_connected)
+            elif not is_now_connected:
+                txt = anim_frames[anim_idx % len(anim_frames)]
+                anim_idx += 1
+                self.anim_tick.emit(txt)
+
+            time.sleep(self.check_interval)
+
+
+class NetworkMonitorOverlay(QFrame):
+    """Janela sobreposta estilizada para aviso de queda de conexão Wi-Fi / Rede."""
+    manual_check_requested = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.setFixedWidth(460)
+        self.setFixedHeight(320)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+
+        # Paleta padrão de cores
+        self.bg_color = "#1e1e2e"
+        self.card_bg = "#252538"
+        self.text_color = "#cdd6f4"
+        self.accent_red = "#f38ba8"
+        self.accent_green = "#a6e3a1"
+        self.accent_yellow = "#f9e2af"
+        self.subtext_color = "#a6adc8"
+
+        self._create_widgets()
+
+    def _create_widgets(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(10)
+
+        # Ícone de alerta (⚠️)
+        self.lbl_icon = QLabel("⚠️")
+        self.lbl_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_icon.setStyleSheet("font-size: 38px; background: transparent;")
+        main_layout.addWidget(self.lbl_icon)
+
+        # Título Principal
+        self.lbl_title = QLabel("SEM CONEXÃO COM O WI-FI")
+        self.lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.accent_red}; background: transparent;")
+        main_layout.addWidget(self.lbl_title)
+
+        # Mensagem Explicativa
+        self.lbl_message = QLabel("Seu computador perdeu o acesso à rede.\nPor favor, conecte-se ao Wi-Fi novamente.")
+        self.lbl_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_message.setWordWrap(True)
+        self.lbl_message.setStyleSheet(f"font-size: 12px; color: {self.text_color}; background: transparent;")
+        main_layout.addWidget(self.lbl_message)
+
+        # Indicador de Status com Animação
+        self.status_label = QLabel("🔄 Aguardando reconexão...")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet(f"font-size: 11px; font-style: italic; color: {self.subtext_color}; background: transparent;")
+        main_layout.addWidget(self.status_label)
+
+        # Container dos Botões
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+
+        # Botão para Reverificar Agora
+        self.retry_btn = QPushButton("Reverificar Conexão")
+        self.retry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.retry_btn.setFixedHeight(36)
+        self.retry_btn.clicked.connect(self._on_retry_clicked)
+        button_layout.addWidget(self.retry_btn)
+
+        # Botão para Minimizar / Ocultar
+        self.hide_btn = QPushButton("Minimizar")
+        self.hide_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.hide_btn.setFixedHeight(36)
+        self.hide_btn.clicked.connect(self.hide)
+        button_layout.addWidget(self.hide_btn)
+
+        main_layout.addLayout(button_layout)
+
+    def apply_overlay_theme(self, mode):
+        if mode == "dark":
+            self.bg_color = "#1e1e2e"
+            self.card_bg = "#252538"
+            self.text_color = "#cdd6f4"
+            self.accent_red = "#f38ba8"
+            self.accent_green = "#a6e3a1"
+            self.accent_yellow = "#f9e2af"
+            self.subtext_color = "#a6adc8"
+            border_color = "#f38ba8"
+        elif mode == "sepia":
+            self.bg_color = "#1a120b"
+            self.card_bg = "#2b1f17"
+            self.text_color = "#ffffff"
+            self.accent_red = "#ef4444"
+            self.accent_green = "#10b981"
+            self.accent_yellow = "#d9975d"
+            self.subtext_color = "#e2e8f0"
+            border_color = "#ef4444"
+        else:
+            self.bg_color = "#dcddd5"
+            self.card_bg = "#e9eae3"
+            self.text_color = "#000000"
+            self.accent_red = "#dc2626"
+            self.accent_green = "#059669"
+            self.accent_yellow = "#e69000"
+            self.subtext_color = "#4b5563"
+            border_color = "#dc2626"
+
+        self.setStyleSheet(f"""
+            NetworkMonitorOverlay {{
+                background-color: {self.card_bg};
+                border: 2px solid {border_color};
+                border-radius: 12px;
+            }}
+            QPushButton {{
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+        """)
+
+        self.retry_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.accent_yellow};
+                color: #1e1e2e;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: #e0af68;
+            }}
+        """)
+
+        self.hide_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {self.subtext_color};
+                border: 1px solid {self.subtext_color};
+            }}
+            QPushButton:hover {{
+                background-color: {self.bg_color};
+                color: {self.text_color};
+            }}
+        """)
+
+        self.lbl_title.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {self.accent_red}; background: transparent;")
+        self.lbl_message.setStyleSheet(f"font-size: 12px; color: {self.text_color}; background: transparent;")
+        self.status_label.setStyleSheet(f"font-size: 11px; font-style: italic; color: {self.subtext_color}; background: transparent;")
+
+    def _on_retry_clicked(self):
+        self.status_label.setText("🔍 Testando conexão agora...")
+        self.status_label.setStyleSheet(f"font-size: 11px; font-style: italic; color: {self.accent_yellow}; background: transparent;")
+        self.manual_check_requested.emit()
+
+    def set_manual_result(self, connected: bool):
+        if connected:
+            self.status_label.setText("✅ Conectado com sucesso!")
+            self.status_label.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {self.accent_green}; background: transparent;")
+            QTimer.singleShot(1200, self.hide)
+        else:
+            self.status_label.setText("❌ Ainda sem sinal de internet.")
+            self.status_label.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {self.accent_red}; background: transparent;")
+
 
 # --- NOVA CLASSE: DIÁLOGO DE CONFIGURAÇÕES ---
 class ConfigDialog(QDialog):
@@ -2255,6 +2507,16 @@ class SmartPortariaScanner(QMainWindow):
         self.overlay_transfer.btn_paste.clicked.connect(self.colar_dados_manualmente)
         self.overlay_transfer.btn_close.clicked.connect(self.interromper_transferencia)
 
+        # Monitor de Conexão Wi-Fi / Rede
+        self.overlay_network = NetworkMonitorOverlay(self)
+        self.overlay_network.hide()
+        self.overlay_network.manual_check_requested.connect(self.executar_verificacao_manual_rede)
+
+        self.network_thread = NetworkMonitorThread(check_interval=2, parent=self)
+        self.network_thread.status_changed.connect(self.on_network_status_changed)
+        self.network_thread.anim_tick.connect(self.on_network_anim_tick)
+        self.network_thread.start()
+
         # Configurações e UI
         self.setWindowTitle("Monitor Portaria - Gestão de Dados")
         self.resize(1400, 900)
@@ -2528,6 +2790,7 @@ class SmartPortariaScanner(QMainWindow):
         # Re-parent overlay para o container e posiciona
         self.overlay_transfer.setParent(self.container_stack_overlay)
         self.search_page_widget.setParent(self.container_stack_overlay)
+        self.overlay_network.setParent(self.container_stack_overlay)
 
         layout_web.addWidget(self.container_stack_overlay, 1)
 
@@ -2698,6 +2961,8 @@ class SmartPortariaScanner(QMainWindow):
             QPushButton:hover {{ border-color: #94a3b8; background-color: {btn_hover_bg}; }}
         """
         self.overlay_transfer.apply_theme(modo)
+        self.search_page_widget.aplicar_tema(modo)
+        self.overlay_network.apply_overlay_theme(modo)
 
         # Atualiza cor de fundo do WebEngine de busca para evitar flickers brancos ou sumiço por transparência
         if modo == "dark":
@@ -4017,9 +4282,9 @@ class SmartPortariaScanner(QMainWindow):
         QMessageBox.critical(self, "Erro na Transferência", f"Falha: {err}")
 
     def posicionar_overlay(self):
-        """Helper para posicionar os overlays no canto superior direito"""
+        """Helper para posicionar os overlays no container"""
         if hasattr(self, 'container_stack_overlay'):
-            # Posicionamento do overlay de instrução (centro superior)
+            # Posicionamento do overlay de instrução (canto superior direito)
             if hasattr(self, 'overlay_transfer'):
                 self.overlay_transfer.move(
                     self.container_stack_overlay.width() - self.overlay_transfer.width() - 20,
@@ -4031,6 +4296,31 @@ class SmartPortariaScanner(QMainWindow):
                     self.container_stack_overlay.width() - self.search_page_widget.width() - 5,
                     5
                 )
+            # Posicionamento do overlay de alerta de rede (centralizado sobre a área web)
+            if hasattr(self, 'overlay_network'):
+                x = max(0, (self.container_stack_overlay.width() - self.overlay_network.width()) // 2)
+                y = max(0, (self.container_stack_overlay.height() - self.overlay_network.height()) // 2)
+                self.overlay_network.move(x, y)
+
+    def on_network_status_changed(self, connected: bool):
+        if connected:
+            self.overlay_network.hide()
+            self.log("✅ Conexão com a rede / Wi-Fi ativa.")
+        else:
+            self.overlay_network.show()
+            self.posicionar_overlay()
+            self.overlay_network.raise_()
+            self.log("⚠️ ALERTA: Conexão com a rede / Wi-Fi perdida!")
+
+    def on_network_anim_tick(self, status_text: str):
+        if self.overlay_network.isVisible():
+            self.overlay_network.status_label.setText(status_text)
+
+    def executar_verificacao_manual_rede(self):
+        def task():
+            connected = NetworkChecker.is_connected()
+            QTimer.singleShot(0, lambda: self.overlay_network.set_manual_result(connected))
+        threading.Thread(target=task, daemon=True).start()
 
     def toggle_log_panel(self):
         """Alterna a visibilidade do painel de log direito"""
@@ -4056,6 +4346,9 @@ class SmartPortariaScanner(QMainWindow):
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
+        if hasattr(self, 'network_thread'):
+            self.network_thread.stop()
+            self.network_thread.wait(1000)
         if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
             self.transfer_thread.stop()
             self.transfer_thread.wait()
