@@ -2737,13 +2737,8 @@ class SmartPortariaScanner(QMainWindow):
         self.timer_download_img = QTimer()
         self.timer_download_img.timeout.connect(self.verificar_imagem_capturada)
         
-        self.add_new_tab(QUrl("https://portaria-global.governarti.com.br/visita/"), "Portaria Virtual", closable=False)
-        self.add_new_tab(QUrl(f"{ZK_SERVER}/bioLogin.do"), "ZK Bio", closable=False)
-        self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
-        self.view_liberacoes = self.add_new_tab(QUrl("https://armandodecampos.github.io/controledecessos/"), "Liberações", closable=False)
-
-        # Carrega guias personalizadas configuradas pelo usuário
-        self.carregar_guias_personalizadas()
+        # Carrega todas as guias (fixas e personalizadas) na ordem salva pelo usuário
+        self.carregar_guias_iniciais()
 
         # Inicializa timers e estados para a guia Liberações
         self.timer_sonda_liberacoes = QTimer(self)
@@ -3387,6 +3382,7 @@ class SmartPortariaScanner(QMainWindow):
             self.web_stack.removeWidget(widget)
             self.web_stack.insertWidget(to_index, widget)
             self.web_stack.setCurrentIndex(self.tabs.currentIndex())
+            self.salvar_ordem_guias()
 
     def importar_excel_zk(self):
         # Abre como diálogo apenas para importação se necessário, ou usa o widget integrado
@@ -3408,6 +3404,7 @@ class SmartPortariaScanner(QMainWindow):
 
     def salvar_guias_personalizadas(self, guias):
         self.settings.setValue("custom_tabs", json.dumps(guias))
+        self.settings.sync()
 
     def eh_guia_protegida(self, titulo):
         if not titulo:
@@ -3419,15 +3416,57 @@ class SmartPortariaScanner(QMainWindow):
                 return True
         return False
 
-    def carregar_guias_personalizadas(self):
-        guias = self.obter_guias_personalizadas()
-        for g in guias:
+    def salvar_ordem_guias(self):
+        tab_titles = []
+        for i in range(self.tabs.count()):
+            title = self.tabs.tabText(i)
+            if title and not title.startswith("Nova Guia") and not title.startswith("ID "):
+                tab_titles.append(title)
+        self.settings.setValue("tab_order", json.dumps(tab_titles))
+        self.settings.sync()
+
+    def carregar_guias_iniciais(self):
+        guias_map = {
+            "Portaria Virtual": {"url": QUrl("https://portaria-global.governarti.com.br/visita/"), "closable": False, "profile": None},
+            "ZK Bio": {"url": QUrl(f"{ZK_SERVER}/bioLogin.do"), "closable": False, "profile": None},
+            "Guia anônima": {"url": QUrl("about:blank"), "closable": False, "profile": self.profile_anonimo},
+            "Liberações": {"url": QUrl("https://armandodecampos.github.io/controledecessos/"), "closable": False, "profile": None},
+        }
+
+        for g in self.obter_guias_personalizadas():
             nome = g.get("name", "").strip()
-            url = g.get("url", "").strip()
-            if nome and url:
-                if not url.startswith("http://") and not url.startswith("https://") and not url.startswith("about:"):
-                    url = "https://" + url
-                self.add_new_tab(QUrl(url), nome, closable=False)
+            url_str = g.get("url", "").strip()
+            if nome and url_str:
+                if not url_str.startswith("http://") and not url_str.startswith("https://") and not url_str.startswith("about:"):
+                    url_str = "https://" + url_str
+                guias_map[nome] = {"url": QUrl(url_str), "closable": False, "profile": None}
+
+        raw_order = self.settings.value("tab_order", "[]")
+        ordem_salva = []
+        try:
+            ordem_salva = json.loads(raw_order)
+            if not isinstance(ordem_salva, list):
+                ordem_salva = []
+        except Exception:
+            ordem_salva = []
+
+        ordem_final = []
+        for nome in ordem_salva:
+            if nome in guias_map and nome not in ordem_final:
+                ordem_final.append(nome)
+
+        for nome in guias_map:
+            if nome not in ordem_final:
+                ordem_final.append(nome)
+
+        for nome in ordem_final:
+            info = guias_map[nome]
+            view = self.add_new_tab(info["url"], nome, closable=info["closable"], profile=info["profile"])
+            if nome == "Liberações":
+                self.view_liberacoes = view
+
+    def carregar_guias_personalizadas(self):
+        pass
 
     def adicionar_guia_personalizada(self, nome, url):
         guias = self.obter_guias_personalizadas()
@@ -3443,6 +3482,7 @@ class SmartPortariaScanner(QMainWindow):
             formatted_url = "https://" + formatted_url
 
         self.add_new_tab(QUrl(formatted_url), nome, closable=False)
+        self.salvar_ordem_guias()
         return True, ""
 
     def remover_guia_personalizada(self, nome):
@@ -3458,6 +3498,7 @@ class SmartPortariaScanner(QMainWindow):
                     widget.deleteLater()
                 self.tabs.removeTab(i)
                 break
+        self.salvar_ordem_guias()
 
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
