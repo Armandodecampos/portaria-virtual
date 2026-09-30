@@ -430,7 +430,7 @@ class NotificationToast(QFrame):
         super().__init__(parent)
         self.parent_window = parent
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
-        self.setFixedSize(220, 60)
+        self.setFixedSize(300, 80)
         self.is_hiding = False
 
         # Layout principal
