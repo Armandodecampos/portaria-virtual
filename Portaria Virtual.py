@@ -781,6 +781,108 @@ class NetworkMonitorOverlay(QFrame):
             self.status_label.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {self.accent_red}; background: transparent;")
 
 
+class WindowsPinMonitorThread(QThread):
+    """Thread de monitoramento em segundo plano para preencher e autenticar PIN da Segurança do Windows automaticamente."""
+    log_signal = pyqtSignal(str)
+
+    def __init__(self, parent_scanner=None, check_interval=1.0):
+        super().__init__(parent_scanner)
+        self.parent_scanner = parent_scanner
+        self.check_interval = check_interval
+        self.is_monitoring = True
+        self.last_handled_hwnd = None
+        self.last_handled_time = 0
+
+    def stop(self):
+        self.is_monitoring = False
+
+    def run(self):
+        if platform.system().lower() != "windows":
+            return
+
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        def get_window_text(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length == 0:
+                return ""
+            buffer = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buffer, length + 1)
+            return buffer.value
+
+        def get_window_class(hwnd):
+            buffer = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, buffer, 256)
+            return buffer.value
+
+        def send_keys_pin(hwnd, pin):
+            if not pin:
+                return
+            user32.SetForegroundWindow(hwnd)
+            time.sleep(0.3)
+
+            VK_RETURN = 0x0D
+
+            for char in pin:
+                vk_code = user32.VkKeyScanW(ord(char))
+                vk = vk_code & 0xFF
+                shift = (vk_code >> 8) & 1
+
+                if shift:
+                    user32.keybd_event(0x10, 0, 0, 0)
+
+                user32.keybd_event(vk, 0, 0, 0)
+                user32.keybd_event(vk, 0, 2, 0)
+
+                if shift:
+                    user32.keybd_event(0x10, 0, 2, 0)
+                time.sleep(0.05)
+
+            time.sleep(0.2)
+            user32.keybd_event(VK_RETURN, 0, 0, 0)
+            user32.keybd_event(VK_RETURN, 0, 2, 0)
+
+        keywords = [
+            "segurança do windows", "windows security", "credenciais do windows",
+            "windows credentials", "autenticação do windows", "segurança de windows"
+        ]
+
+        found_hwnds = []
+
+        def enum_cb(hwnd, lparam):
+            if user32.IsWindowVisible(hwnd):
+                title = get_window_text(hwnd).lower()
+                cls = get_window_class(hwnd).lower()
+                if any(kw in title for kw in keywords) or "credentialuibroker" in cls or "securityhealth" in cls:
+                    found_hwnds.append(hwnd)
+            return True
+
+        c_enum_cb = EnumWindowsProc(enum_cb)
+
+        while self.is_monitoring:
+            try:
+                found_hwnds.clear()
+                user32.EnumWindows(c_enum_cb, 0)
+
+                current_time = time.time()
+                for hwnd in found_hwnds:
+                    if hwnd != self.last_handled_hwnd or (current_time - self.last_handled_time) > 5.0:
+                        self.last_handled_hwnd = hwnd
+                        self.last_handled_time = current_time
+
+                        pin = self.parent_scanner.creds.get("win_pin", "") if self.parent_scanner else ""
+                        if pin:
+                            self.log_signal.emit("🔑 [Segurança do Windows] Prompt de PIN detectado. Preenchendo automaticamente...")
+                            send_keys_pin(hwnd, pin)
+            except Exception as e:
+                print(f"Erro no monitor de PIN do Windows: {e}")
+
+            time.sleep(self.check_interval)
+
+
 # --- NOVA CLASSE: DIÁLOGO PARA ADICIONAR GUIA ---
 class AddTabDialog(QDialog):
     def __init__(self, parent=None):
@@ -980,6 +1082,14 @@ class ConfigDialog(QDialog):
         lay_lib.addWidget(self.edit_lib_user)
         lay_lib.addWidget(self.edit_lib_pass)
         lay_creds.addLayout(lay_lib)
+
+        lay_win = QHBoxLayout()
+        lay_win.addWidget(QLabel("Segurança do Windows (PIN):"))
+        self.edit_win_pin = QLineEdit(self.parent_window.creds.get('win_pin', '246810@'))
+        self.edit_win_pin.setPlaceholderText("PIN / Senha do Windows")
+        self.edit_win_pin.setEchoMode(QLineEdit.EchoMode.Password)
+        lay_win.addWidget(self.edit_win_pin)
+        lay_creds.addLayout(lay_win)
 
         self.btn_save_creds = QPushButton("💾 Salvar Credenciais")
         self.btn_save_creds.clicked.connect(self.acao_salvar_credenciais)
@@ -1204,6 +1314,7 @@ class ConfigDialog(QDialog):
         z_pass = self.edit_zk_pass.text().strip()
         l_user = self.edit_lib_user.text().strip()
         l_pass = self.edit_lib_pass.text().strip()
+        w_pin = self.edit_win_pin.text().strip()
 
         if not p_user or not p_pass or not z_user or not z_pass:
             QMessageBox.warning(self, "Aviso", "Os campos de credenciais da Portaria e ZK Bio devem ser preenchidos.")
@@ -1215,6 +1326,7 @@ class ConfigDialog(QDialog):
         self.parent_window.settings.setValue("zk_pass", z_pass)
         self.parent_window.settings.setValue("lib_user", l_user)
         self.parent_window.settings.setValue("lib_pass", l_pass)
+        self.parent_window.settings.setValue("win_pin", w_pin)
 
         self.parent_window.carregar_credenciais()
         QMessageBox.information(self, "Sucesso", "Credenciais salvas com sucesso!")
@@ -2699,6 +2811,10 @@ class SmartPortariaScanner(QMainWindow):
         self.network_thread.anim_tick.connect(self.on_network_anim_tick)
         self.network_thread.start()
 
+        self.win_pin_thread = WindowsPinMonitorThread(parent_scanner=self, check_interval=1.0)
+        self.win_pin_thread.log_signal.connect(self.log)
+        self.win_pin_thread.start()
+
         # Configurações e UI
         self.setWindowTitle("Monitor Portaria - Gestão de Dados")
         self.resize(1400, 900)
@@ -3000,11 +3116,12 @@ class SmartPortariaScanner(QMainWindow):
         """Carrega credenciais do QSettings ou usa padrões"""
         self.creds = {
             'portaria_user': self.settings.value("portaria_user", "armando.junior"),
-            'portaria_pass': self.settings.value("portaria_pass", "246810@"),
+            'portaria_pass': self.settings.value("portaria_pass", "armandocampos.1"),
             'zk_user': self.settings.value("zk_user", "armando.campos"),
-            'zk_pass': self.settings.value("zk_pass", "246810@"),
+            'zk_pass': self.settings.value("zk_pass", "armandocampos.1"),
             'lib_user': self.settings.value("lib_user", ""),
-            'lib_pass': self.settings.value("lib_pass", "246810@")
+            'lib_pass': self.settings.value("lib_pass", ""),
+            'win_pin': self.settings.value("win_pin", "246810@")
         }
 
     def aplicar_tema(self, modo):
@@ -4678,6 +4795,9 @@ class SmartPortariaScanner(QMainWindow):
         if hasattr(self, 'network_thread'):
             self.network_thread.stop()
             self.network_thread.wait(1000)
+        if hasattr(self, 'win_pin_thread'):
+            self.win_pin_thread.stop()
+            self.win_pin_thread.wait(1000)
         if hasattr(self, 'transfer_thread') and self.transfer_thread.isRunning():
             self.transfer_thread.stop()
             self.transfer_thread.wait()
