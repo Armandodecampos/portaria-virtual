@@ -3658,6 +3658,18 @@ class SmartPortariaScanner(QMainWindow):
                 novos_alertas.add(idx)
         self.tabs.alertas_indices = novos_alertas
 
+    def obter_base_nome_aba(self, current_text):
+        clean_text = re.sub(r'\s*([\(\[]\s*\d{1,4}\+?\s*[\)\]]|\(\s*\*\s*\)|\*).*$', '', current_text).strip()
+        fixed_names = ["Portaria Virtual", "ZK Bio", "Guia anônima", "Liberações"]
+        for name in fixed_names:
+            if name in clean_text or name in current_text:
+                return name
+        for g in self.obter_guias_personalizadas():
+            c_name = g.get("name", "").strip()
+            if c_name and (c_name == clean_text or c_name == current_text or c_name in current_text):
+                return c_name
+        return None
+
     def atualizar_titulo_aba(self, titulo, view):
         index = self.web_stack.indexOf(view)
         if index != -1:
@@ -3665,15 +3677,26 @@ class SmartPortariaScanner(QMainWindow):
             if "Liberações" in current_text:
                 return
 
-            if not self.eh_guia_protegida(current_text):
+            base_name = self.obter_base_nome_aba(current_text)
+            notif_match = re.search(r'[\(\[]\s*\d{1,4}\+?\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo)
+
+            if base_name:
+                # Para guias fixas/protegidas ou personalizadas
+                if notif_match:
+                    count_str = notif_match.group(0).strip()
+                    self.tabs.setTabText(index, f"{base_name} {count_str}")
+                    self.iniciar_alerta_aba(index)
+                else:
+                    self.tabs.setTabText(index, base_name)
+                    self.parar_alerta_aba(index)
+            else:
+                # Para guias temporárias/dinâmicas
                 display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
                 self.tabs.setTabText(index, display_title)
-
-            # Verifica se o título da página contém indicador de notificação/não lido (ex: Inbox (1) - Outlook, (1) Teams, * Teams)
-            if re.search(r'[\(\[]\s*\d{1,4}\+?\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo):
-                self.iniciar_alerta_aba(index)
-            else:
-                self.parar_alerta_aba(index)
+                if notif_match:
+                    self.iniciar_alerta_aba(index)
+                else:
+                    self.parar_alerta_aba(index)
 
     def atualizar_barra_endereco(self, qurl, view):
         if view == self.web_stack.currentWidget():
@@ -4272,9 +4295,9 @@ class SmartPortariaScanner(QMainWindow):
             if not url_str or url_str == "about:blank":
                 continue
 
-            # 1. Verifica via Python o título nativo da QWebEngineView (funciona sem JS injection e sem sofrer restrição de CSP)
+            # 1. Verifica o título do QWebEngineView ou o texto visível da aba (se já contiver o contador)
             page_title = view.title() or ""
-            if re.search(pattern_notif, page_title):
+            if re.search(pattern_notif, page_title) or re.search(pattern_notif, tab_title):
                 self.iniciar_alerta_aba(i)
                 continue
 
