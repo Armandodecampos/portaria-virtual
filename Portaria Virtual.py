@@ -3670,7 +3670,7 @@ class SmartPortariaScanner(QMainWindow):
                 self.tabs.setTabText(index, display_title)
 
             # Verifica se o título da página contém indicador de notificação/não lido (ex: Inbox (1) - Outlook, (1) Teams, * Teams)
-            if re.search(r'[\(\[]\s*\d{1,4}\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo):
+            if re.search(r'[\(\[]\s*\d{1,4}\+?\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo):
                 self.iniciar_alerta_aba(index)
             else:
                 self.parar_alerta_aba(index)
@@ -4256,62 +4256,7 @@ class SmartPortariaScanner(QMainWindow):
         self.tabs.update()
 
     def sondar_notificacoes_paginas(self):
-        js_check_notif = r"""
-        (function() {
-            // 1. Verifica se o título da página contém indicador numérico ou asterisco de mensagem não lida
-            // Exemplos: "Caixa de Entrada (1) - Outlook", "Inbox (2) - Outlook", "Chat (1) | Teams", "* Teams"
-            var title = document.title || "";
-            if (/[\(\[]\s*\d{1,4}\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)/.test(title)) {
-                return true;
-            }
-
-            // 2. Elementos de contagem/badge de não lidos (Outlook, Teams, Slack, WhatsApp, etc.)
-            var countSelectors = [
-                'span[class*="activity-badge"]',
-                'span[class*="app-badge"]',
-                '.badge-counter',
-                '.notification-badge',
-                '.unread-count',
-                '[class*="notification-count"]',
-                '[class*="counter-badge"]',
-                '[data-tid*="unread-count"]',
-                '[data-tid*="badge-count"]',
-                '[data-icon-name="Unread"]',
-                '.ms-Icon--Unread'
-            ];
-
-            for (var i = 0; i < countSelectors.length; i++) {
-                var els = document.querySelectorAll(countSelectors[i]);
-                for (var j = 0; j < els.length; j++) {
-                    var el = els[j];
-                    if (el.offsetWidth > 0 || el.offsetHeight > 0) {
-                        var text = (el.textContent || '').trim();
-                        // Se for um badge numérico positivo (ex: "1", "12", "99+") ou ícone unread presente
-                        if (/^\d+\+?$/.test(text) && parseInt(text, 10) > 0) {
-                            return true;
-                        }
-                        if (el.getAttribute('data-icon-name') === 'Unread' || el.classList.contains('ms-Icon--Unread')) {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            // 3. Verificação específica para aria-label e title de não lidos no Outlook / Teams / OWA
-            var unreadEls = document.querySelectorAll('[aria-label*="não lida"], [aria-label*="não lido"], [aria-label*="unread"], [title*="Não lida"], [title*="Não lido"], [title*="Unread"]');
-            for (var k = 0; k < unreadEls.length; k++) {
-                var uEl = unreadEls[k];
-                if (uEl.offsetWidth > 0 || uEl.offsetHeight > 0) {
-                    var label = ((uEl.getAttribute('aria-label') || '') + ' ' + (uEl.getAttribute('title') || '')).toLowerCase();
-                    if (/\d+\s*(mensagem|email|notificação|unread|item)/.test(label) || label.includes("item não lido") || label.includes("não lida") || label.includes("unread")) {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        })()
-        """
+        pattern_notif = r'[\(\[]\s*\d{1,4}\+?\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)'
 
         for i in range(self.tabs.count()):
             tab_title = self.tabs.tabText(i)
@@ -4323,10 +4268,48 @@ class SmartPortariaScanner(QMainWindow):
             if not view or not isinstance(view, QWebEngineView):
                 continue
 
-            # Evita disparar alertas para abas fixas locais (ex: Guia anônima em about:blank) se não tiver URL válida
             url_str = view.url().toString()
             if not url_str or url_str == "about:blank":
                 continue
+
+            # 1. Verifica via Python o título nativo da QWebEngineView (funciona sem JS injection e sem sofrer restrição de CSP)
+            page_title = view.title() or ""
+            if re.search(pattern_notif, page_title):
+                self.iniciar_alerta_aba(i)
+                continue
+
+            # 2. Sondagem DOM alternativa via JS (em bloco try/catch para páginas sem restrição CSP rigorosa)
+            js_check_notif = r"""
+            (function() {
+                try {
+                    var countSelectors = [
+                        'span[class*="activity-badge"]',
+                        'span[class*="app-badge"]',
+                        '.badge-counter',
+                        '.notification-badge',
+                        '.unread-count',
+                        '[class*="notification-count"]',
+                        '[class*="counter-badge"]',
+                        '[data-tid*="unread-count"]',
+                        '[data-tid*="badge-count"]'
+                    ];
+
+                    for (var i = 0; i < countSelectors.length; i++) {
+                        var els = document.querySelectorAll(countSelectors[i]);
+                        for (var j = 0; j < els.length; j++) {
+                            var el = els[j];
+                            if (el.offsetWidth > 0 || el.offsetHeight > 0) {
+                                var text = (el.textContent || '').trim();
+                                if (/^\d+\+?$/.test(text) && parseInt(text, 10) > 0) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+                return false;
+            })()
+            """
 
             def create_callback(tab_index):
                 def handle_notif_result(has_notif):
