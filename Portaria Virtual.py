@@ -781,6 +781,64 @@ class NetworkMonitorOverlay(QFrame):
             self.status_label.setStyleSheet(f"font-size: 11px; font-weight: bold; color: {self.accent_red}; background: transparent;")
 
 
+# --- NOVA CLASSE: DIÁLOGO PARA ADICIONAR GUIA ---
+class AddTabDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_config = parent
+        self.setWindowTitle("Adicionar Nova Guia")
+        self.setModal(True)
+        self.setMinimumWidth(380)
+
+        theme = parent.parent_window.settings.value("theme", "light") if parent and hasattr(parent, 'parent_window') else "light"
+        if theme == "dark":
+            bg = "#202426"; text = "#ffffff"; border = "#4d4d4d"; input_bg = "#2b2f31"; btn_primary = "#2563eb"
+        elif theme == "sepia":
+            bg = "#1a120b"; text = "#ffffff"; border = "#554433"; input_bg = "#000000"; btn_primary = "#d9975d"
+        else:
+            bg = "#dcddd5"; text = "#000000"; border = "#b2b3a8"; input_bg = "#cfd0c7"; btn_primary = "#000000"
+
+        self.setStyleSheet(f"""
+            QDialog {{ background-color: {bg}; color: {text}; font-size: 14px; }}
+            QLabel {{ color: {text}; font-weight: bold; background: transparent; }}
+            QLineEdit {{ background-color: {input_bg}; color: {text}; border: 1px solid {border}; padding: 6px; border-radius: 4px; }}
+            QPushButton {{ background-color: {input_bg}; color: {text}; border: 1px solid {border}; padding: 8px; border-radius: 4px; font-weight: bold; }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
+        layout.addWidget(QLabel("Nome da Guia:"))
+        self.edit_nome = QLineEdit()
+        self.edit_nome.setPlaceholderText("Ex: Google, Intranet, etc.")
+        layout.addWidget(self.edit_nome)
+
+        layout.addWidget(QLabel("Link do Site (URL):"))
+        self.edit_url = QLineEdit()
+        self.edit_url.setPlaceholderText("Ex: https://www.google.com")
+        layout.addWidget(self.edit_url)
+
+        btn_layout = QHBoxLayout()
+        self.btn_salvar = QPushButton("Adicionar")
+        if theme == "light":
+            self.btn_salvar.setStyleSheet(f"background-color: {btn_primary}; color: {bg}; font-weight: bold; padding: 8px; border-radius: 4px;")
+        else:
+            self.btn_salvar.setStyleSheet(f"background-color: {btn_primary}; color: white; font-weight: bold; padding: 8px; border-radius: 4px;")
+
+        self.btn_cancelar = QPushButton("Cancelar")
+        self.btn_cancelar.setStyleSheet("background-color: #ef4444; color: white; font-weight: bold; padding: 8px; border-radius: 4px; border: none;")
+
+        btn_layout.addWidget(self.btn_salvar)
+        btn_layout.addWidget(self.btn_cancelar)
+        layout.addLayout(btn_layout)
+
+        self.btn_salvar.clicked.connect(self.accept)
+        self.btn_cancelar.clicked.connect(self.reject)
+
+    def get_data(self):
+        return self.edit_nome.text().strip(), self.edit_url.text().strip()
+
+
 # --- NOVA CLASSE: DIÁLOGO DE CONFIGURAÇÕES ---
 class ConfigDialog(QDialog):
     def __init__(self, parent=None):
@@ -828,6 +886,32 @@ class ConfigDialog(QDialog):
         lay_db.addWidget(self.btn_import_zk)
 
         layout.addWidget(gb_db)
+
+        # === SEÇÃO GUIAS ADICIONAIS ===
+        gb_tabs = QGroupBox("Guias Adicionais")
+        self.lay_tabs = QVBoxLayout(gb_tabs)
+
+        self.scroll_guias = QScrollArea()
+        self.scroll_guias.setWidgetResizable(True)
+        self.scroll_guias.setMaximumHeight(180)
+        self.scroll_guias.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        self.container_lista_guias = QWidget()
+        self.container_lista_guias.setStyleSheet("background: transparent;")
+        self.lay_lista_guias = QVBoxLayout(self.container_lista_guias)
+        self.lay_lista_guias.setContentsMargins(0, 0, 0, 0)
+        self.lay_lista_guias.setSpacing(6)
+
+        self.scroll_guias.setWidget(self.container_lista_guias)
+        self.lay_tabs.addWidget(self.scroll_guias)
+
+        self.btn_add_tab = QPushButton("➕ Adicionar Guia")
+        self.btn_add_tab.clicked.connect(self.acao_adicionar_guia)
+        self.lay_tabs.addWidget(self.btn_add_tab)
+
+        layout.addWidget(gb_tabs)
+
+        self.render_lista_guias()
 
         # === SEÇÃO APARÊNCIA ===
         gb_theme = QGroupBox("Aparência")
@@ -969,6 +1053,8 @@ class ConfigDialog(QDialog):
             self.btn_new.setStyleSheet(f"background-color: {bg}; color: {text}; border: 2px solid {border}; {common}")
             self.btn_export.setStyleSheet(f"background-color: {c_export}; color: {bg}; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {input_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 5px;")
+            if hasattr(self, 'btn_add_tab'):
+                self.btn_add_tab.setStyleSheet(f"background-color: {c_new}; color: {bg}; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: {bg}; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
         else:
@@ -976,6 +1062,8 @@ class ConfigDialog(QDialog):
             self.btn_new.setStyleSheet(f"background-color: {c_new}; color: white; {common}")
             self.btn_export.setStyleSheet(f"background-color: {c_export}; color: white; {common}")
             self.btn_import_zk.setStyleSheet(f"background-color: {c_import}; color: white; {common} margin-top: 5px;")
+            if hasattr(self, 'btn_add_tab'):
+                self.btn_add_tab.setStyleSheet(f"background-color: {c_new}; color: white; {common} margin-top: 5px;")
             self.btn_save_creds.setStyleSheet(f"background-color: {c_save}; color: white; {common} margin-top: 5px;")
             self.btn_fechar.setStyleSheet(f"background-color: {btn_bg}; color: {text}; border: 1px solid {border}; {common} margin-top: 10px;")
 
@@ -1005,6 +1093,98 @@ class ConfigDialog(QDialog):
     def acao_importar_zk(self):
         self.accept()
         self.parent_window.container_pesquisa_zk.import_excel()
+
+    def render_lista_guias(self):
+        for i in reversed(range(self.lay_lista_guias.count())):
+            item = self.lay_lista_guias.itemAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+
+        fixed_tabs = [
+            ("Portaria Virtual", "https://portaria-global.governarti.com.br/visita/"),
+            ("ZK Bio", f"{ZK_SERVER}/bioLogin.do"),
+            ("Guia anônima", "about:blank"),
+            ("Liberações", "https://armandodecampos.github.io/controledecessos/")
+        ]
+
+        for nome, url in fixed_tabs:
+            row = QWidget()
+            row_lay = QHBoxLayout(row)
+            row_lay.setContentsMargins(4, 2, 4, 2)
+            row_lay.setSpacing(8)
+
+            lbl_nome = QLabel(f"📌 <b>{nome}</b>")
+            lbl_url = QLabel(f"<span style='color: gray;'>({url})</span>")
+            lbl_url.setToolTip(url)
+            lbl_fixa = QLabel("<b style='color: #10b981;'>[Fixa]</b>")
+
+            row_lay.addWidget(lbl_nome)
+            row_lay.addWidget(lbl_url, 1)
+            row_lay.addWidget(lbl_fixa)
+
+            self.lay_lista_guias.addWidget(row)
+
+        custom_tabs = self.parent_window.obter_guias_personalizadas()
+        for g in custom_tabs:
+            nome = g.get("name", "")
+            url = g.get("url", "")
+
+            row = QWidget()
+            row_lay = QHBoxLayout(row)
+            row_lay.setContentsMargins(4, 2, 4, 2)
+            row_lay.setSpacing(8)
+
+            lbl_nome = QLabel(f"🌐 <b>{nome}</b>")
+            lbl_url = QLabel(f"<span style='color: gray;'>({url})</span>")
+            lbl_url.setToolTip(url)
+
+            btn_del = QPushButton("Excluir")
+            btn_del.setFixedWidth(65)
+            btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_del.setStyleSheet("""
+                QPushButton {
+                    background-color: #ef4444;
+                    color: white;
+                    font-weight: bold;
+                    border-radius: 4px;
+                    padding: 3px;
+                    border: none;
+                }
+                QPushButton:hover { background-color: #dc2626; }
+            """)
+            btn_del.clicked.connect(lambda _, n=nome: self.acao_excluir_guia(n))
+
+            row_lay.addWidget(lbl_nome)
+            row_lay.addWidget(lbl_url, 1)
+            row_lay.addWidget(btn_del)
+
+            self.lay_lista_guias.addWidget(row)
+
+    def acao_adicionar_guia(self):
+        dlg = AddTabDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            nome, url = dlg.get_data()
+            if not nome or not url:
+                QMessageBox.warning(self, "Aviso", "Preencha o nome e o link do site para adicionar a guia.")
+                return
+
+            ok, err = self.parent_window.adicionar_guia_personalizada(nome, url)
+            if not ok:
+                QMessageBox.warning(self, "Aviso", err)
+            else:
+                self.render_lista_guias()
+                QMessageBox.information(self, "Sucesso", f"Guia '{nome}' adicionada com sucesso!")
+
+    def acao_excluir_guia(self, nome):
+        resp = QMessageBox.question(
+            self,
+            "Confirmar Exclusão",
+            f"Deseja realmente excluir a guia '{nome}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if resp == QMessageBox.StandardButton.Yes:
+            self.parent_window.remover_guia_personalizada(nome)
+            self.render_lista_guias()
 
     def trocar_tema(self, id):
         if id == 2:
@@ -2562,6 +2742,9 @@ class SmartPortariaScanner(QMainWindow):
         self.add_new_tab(QUrl("about:blank"), "Guia anônima", closable=False, profile=self.profile_anonimo)
         self.view_liberacoes = self.add_new_tab(QUrl("https://armandodecampos.github.io/controledecessos/"), "Liberações", closable=False)
 
+        # Carrega guias personalizadas configuradas pelo usuário
+        self.carregar_guias_personalizadas()
+
         # Inicializa timers e estados para a guia Liberações
         self.timer_sonda_liberacoes = QTimer(self)
         self.timer_sonda_liberacoes.setInterval(1000)
@@ -3173,7 +3356,17 @@ class SmartPortariaScanner(QMainWindow):
                 view.setUrl(QUrl("https://armandodecampos.github.io/controledecessos/"))
             elif view.page().profile() == self.profile_anonimo:
                 view.setUrl(QUrl("https://www.google.com"))
+            elif "Portaria Virtual" in titulo:
+                view.setUrl(QUrl("https://portaria-global.governarti.com.br/visita/"))
             else:
+                for g in self.obter_guias_personalizadas():
+                    if g.get("name") == titulo:
+                        url = g.get("url", "")
+                        if url:
+                            if not url.startswith("http://") and not url.startswith("https://") and not url.startswith("about:"):
+                                url = "https://" + url
+                            view.setUrl(QUrl(url))
+                            return
                 view.setUrl(QUrl("https://portaria-global.governarti.com.br/visita/"))
 
     def mudar_aba(self, index):
@@ -3195,9 +3388,72 @@ class SmartPortariaScanner(QMainWindow):
         # Agora fixo no painel lateral
         pass
 
+    def obter_guias_personalizadas(self):
+        raw_data = self.settings.value("custom_tabs", "[]")
+        try:
+            guias = json.loads(raw_data)
+            if isinstance(guias, list):
+                return guias
+        except Exception:
+            pass
+        return []
+
+    def salvar_guias_personalizadas(self, guias):
+        self.settings.setValue("custom_tabs", json.dumps(guias))
+
+    def eh_guia_protegida(self, titulo):
+        if not titulo:
+            return False
+        if "Portaria Virtual" in titulo or "anônima" in titulo.lower() or "ZK Bio" in titulo or "Liberações" in titulo:
+            return True
+        for g in self.obter_guias_personalizadas():
+            if g.get("name") == titulo:
+                return True
+        return False
+
+    def carregar_guias_personalizadas(self):
+        guias = self.obter_guias_personalizadas()
+        for g in guias:
+            nome = g.get("name", "").strip()
+            url = g.get("url", "").strip()
+            if nome and url:
+                if not url.startswith("http://") and not url.startswith("https://") and not url.startswith("about:"):
+                    url = "https://" + url
+                self.add_new_tab(QUrl(url), nome, closable=False)
+
+    def adicionar_guia_personalizada(self, nome, url):
+        guias = self.obter_guias_personalizadas()
+        for g in guias:
+            if g.get("name") == nome:
+                return False, "Já existe uma guia com esse nome."
+
+        guias.append({"name": nome, "url": url})
+        self.salvar_guias_personalizadas(guias)
+
+        formatted_url = url
+        if not formatted_url.startswith("http://") and not formatted_url.startswith("https://") and not formatted_url.startswith("about:"):
+            formatted_url = "https://" + formatted_url
+
+        self.add_new_tab(QUrl(formatted_url), nome, closable=False)
+        return True, ""
+
+    def remover_guia_personalizada(self, nome):
+        guias = self.obter_guias_personalizadas()
+        novas_guias = [g for g in guias if g.get("name") != nome]
+        self.salvar_guias_personalizadas(novas_guias)
+
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) == nome:
+                widget = self.web_stack.widget(i)
+                if widget:
+                    self.web_stack.removeWidget(widget)
+                    widget.deleteLater()
+                self.tabs.removeTab(i)
+                break
+
     def fechar_aba(self, index):
         titulo = self.tabs.tabText(index)
-        if "Portaria Virtual" in titulo or "anônima" in titulo.lower() or "ZK Bio" in titulo or "Liberações" in titulo: return
+        if self.eh_guia_protegida(titulo): return
         widget = self.web_stack.widget(index)
         if widget:
             self.web_stack.removeWidget(widget)
@@ -3208,7 +3464,7 @@ class SmartPortariaScanner(QMainWindow):
         index = self.web_stack.indexOf(view)
         if index != -1:
             current_text = self.tabs.tabText(index)
-            if "Portaria Virtual" in current_text or "anônima" in current_text.lower() or "ZK Bio" in current_text or "Liberações" in current_text: return
+            if self.eh_guia_protegida(current_text): return
             display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
             self.tabs.setTabText(index, display_title)
 
