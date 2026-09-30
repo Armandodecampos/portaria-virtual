@@ -2949,6 +2949,7 @@ class SmartPortariaScanner(QMainWindow):
         # Estilos do TabBar agora serão definidos no aplicar_tema
         self.tabs.tabCloseRequested.connect(self.fechar_aba)
         self.tabs.currentChanged.connect(self.mudar_aba)
+        self.tabs.tabMoved.connect(self.mover_aba_web)
 
         toolbar.addWidget(self.btn_back)
         toolbar.addWidget(self.btn_forward)
@@ -3379,6 +3380,13 @@ class SmartPortariaScanner(QMainWindow):
 
             # Mantém painel lateral visível sempre (ajuste conforme necessidade)
             self.painel_lateral.show()
+
+    def mover_aba_web(self, from_index, to_index):
+        widget = self.web_stack.widget(from_index)
+        if widget:
+            self.web_stack.removeWidget(widget)
+            self.web_stack.insertWidget(to_index, widget)
+            self.web_stack.setCurrentIndex(self.tabs.currentIndex())
 
     def importar_excel_zk(self):
         # Abre como diálogo apenas para importação se necessário, ou usa o widget integrado
@@ -3909,11 +3917,14 @@ class SmartPortariaScanner(QMainWindow):
         view.page().runJavaScript(js_patch)
 
     def on_tab_load_finished(self, ok, view):
-        self.injetar_login(view)
-        self.garantir_visibilidade_checkboxes(view)
-        self.injetar_date_picker_patch(view)
-
         url_str = view.url().toString()
+
+        self.injetar_login(view)
+
+        # Injeta hacks DOM e patches apenas para sites do sistema interno
+        if "controledecessos" in url_str or "governarti" in url_str or "bioLogin" in url_str or "192.168.7.9" in url_str:
+            self.garantir_visibilidade_checkboxes(view)
+            self.injetar_date_picker_patch(view)
 
         # Lógica de Transferência Interna
         if self.transfer_pending_extraction and "/visita/" in url_str and "/detalhes" in url_str:
