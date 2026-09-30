@@ -32,7 +32,7 @@ try:
     from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
-    from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
+    from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile, QWebEngineDownloadRequest
     import qrcode
     import openpyxl
     import xlrd
@@ -3640,8 +3640,30 @@ class SmartPortariaScanner(QMainWindow):
             self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
     def configurar_navegadores(self):
-        # Configurações globais se necessário
-        pass
+        # Configura interceptação de downloads para perfil padrão e anônimo
+        QWebEngineProfile.defaultProfile().downloadRequested.connect(self.gerenciar_download)
+        if hasattr(self, 'profile_anonimo') and self.profile_anonimo:
+            self.profile_anonimo.downloadRequested.connect(self.gerenciar_download)
+
+    def gerenciar_download(self, download):
+        downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+        download.setDownloadDirectory(downloads_path)
+        filename = download.suggestedFileName()
+        download.setDownloadFileName(filename)
+
+        def on_state_changed(state):
+            if state == QWebEngineDownloadRequest.DownloadState.DownloadCompleted:
+                msg = f"Download concluído!\nArquivo salvo em Downloads: {filename}"
+                self.log(f"📥 {msg}")
+                self.active_toast = NotificationToast(f"Download concluído!\n{filename}", self)
+                self.active_toast.apply_toast_theme(self.settings.value("theme", "light"))
+                self.active_toast.show_notification()
+            elif state == QWebEngineDownloadRequest.DownloadState.DownloadCancelled:
+                self.log(f"❌ Download cancelado: {filename}")
+
+        download.stateChanged.connect(on_state_changed)
+        download.accept()
+        self.log(f"⏳ Iniciando download do arquivo: {filename} -> {downloads_path}")
 
     def carregar_ultimo_id(self):
         if not self.db: return
