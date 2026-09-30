@@ -2686,8 +2686,13 @@ class SmartPortariaScanner(QMainWindow):
         self.btn_limpar_busca.setFixedSize(80, 40)
         self.btn_limpar_busca.clicked.connect(self.input_busca.clear)
 
+        self.btn_atualizar_busca = QPushButton("Atualizar")
+        self.btn_atualizar_busca.setFixedSize(80, 40)
+        self.btn_atualizar_busca.clicked.connect(self.executar_busca_local)
+
         lay_busca.addWidget(self.input_busca)
         lay_busca.addWidget(self.btn_limpar_busca)
+        lay_busca.addWidget(self.btn_atualizar_busca)
         layout_pesquisa.addWidget(container_busca)
         lat.addWidget(self.group_pesquisa)
 
@@ -2858,6 +2863,7 @@ class SmartPortariaScanner(QMainWindow):
             btn_anon_style = "background-color: #333333; color: white; padding: 8px; border-radius: 8px;"
             btn_qr_style = "background-color: #838383; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
 
         elif modo == "sepia":
             # Estilo SEPIA (High Contrast Black & White)
@@ -2891,6 +2897,7 @@ class SmartPortariaScanner(QMainWindow):
             btn_anon_style = "background-color: #332211; color: white; padding: 8px; border-radius: 8px;"
             btn_qr_style = "background-color: #c08b5c; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
 
         else:
             # Estilo CLARO (High Contrast B&W + Palette Grays)
@@ -2924,12 +2931,14 @@ class SmartPortariaScanner(QMainWindow):
             btn_anon_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 8px;"
             btn_qr_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 8px; font-weight: bold;"
             btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
             live_log_style = "background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8;"
 
         self.setStyleSheet(style)
         
         # Reaplica estilos específicos que não devem ser sobrescritos pelo genérico
         self.btn_limpar_busca.setStyleSheet(btn_clear_style)
+        self.btn_atualizar_busca.setStyleSheet(btn_refresh_style)
         
         # Ajusta botões do cabeçalho para parecerem com o tema
         if modo == "dark":
