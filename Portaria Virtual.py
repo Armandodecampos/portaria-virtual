@@ -3000,11 +3000,11 @@ class SmartPortariaScanner(QMainWindow):
         """Carrega credenciais do QSettings ou usa padrões"""
         self.creds = {
             'portaria_user': self.settings.value("portaria_user", "armando.junior"),
-            'portaria_pass': self.settings.value("portaria_pass", "armandocampos.1"),
+            'portaria_pass': self.settings.value("portaria_pass", "246810@"),
             'zk_user': self.settings.value("zk_user", "armando.campos"),
-            'zk_pass': self.settings.value("zk_pass", "armandocampos.1"),
+            'zk_pass': self.settings.value("zk_pass", "246810@"),
             'lib_user': self.settings.value("lib_user", ""),
-            'lib_pass': self.settings.value("lib_pass", "")
+            'lib_pass': self.settings.value("lib_pass", "246810@")
         }
 
     def aplicar_tema(self, modo):
