@@ -3669,9 +3669,11 @@ class SmartPortariaScanner(QMainWindow):
                 display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
                 self.tabs.setTabText(index, display_title)
 
-            # Verifica se o título da página indica mensagem/notificação pendente (ex: (1) Outlook, * Teams)
-            if re.search(r'[\(\[\*]\s*\d+[\)\]\*]|\(\s*\*\s*\)|^\s*\*\s*', titulo):
+            # Verifica se o título da página indica mensagem/notificação pendente (ex: (1) Inbox, * Teams)
+            if re.search(r'^\s*[\(\[]\s*\d{1,4}\s*[\)\]]|^\s*\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo):
                 self.iniciar_alerta_aba(index)
+            else:
+                self.parar_alerta_aba(index)
 
     def atualizar_barra_endereco(self, qurl, view):
         if view == self.web_stack.currentWidget():
@@ -4259,58 +4261,51 @@ class SmartPortariaScanner(QMainWindow):
     def sondar_notificacoes_paginas(self):
         js_check_notif = r"""
         (function() {
-            // 1. Verifica padrão de notificação no título da página (ex: "(1) Inbox", "* Teams", "[2] Novo")
+            // 1. Verifica se o título da página começa com indicador numérico ou asterisco de mensagem não lida
+            // Exemplos válidos: "(1) Caixa de Entrada", "[2] Messages", "* Teams"
             var title = document.title || "";
-            if (/[\(\[\*]\s*\d+[\)\]\*]|\(\s*\*\s*\)|^\s*\*\s*/.test(title)) {
+            if (/^\s*[\(\[]\s*\d{1,4}\s*[\)\]]|^\s*\(\s*\*\s*\)|^\s*\*(\s+|\b)/.test(title)) {
                 return true;
             }
 
-            // 2. Elementos/badges comuns de notificação e mensagens não lidas
-            var selectors = [
-                // Outlook / OWA
-                '[data-icon-name="Unread"]',
-                '.ms-Icon--Unread',
-                '[aria-label*="unread"]',
-                '[aria-label*="não lida"]',
-                '[aria-label*="não lido"]',
-
-                // Teams / Slack / Chat
+            // 2. Elementos/badges específicos de contagem de não lidos (ex: badges do Teams, Outlook, Slack)
+            var countSelectors = [
                 'span[class*="activity-badge"]',
                 'span[class*="app-badge"]',
-                'div[class*="unread"]',
-                'span[class*="unread"]',
                 '.badge-counter',
                 '.notification-badge',
-                '[data-tid*="unread"]',
-                '[data-tid*="badge"]',
                 '.unread-count',
-                '.has-unread',
-
-                // Elementos genéricos com atributo badge ou aria-label de notificação
-                '[aria-label*="notificação"]',
-                '[aria-label*="notification"]',
                 '[class*="notification-count"]',
-                '[class*="counter-badge"]'
+                '[class*="counter-badge"]',
+                '[data-tid*="unread-count"]',
+                '[data-tid*="badge-count"]'
             ];
 
-            for (var i = 0; i < selectors.length; i++) {
-                var els = document.querySelectorAll(selectors[i]);
+            for (var i = 0; i < countSelectors.length; i++) {
+                var els = document.querySelectorAll(countSelectors[i]);
                 for (var j = 0; j < els.length; j++) {
                     var el = els[j];
-                    // Se visível na tela ou contendo texto numérico > 0
-                    if (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0) {
-                        var text = (el.textContent || el.getAttribute('aria-label') || '').trim();
-                        if (text && text !== '0') {
+                    if (el.offsetWidth > 0 || el.offsetHeight > 0) {
+                        var text = (el.textContent || '').trim();
+                        // Garante que é um valor numérico positivo (ex: "1", "12", "99+")
+                        if (/^\d+\+?$/.test(text) && parseInt(text, 10) > 0) {
                             return true;
                         }
                     }
                 }
             }
 
-            // 3. Favicon badge ou indicação visual no head
-            var favicon = document.querySelector('link[rel*="icon"]');
-            if (favicon && favicon.href && favicon.href.indexOf('notification') !== -1) {
-                return true;
+            // 3. Verificação específica para aria-labels de não lidos com contagem no Outlook/Teams/Chat
+            var unreadEls = document.querySelectorAll('[aria-label*="não lida"], [aria-label*="não lido"], [aria-label*="unread"]');
+            for (var k = 0; k < unreadEls.length; k++) {
+                var uEl = unreadEls[k];
+                if (uEl.offsetWidth > 0 || uEl.offsetHeight > 0) {
+                    var label = (uEl.getAttribute('aria-label') || '').toLowerCase();
+                    // Aceita apenas se contiver contagem explícita ou indicação de item não lido ativo
+                    if (/\d+\s*(mensagem|email|notificação|unread|item)/.test(label) || label.includes("item não lido")) {
+                        return true;
+                    }
+                }
             }
 
             return false;
@@ -4336,6 +4331,8 @@ class SmartPortariaScanner(QMainWindow):
                 def handle_notif_result(has_notif):
                     if has_notif:
                         self.iniciar_alerta_aba(tab_index)
+                    else:
+                        self.parar_alerta_aba(tab_index)
                 return handle_notif_result
 
             view.page().runJavaScript(js_check_notif, create_callback(i))
