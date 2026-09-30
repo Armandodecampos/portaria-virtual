@@ -3510,9 +3510,6 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
-            # Para o alerta/blink da aba selecionada
-            self.parar_alerta_aba(index)
-
             # Mantém painel lateral visível sempre (ajuste conforme necessidade)
             self.painel_lateral.show()
 
@@ -3665,12 +3662,15 @@ class SmartPortariaScanner(QMainWindow):
         index = self.web_stack.indexOf(view)
         if index != -1:
             current_text = self.tabs.tabText(index)
+            if "Liberações" in current_text:
+                return
+
             if not self.eh_guia_protegida(current_text):
                 display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
                 self.tabs.setTabText(index, display_title)
 
-            # Verifica se o título da página indica mensagem/notificação pendente (ex: (1) Inbox, * Teams)
-            if re.search(r'^\s*[\(\[]\s*\d{1,4}\s*[\)\]]|^\s*\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo):
+            # Verifica se o título da página contém indicador de notificação/não lido (ex: Inbox (1) - Outlook, (1) Teams, * Teams)
+            if re.search(r'[\(\[]\s*\d{1,4}\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)', titulo):
                 self.iniciar_alerta_aba(index)
             else:
                 self.parar_alerta_aba(index)
@@ -4219,9 +4219,6 @@ class SmartPortariaScanner(QMainWindow):
     def iniciar_alerta_aba(self, index):
         if index < 0 or index >= self.tabs.count():
             return
-        # Não inicia alerta na aba atualmente focada pelo usuário
-        if index == self.tabs.currentIndex():
-            return
         self.tabs.alertas_indices.add(index)
         if hasattr(self, 'alerta_ativo') and not self.alerta_ativo:
             self.alerta_ativo = True
@@ -4261,14 +4258,14 @@ class SmartPortariaScanner(QMainWindow):
     def sondar_notificacoes_paginas(self):
         js_check_notif = r"""
         (function() {
-            // 1. Verifica se o título da página começa com indicador numérico ou asterisco de mensagem não lida
-            // Exemplos válidos: "(1) Caixa de Entrada", "[2] Messages", "* Teams"
+            // 1. Verifica se o título da página contém indicador numérico ou asterisco de mensagem não lida
+            // Exemplos: "Caixa de Entrada (1) - Outlook", "Inbox (2) - Outlook", "Chat (1) | Teams", "* Teams"
             var title = document.title || "";
-            if (/^\s*[\(\[]\s*\d{1,4}\s*[\)\]]|^\s*\(\s*\*\s*\)|^\s*\*(\s+|\b)/.test(title)) {
+            if (/[\(\[]\s*\d{1,4}\s*[\)\]]|\(\s*\*\s*\)|^\s*\*(\s+|\b)/.test(title)) {
                 return true;
             }
 
-            // 2. Elementos/badges específicos de contagem de não lidos (ex: badges do Teams, Outlook, Slack)
+            // 2. Elementos de contagem/badge de não lidos (Outlook, Teams, Slack, WhatsApp, etc.)
             var countSelectors = [
                 'span[class*="activity-badge"]',
                 'span[class*="app-badge"]',
@@ -4278,7 +4275,9 @@ class SmartPortariaScanner(QMainWindow):
                 '[class*="notification-count"]',
                 '[class*="counter-badge"]',
                 '[data-tid*="unread-count"]',
-                '[data-tid*="badge-count"]'
+                '[data-tid*="badge-count"]',
+                '[data-icon-name="Unread"]',
+                '.ms-Icon--Unread'
             ];
 
             for (var i = 0; i < countSelectors.length; i++) {
@@ -4287,22 +4286,24 @@ class SmartPortariaScanner(QMainWindow):
                     var el = els[j];
                     if (el.offsetWidth > 0 || el.offsetHeight > 0) {
                         var text = (el.textContent || '').trim();
-                        // Garante que é um valor numérico positivo (ex: "1", "12", "99+")
+                        // Se for um badge numérico positivo (ex: "1", "12", "99+") ou ícone unread presente
                         if (/^\d+\+?$/.test(text) && parseInt(text, 10) > 0) {
+                            return true;
+                        }
+                        if (el.getAttribute('data-icon-name') === 'Unread' || el.classList.contains('ms-Icon--Unread')) {
                             return true;
                         }
                     }
                 }
             }
 
-            // 3. Verificação específica para aria-labels de não lidos com contagem no Outlook/Teams/Chat
-            var unreadEls = document.querySelectorAll('[aria-label*="não lida"], [aria-label*="não lido"], [aria-label*="unread"]');
+            // 3. Verificação específica para aria-label e title de não lidos no Outlook / Teams / OWA
+            var unreadEls = document.querySelectorAll('[aria-label*="não lida"], [aria-label*="não lido"], [aria-label*="unread"], [title*="Não lida"], [title*="Não lido"], [title*="Unread"]');
             for (var k = 0; k < unreadEls.length; k++) {
                 var uEl = unreadEls[k];
                 if (uEl.offsetWidth > 0 || uEl.offsetHeight > 0) {
-                    var label = (uEl.getAttribute('aria-label') || '').toLowerCase();
-                    // Aceita apenas se contiver contagem explícita ou indicação de item não lido ativo
-                    if (/\d+\s*(mensagem|email|notificação|unread|item)/.test(label) || label.includes("item não lido")) {
+                    var label = ((uEl.getAttribute('aria-label') || '') + ' ' + (uEl.getAttribute('title') || '')).toLowerCase();
+                    if (/\d+\s*(mensagem|email|notificação|unread|item)/.test(label) || label.includes("item não lido") || label.includes("não lida") || label.includes("unread")) {
                         return true;
                     }
                 }
@@ -4312,10 +4313,10 @@ class SmartPortariaScanner(QMainWindow):
         })()
         """
 
-        current_idx = self.tabs.currentIndex()
         for i in range(self.tabs.count()):
-            # Não faz sondagem na aba ativa se ela for a focada no momento
-            if i == current_idx:
+            tab_title = self.tabs.tabText(i)
+            # Ignora a guia Liberações (pois ela tem sonda de resultados própria)
+            if "Liberações" in tab_title:
                 continue
 
             view = self.web_stack.widget(i)
