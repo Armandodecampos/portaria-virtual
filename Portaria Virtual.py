@@ -79,25 +79,41 @@ class CustomWebPage(QWebEnginePage):
 
 class CustomTabBar(QTabBar):
     """
-    TabBar customizada que permite alterar o background e cor de uma aba específica
+    TabBar customizada que permite alterar o background e cor de uma ou mais abas
     durante um estado de alerta/blink.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.alerta_index = -1
+        self.alerta_index = -1  # Para compatibilidade retroativa
         self.alerta_state = False
+        self.alertas_indices = set()  # Conjunto de índices de abas em alerta
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if self.alerta_index != -1 and self.alerta_state:
-            from PyQt6.QtGui import QPainter, QPainterPath
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            rect = self.tabRect(self.alerta_index)
+        if not self.alerta_state:
+            return
 
+        from PyQt6.QtGui import QPainter, QPainterPath
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Reúne todos os índices ativos
+        indices_para_desenhar = set(self.alertas_indices)
+        if self.alerta_index != -1:
+            indices_para_desenhar.add(self.alerta_index)
+
+        radius = 8
+        font = self.font()
+        font.setBold(True)
+
+        for idx in indices_para_desenhar:
+            if idx < 0 or idx >= self.count():
+                continue
+
+            rect = self.tabRect(idx)
             painter.save()
+
             # Desenha o background vermelho com cantos arredondados (mesmo estilo do QTabBar::tab)
-            radius = 8
             path = QPainterPath()
             path.moveTo(rect.x(), rect.y() + rect.height())
             path.lineTo(rect.x(), rect.y() + radius)
@@ -111,11 +127,9 @@ class CustomTabBar(QTabBar):
 
             # Fonte branca e negrito para contraste
             painter.setPen(QColor("#ffffff"))
-            font = self.font()
-            font.setBold(True)
             painter.setFont(font)
 
-            txt = self.tabText(self.alerta_index)
+            txt = self.tabText(idx)
             painter.drawText(rect.adjusted(12, 0, -12, 0), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, txt)
             painter.restore()
 
@@ -2856,11 +2870,16 @@ class SmartPortariaScanner(QMainWindow):
         # Carrega todas as guias (fixas e personalizadas) na ordem salva pelo usuário
         self.carregar_guias_iniciais()
 
-        # Inicializa timers e estados para a guia Liberações
+        # Inicializa timers e estados para a guia Liberações e Notificações de guias
         self.timer_sonda_liberacoes = QTimer(self)
         self.timer_sonda_liberacoes.setInterval(1000)
         self.timer_sonda_liberacoes.timeout.connect(self.sondar_resultados_liberacoes)
         self.timer_sonda_liberacoes.start()
+
+        self.timer_sonda_notificacoes = QTimer(self)
+        self.timer_sonda_notificacoes.setInterval(2000)
+        self.timer_sonda_notificacoes.timeout.connect(self.sondar_notificacoes_paginas)
+        self.timer_sonda_notificacoes.start()
 
         self.timer_blink_liberacoes = QTimer(self)
         self.timer_blink_liberacoes.setInterval(500)
@@ -3490,6 +3509,9 @@ class SmartPortariaScanner(QMainWindow):
                 url_str = view.url().toString()
                 self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
+            # Para o alerta/blink da aba selecionada
+            self.parar_alerta_aba(index)
+
             # Mantém painel lateral visível sempre (ajuste conforme necessidade)
             self.painel_lateral.show()
 
@@ -3625,14 +3647,30 @@ class SmartPortariaScanner(QMainWindow):
             self.web_stack.removeWidget(widget)
             widget.deleteLater()
         self.tabs.removeTab(index)
+        self.reajustar_alertas_apos_fechar_aba(index)
+
+    def reajustar_alertas_apos_fechar_aba(self, index):
+        if index in self.tabs.alertas_indices:
+            self.tabs.alertas_indices.remove(index)
+        novos_alertas = set()
+        for idx in self.tabs.alertas_indices:
+            if idx > index:
+                novos_alertas.add(idx - 1)
+            else:
+                novos_alertas.add(idx)
+        self.tabs.alertas_indices = novos_alertas
 
     def atualizar_titulo_aba(self, titulo, view):
         index = self.web_stack.indexOf(view)
         if index != -1:
             current_text = self.tabs.tabText(index)
-            if self.eh_guia_protegida(current_text): return
-            display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
-            self.tabs.setTabText(index, display_title)
+            if not self.eh_guia_protegida(current_text):
+                display_title = (titulo[:12] + "...") if len(titulo) > 12 else titulo
+                self.tabs.setTabText(index, display_title)
+
+            # Verifica se o título da página indica mensagem/notificação pendente (ex: (1) Outlook, * Teams)
+            if re.search(r'[\(\[\*]\s*\d+[\)\]\*]|\(\s*\*\s*\)|^\s*\*\s*', titulo):
+                self.iniciar_alerta_aba(index)
 
     def atualizar_barra_endereco(self, qurl, view):
         if view == self.web_stack.currentWidget():
@@ -4175,33 +4213,131 @@ class SmartPortariaScanner(QMainWindow):
                 return i
         return -1
 
-    def iniciar_alerta_liberacoes(self):
-        if self.alerta_ativo:
+    def iniciar_alerta_aba(self, index):
+        if index < 0 or index >= self.tabs.count():
             return
-        self.alerta_ativo = True
-        self.blink_state = False
+        # Não inicia alerta na aba atualmente focada pelo usuário
+        if index == self.tabs.currentIndex():
+            return
+        self.tabs.alertas_indices.add(index)
+        if hasattr(self, 'alerta_ativo') and not self.alerta_ativo:
+            self.alerta_ativo = True
+        if not self.timer_blink_liberacoes.isActive():
+            self.blink_state = False
+            self.timer_blink_liberacoes.start()
+
+    def parar_alerta_aba(self, index):
+        self.tabs.alertas_indices.discard(index)
+
+        if not self.tabs.alertas_indices and self.tabs.alerta_index == -1:
+            self.alerta_ativo = False
+            self.timer_blink_liberacoes.stop()
+            self.tabs.alerta_state = False
+        self.tabs.update()
+
+    def iniciar_alerta_liberacoes(self):
         idx = self.encontrar_aba_liberacoes()
-        self.tabs.alerta_index = idx
-        self.tabs.alerta_state = False
-        self.timer_blink_liberacoes.start()
+        if idx != -1:
+            self.iniciar_alerta_aba(idx)
 
     def parar_alerta_liberacoes(self):
-        if not self.alerta_ativo:
-            return
-        self.alerta_ativo = False
-        self.timer_blink_liberacoes.stop()
-        self.tabs.alerta_index = -1
-        self.tabs.alerta_state = False
-        self.tabs.update()
+        idx = self.encontrar_aba_liberacoes()
+        if idx != -1:
+            self.parar_alerta_aba(idx)
 
     def blink_liberacoes_tick(self):
-        idx = self.encontrar_aba_liberacoes()
-        if idx == -1:
+        if not self.tabs.alertas_indices and self.tabs.alerta_index == -1:
+            self.timer_blink_liberacoes.stop()
+            self.tabs.alerta_state = False
+            self.tabs.update()
             return
         self.blink_state = not self.blink_state
-        self.tabs.alerta_index = idx
         self.tabs.alerta_state = self.blink_state
         self.tabs.update()
+
+    def sondar_notificacoes_paginas(self):
+        js_check_notif = r"""
+        (function() {
+            // 1. Verifica padrão de notificação no título da página (ex: "(1) Inbox", "* Teams", "[2] Novo")
+            var title = document.title || "";
+            if (/[\(\[\*]\s*\d+[\)\]\*]|\(\s*\*\s*\)|^\s*\*\s*/.test(title)) {
+                return true;
+            }
+
+            // 2. Elementos/badges comuns de notificação e mensagens não lidas
+            var selectors = [
+                // Outlook / OWA
+                '[data-icon-name="Unread"]',
+                '.ms-Icon--Unread',
+                '[aria-label*="unread"]',
+                '[aria-label*="não lida"]',
+                '[aria-label*="não lido"]',
+
+                // Teams / Slack / Chat
+                'span[class*="activity-badge"]',
+                'span[class*="app-badge"]',
+                'div[class*="unread"]',
+                'span[class*="unread"]',
+                '.badge-counter',
+                '.notification-badge',
+                '[data-tid*="unread"]',
+                '[data-tid*="badge"]',
+                '.unread-count',
+                '.has-unread',
+
+                // Elementos genéricos com atributo badge ou aria-label de notificação
+                '[aria-label*="notificação"]',
+                '[aria-label*="notification"]',
+                '[class*="notification-count"]',
+                '[class*="counter-badge"]'
+            ];
+
+            for (var i = 0; i < selectors.length; i++) {
+                var els = document.querySelectorAll(selectors[i]);
+                for (var j = 0; j < els.length; j++) {
+                    var el = els[j];
+                    // Se visível na tela ou contendo texto numérico > 0
+                    if (el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0) {
+                        var text = (el.textContent || el.getAttribute('aria-label') || '').trim();
+                        if (text && text !== '0') {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            // 3. Favicon badge ou indicação visual no head
+            var favicon = document.querySelector('link[rel*="icon"]');
+            if (favicon && favicon.href && favicon.href.indexOf('notification') !== -1) {
+                return true;
+            }
+
+            return false;
+        })()
+        """
+
+        current_idx = self.tabs.currentIndex()
+        for i in range(self.tabs.count()):
+            # Não faz sondagem na aba ativa se ela for a focada no momento
+            if i == current_idx:
+                continue
+
+            view = self.web_stack.widget(i)
+            if not view or not isinstance(view, QWebEngineView):
+                continue
+
+            # Evita disparar alertas para abas fixas locais (ex: Guia anônima em about:blank) se não tiver URL válida
+            url_str = view.url().toString()
+            if not url_str or url_str == "about:blank":
+                continue
+
+            def create_callback(tab_index):
+                def handle_notif_result(has_notif):
+                    if has_notif:
+                        self.iniciar_alerta_aba(tab_index)
+                return handle_notif_result
+
+            view.page().runJavaScript(js_check_notif, create_callback(i))
 
     def sondar_resultados_liberacoes(self):
         if not hasattr(self, 'view_liberacoes') or not self.view_liberacoes:
