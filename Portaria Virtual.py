@@ -2866,20 +2866,15 @@ class SmartPortariaScanner(QMainWindow):
 
         self.timer_download_img = QTimer()
         self.timer_download_img.timeout.connect(self.verificar_imagem_capturada)
-        
-        # Carrega todas as guias (fixas e personalizadas) na ordem salva pelo usuário
-        self.carregar_guias_iniciais()
 
-        # Inicializa timers e estados para a guia Liberações e Notificações de guias
+        # Inicializa timers e estados para alertas/piscar de guias ANTES de carregar as guias
         self.timer_sonda_liberacoes = QTimer(self)
         self.timer_sonda_liberacoes.setInterval(1000)
         self.timer_sonda_liberacoes.timeout.connect(self.sondar_resultados_liberacoes)
-        self.timer_sonda_liberacoes.start()
 
         self.timer_sonda_notificacoes = QTimer(self)
         self.timer_sonda_notificacoes.setInterval(2000)
         self.timer_sonda_notificacoes.timeout.connect(self.sondar_notificacoes_paginas)
-        self.timer_sonda_notificacoes.start()
 
         self.timer_blink_liberacoes = QTimer(self)
         self.timer_blink_liberacoes.setInterval(500)
@@ -2887,6 +2882,12 @@ class SmartPortariaScanner(QMainWindow):
 
         self.blink_state = False
         self.alerta_ativo = False
+
+        # Carrega todas as guias (fixas e personalizadas) na ordem salva pelo usuário
+        self.carregar_guias_iniciais()
+
+        self.timer_sonda_liberacoes.start()
+        self.timer_sonda_notificacoes.start()
 
         self.tabs.setCurrentIndex(0)
         self.web_stack.setCurrentIndex(0)
