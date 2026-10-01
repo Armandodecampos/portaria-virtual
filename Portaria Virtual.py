@@ -2735,12 +2735,13 @@ class DatabaseHandler:
             for t in termos:
                 t_norm = self.remove_accents(t)
                 t_digits = re.sub(r'\D', '', t)
-                if t_digits:
-                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ? OR replace(replace(cpf, '.', ''), '-', '') LIKE ?)")
-                    params.extend([f"%{t_norm}%", f"%{t}%", f"%{t_digits}%"])
+                # Se t_digits possui 3 ou mais dígitos (ou o termo original é majoritariamente numérico), faz busca por dígitos no CPF
+                if t_digits and (len(t_digits) >= 3 or len(t_digits) >= (len(t) / 2)):
+                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ? OR unaccent(conteudo) LIKE ? OR CAST(visita_id AS TEXT) LIKE ? OR replace(replace(cpf, '.', ''), '-', '') LIKE ?)")
+                    params.extend([f"%{t_norm}%", f"%{t}%", f"%{t_norm}%", f"%{t}%", f"%{t_digits}%"])
                 else:
-                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ?)")
-                    params.extend([f"%{t_norm}%", f"%{t}%"])
+                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ? OR unaccent(conteudo) LIKE ? OR CAST(visita_id AS TEXT) LIKE ?)")
+                    params.extend([f"%{t_norm}%", f"%{t}%", f"%{t_norm}%", f"%{t}%"])
             query += " AND ".join(conditions)
             query += " ORDER BY visita_id DESC LIMIT 50"
             self.cursor.execute(query, params)
