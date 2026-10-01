@@ -146,7 +146,116 @@ class LinkDelegationPage(QWebEnginePage):
             return False
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
-class ClickableWebEngineView(QWebEngineView):
+CONTEXT_MENU_TRANSLATIONS = {
+    "Undo": "Desfazer",
+    "Redo": "Refazer",
+    "Cut": "Recortar",
+    "Copy": "Copiar",
+    "Paste": "Colar",
+    "Paste and match style": "Colar com o mesmo estilo",
+    "Paste and Match Style": "Colar com o mesmo estilo",
+    "Delete": "Excluir",
+    "Select All": "Selecionar tudo",
+    "Select all": "Selecionar tudo",
+    "Back": "Voltar",
+    "Forward": "Avançar",
+    "Reload": "Recarregar",
+    "Stop": "Parar",
+    "Save page as...": "Salvar página como...",
+    "Save page": "Salvar página",
+    "Print...": "Imprimir...",
+    "Open link in new tab": "Abrir link em nova aba",
+    "Open link in new window": "Abrir link em nova janela",
+    "Open link in incognito window": "Abrir link em janela anônima",
+    "Copy link address": "Copiar endereço do link",
+    "Save link as...": "Salvar link como...",
+    "Copy image": "Copiar imagem",
+    "Copy image address": "Copiar endereço da imagem",
+    "Save image as...": "Salvar imagem como...",
+    "Inspect": "Inspecionar",
+    "Inspect element": "Inspecionar elemento",
+    "Exit full screen": "Sair da tela cheia",
+    "Search web for...": "Pesquisar na web por...",
+    "Direction from right to left": "Direção da direita para a esquerda",
+    "Direction from left to right": "Direção da esquerda para a direita",
+}
+
+def traduzir_e_personalizar_menu(menu, theme="light"):
+    if not menu:
+        return
+
+    if theme == "dark":
+        bg = "#2b2f31"; text = "#ffffff"; border = "#4d4d4d"; hover_bg = "#3b3f41"; disabled_text = "#777777"
+    elif theme == "sepia":
+        bg = "#1a120b"; text = "#ffffff"; border = "#554433"; hover_bg = "#2a221b"; disabled_text = "#887766"
+    else:
+        bg = "#ffffff"; text = "#000000"; border = "#d1d5db"; hover_bg = "#e5e7eb"; disabled_text = "#a0a0a0"
+
+    menu.setStyleSheet(f"""
+        QMenu {{
+            background-color: {bg};
+            color: {text};
+            border: 1px solid {border};
+            border-radius: 8px;
+            padding: 6px;
+            font-size: 14px;
+            font-family: sans-serif;
+        }}
+        QMenu::item {{
+            padding: 6px 24px 6px 12px;
+            border-radius: 4px;
+            background-color: transparent;
+            font-size: 14px;
+        }}
+        QMenu::item:selected {{
+            background-color: {hover_bg};
+        }}
+        QMenu::item:disabled {{
+            color: {disabled_text};
+        }}
+        QMenu::separator {{
+            height: 1px;
+            background-color: {border};
+            margin: 4px 0px;
+        }}
+    """)
+
+    for action in menu.actions():
+        raw_text = action.text()
+        if not raw_text:
+            continue
+        parts = raw_text.split('\t')
+        label = parts[0].replace('&', '').strip()
+
+        if label in CONTEXT_MENU_TRANSLATIONS:
+            new_label = CONTEXT_MENU_TRANSLATIONS[label]
+            action.setText(new_label + ('\t' + parts[1] if len(parts) > 1 else ''))
+        elif raw_text.replace('&', '').strip() in CONTEXT_MENU_TRANSLATIONS:
+            new_label = CONTEXT_MENU_TRANSLATIONS[raw_text.replace('&', '').strip()]
+            action.setText(new_label)
+
+        if action.menu():
+            traduzir_e_personalizar_menu(action.menu(), theme)
+
+class CustomWebEngineView(QWebEngineView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_scanner = parent
+
+    def contextMenuEvent(self, event):
+        menu = self.createStandardContextMenu()
+        if menu:
+            theme = "light"
+            if hasattr(self, 'parent_scanner') and self.parent_scanner and hasattr(self.parent_scanner, 'settings'):
+                theme = self.parent_scanner.settings.value("theme", "light")
+            elif hasattr(self.window(), 'settings'):
+                theme = self.window().settings.value("theme", "light")
+            traduzir_e_personalizar_menu(menu, theme)
+            menu.exec(event.globalPos())
+        else:
+            super().contextMenuEvent(event)
+
+class ClickableWebEngineView(CustomWebEngineView):
     """
     QWebEngineView que emite sinal quando um link é clicado.
     """
@@ -1460,7 +1569,7 @@ def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#00
     """
     Função utilitária para renderizar o card de um registro do ZK Bio.
     """
-    copy_btn = f"<a href='app://copy/{{}}' style='text-decoration: none; color: {accent_color}; font-size: 10px; margin-left: 5px;'>[Copiar]</a>"
+    copy_btn = f"<a href='app://copy/{{}}' style='text-decoration: none; color: {accent_color}; font-size: 11px; margin-left: 5px;'>[Copiar]</a>"
 
     # Cálculo do Código Ifood (últimos 4 dígitos do telefone)
     ifood_code = "-"
@@ -1470,24 +1579,24 @@ def render_zk_card(item, card_bg, card_border, sub_text_color, accent_color="#00
     html = f"""
     <tr style='background-color: {card_bg};'>
         <td style='border: 1px solid {card_border}; padding: 12px;'>
-            <span style='font-size: 13px; color: {sub_text_color};'>
+            <span style='font-size: 14px; color: {sub_text_color};'>
                 <b style='color: {accent_color};'>Nome:</b> <span style='font-weight: bold; color: {name_color};'>{item['nome']} {item['sobrenome']}</span> {copy_btn.format(urllib.parse.quote(item['nome'] + ' ' + item['sobrenome']))}
             </span>
     """
 
     if item['id'] != "-":
-        html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>Documento:</b> {item['id']} {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Documento:</b> {item['id']} {copy_btn.format(urllib.parse.quote(item['id']))}</span>"
 
     if item['email'] != "-":
-        html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>Email:</b> {item['email']} {copy_btn.format(urllib.parse.quote(item['email']))}</span>"
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Email:</b> {item['email']} {copy_btn.format(urllib.parse.quote(item['email']))}</span>"
 
     if item['celular'] != "-":
-        html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>Telefone:</b> {item['celular']} {copy_btn.format(urllib.parse.quote(item['celular']))}</span>"
+        html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>Telefone:</b> {item['celular']} {copy_btn.format(urllib.parse.quote(item['celular']))}</span>"
 
-    html += f"<br><span style='font-size: 12px; color: {sub_text_color};'><b>ID:</b> {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
+    html += f"<br><span style='font-size: 13px; color: {sub_text_color};'><b>ID:</b> {item['cartao']} {copy_btn.format(urllib.parse.quote(item['cartao']))}</span>"
 
     if ifood_code != "-":
-        html += f"<br><span style='font-size: 12px; color: #10b981; font-weight: bold;'>Código Ifood: {ifood_code} {copy_btn.format(urllib.parse.quote(ifood_code))}</span>"
+        html += f"<br><span style='font-size: 13px; color: #10b981; font-weight: bold;'>Código Ifood: {ifood_code} {copy_btn.format(urllib.parse.quote(ifood_code))}</span>"
 
     html += "</td></tr>"
     return html
@@ -1608,7 +1717,7 @@ class LocalSearchThread(QThread):
                     color: white;
                     text-decoration: none;
                     font-weight: bold;
-                    font-size: 12px;
+                    font-size: 13px;
                     padding: 10px 20px;
                     border-radius: 8px;
                     margin-right: 8px;
@@ -1650,7 +1759,7 @@ class LocalSearchThread(QThread):
                     if self.link_encontrado == "loading":
                         extra_btns_html = f"""
                         <div class='btn-container'>
-                            <span style='color: orange; font-size: 12px; font-weight: bold;'>⏳ Aguarde... verificando link</span>
+                            <span style='color: orange; font-size: 13px; font-weight: bold;'>⏳ Aguarde... verificando link</span>
                         </div>
                         """
                     elif self.link_encontrado:
@@ -1667,11 +1776,11 @@ class LocalSearchThread(QThread):
                         {arrow_html}
                     </td>
                     <td>
-                        <div style='font-size: 14px;'>
+                        <div style='font-size: 15px;'>
                             <a href="app://select/{vid}">
                                 <b style='color: {self.td["accent_color"]};'>ID {vid}:</b> <span style='color: {self.td["name_color"]}; font-weight: bold;'>{nome}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'>CPF / ID: {cpf}</span><br>
-                                <span style='color: {self.td["subtext_color"]}; font-size: 12px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
+                                <span style='color: {self.td["subtext_color"]}; font-size: 13px;'>CPF / ID: {cpf}</span><br>
+                                <span style='color: {self.td["subtext_color"]}; font-size: 13px;'><b>Validade:</b> <span style='color: {cor_validade}; font-weight: bold;'>{horario}</span></span>
                             </a>
                         </div>
                         {extra_btns_html}
@@ -1900,7 +2009,7 @@ class ExcelRecordsWidget(QWidget):
             self.input_search.setStyleSheet(f"border-radius: 20px; padding: 10px 15px; border: 2px solid {self.card_border};")
 
         if hasattr(self, 'lbl_title'):
-            self.lbl_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {self.accent_color};")
+            self.lbl_title.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {self.accent_color};")
 
         if hasattr(self, 'lbl_file_name'):
             self.lbl_file_name.setStyleSheet(f"""
@@ -1908,7 +2017,7 @@ class ExcelRecordsWidget(QWidget):
                 color: {self.sub_text_color};
                 padding: 5px 12px;
                 border-radius: 12px;
-                font-size: 11px;
+                font-size: 12px;
                 border: none;
             """)
 
@@ -1931,7 +2040,7 @@ class ExcelRecordsWidget(QWidget):
         layout_main.setSpacing(10)
 
         self.lbl_file_name = QLabel("")
-        self.lbl_file_name.setStyleSheet("font-size: 10px;")
+        self.lbl_file_name.setStyleSheet("font-size: 12px;")
         self.lbl_file_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # === GRUPO REGISTROS ZK ===
@@ -2195,6 +2304,14 @@ class ExcelRecordsWidget(QWidget):
                 search_text_raw = ""
         search_query = self.normalize_text(search_text_raw)
 
+        # Cancela busca anterior se existir de forma segura
+        if self.search_thread and self.search_thread.isRunning():
+            try:
+                self.search_thread.results_ready.disconnect()
+            except Exception:
+                pass
+            self.search_thread.requestInterruption()
+
         if not search_query:
             self.browser.clear()
             return
@@ -2203,12 +2320,6 @@ class ExcelRecordsWidget(QWidget):
         if not visible_depts:
             self.browser.clear()
             return
-
-        # Cancela busca anterior se existir de forma segura
-        if self.search_thread and self.search_thread.isRunning():
-            self.search_thread.results_ready.disconnect()
-            self.search_thread.requestInterruption()
-            # Não chamamos wait() aqui para evitar congelar a UI se a thread demorar a responder
 
         theme_data = {
             "card_bg": self.card_bg,
@@ -3151,9 +3262,9 @@ class SmartPortariaScanner(QMainWindow):
             # Estilo ESCURO - Grayscale Palette
             style = """
                 QMainWindow, QWidget { background-color: #202426; color: #ffffff; }
-                QLineEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; padding: 6px; border-radius: 4px; }
+                QLineEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; padding: 6px; border-radius: 4px; font-size: 14px; }
                 QTextEdit { background-color: #2b2f31; color: #ffffff; border: 1px solid #4d4d4d; border-radius: 4px; }
-                QGroupBox { border: 1px solid #4d4d4d; border-radius: 8px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
+                QGroupBox { border: 1px solid #4d4d4d; border-radius: 8px; margin-top: 10px; font-weight: bold; color: white; font-size: 15px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #4d4d4d; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
@@ -3178,16 +3289,16 @@ class SmartPortariaScanner(QMainWindow):
             btn_unlock_style = "background-color: #696969; color: white; font-weight: bold; border-radius: 8px; padding: 5px 10px;"
             btn_anon_style = "background-color: #333333; color: white; padding: 8px; border-radius: 8px;"
             btn_qr_style = "background-color: #838383; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
-            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 14px;"
+            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 14px;"
 
         elif modo == "sepia":
             # Estilo SEPIA (High Contrast Black & White)
             style = """
                 QMainWindow, QWidget { background-color: #1a120b; color: #ffffff; }
-                QLineEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; padding: 6px; border-radius: 4px; }
+                QLineEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; padding: 6px; border-radius: 4px; font-size: 14px; }
                 QTextEdit { background-color: #000000; color: #ffffff; border: 1px solid #554433; border-radius: 4px; }
-                QGroupBox { border: 1px solid #554433; border-radius: 8px; margin-top: 10px; font-weight: bold; color: white; font-size: 14px; }
+                QGroupBox { border: 1px solid #554433; border-radius: 8px; margin-top: 10px; font-weight: bold; color: white; font-size: 15px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #554433; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #ffffff; }
@@ -3212,16 +3323,16 @@ class SmartPortariaScanner(QMainWindow):
             btn_unlock_style = "background-color: #d9975d; color: white; font-weight: bold; border-radius: 8px; padding: 5px 10px;"
             btn_anon_style = "background-color: #332211; color: white; padding: 8px; border-radius: 8px;"
             btn_qr_style = "background-color: #c08b5c; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
-            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 14px;"
+            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 14px;"
 
         else:
             # Estilo CLARO (High Contrast B&W + Palette Grays)
             style = """
                 QMainWindow, QWidget { background-color: #dcddd5; color: #000000; }
-                QLineEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 6px; border-radius: 4px; }
+                QLineEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 6px; border-radius: 4px; font-size: 14px; }
                 QTextEdit { background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; border-radius: 4px; }
-                QGroupBox { border: 1px solid #b2b3a8; border-radius: 8px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 14px; }
+                QGroupBox { border: 1px solid #b2b3a8; border-radius: 8px; margin-top: 10px; font-weight: bold; color: #000000; font-size: 15px; }
                 QGroupBox#group_pesquisa, QGroupBox#group_busca { border: 1px solid #b2b3a8; }
                 QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; }
                 QLabel { color: #000000; }
@@ -3246,8 +3357,8 @@ class SmartPortariaScanner(QMainWindow):
             btn_unlock_style = "background-color: #dcddd5; color: #000000; font-weight: bold; border: 1px solid #b2b3a8; border-radius: 8px; padding: 5px 10px;"
             btn_anon_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 8px;"
             btn_qr_style = "background-color: #cfd0c7; color: #000000; border: 1px solid #b2b3a8; padding: 8px; border-radius: 8px; font-weight: bold;"
-            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
-            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold;"
+            btn_clear_style = "background-color: #ef4444; color: white; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 14px;"
+            btn_refresh_style = "background-color: #2563eb; color: white; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 14px;"
             live_log_style = "background: #cfd0c7; color: #000000; font-family: Consolas, monospace; font-size: 12px; border: 1px solid #b2b3a8;"
 
         self.setStyleSheet(style)
@@ -3400,7 +3511,7 @@ class SmartPortariaScanner(QMainWindow):
         if view: view.reload()
 
     def add_new_tab(self, qurl, title, closable=True, profile=None):
-        view = QWebEngineView()
+        view = CustomWebEngineView(self)
         target_profile = profile if profile else QWebEngineProfile.defaultProfile()
         page = CustomWebPage(target_profile, view, self)
         view.setPage(page)
@@ -4257,11 +4368,21 @@ class SmartPortariaScanner(QMainWindow):
             return f"{numeros[:3]}.{numeros[3:6]}.{numeros[6:9]}-{numeros[9:]}"
 
     def realizar_busca_normal(self):
-        self.timer_busca.start(300)
+        termo = self.input_busca.text().strip()
+        if not termo:
+            self.timer_busca.stop()
+            self.executar_busca_local()
+        else:
+            self.timer_busca.start(200)
 
 
     def realizar_busca_local(self):
-        self.timer_busca.start(300)
+        termo = self.input_busca.text().strip()
+        if not termo:
+            self.timer_busca.stop()
+            self.executar_busca_local()
+        else:
+            self.timer_busca.start(200)
 
     def pesquisar_em_liberacoes(self, termo):
         if hasattr(self, 'view_liberacoes') and self.view_liberacoes:
@@ -4996,6 +5117,14 @@ class SmartPortariaScanner(QMainWindow):
         super().resizeEvent(event)
 
     def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.ContextMenu:
+            if isinstance(obj, (QLineEdit, QTextEdit, QTextBrowser)):
+                menu = obj.createStandardContextMenu()
+                if menu:
+                    theme = self.settings.value("theme", "light") if hasattr(self, 'settings') else "light"
+                    traduzir_e_personalizar_menu(menu, theme)
+                    menu.exec(event.globalPos())
+                    return True
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
