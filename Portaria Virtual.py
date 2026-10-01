@@ -1632,26 +1632,27 @@ class SearchThread(QThread):
             cursor.execute("PRAGMA cache_size = -10000")
 
             if self.search_query:
-                base_query = """
-                    FROM zk_records
-                    JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
-                    WHERE zk_records.dept IN ({})
-                """.format(",".join(["?"] * len(self.visible_depts)))
-                params = list(self.visible_depts)
-                for word in self.search_query.split():
-                    base_query += " AND zk_records_fts.search_text LIKE ?"
-                    params.append(f"%{word}%")
+                tokens = [t.replace('"', '""') for t in self.search_query.split() if t]
+                if tokens:
+                    fts_expr = " AND ".join([f'"{t}"' for t in tokens])
+                    base_query = """
+                        FROM zk_records
+                        JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
+                        WHERE zk_records_fts MATCH ? AND zk_records.dept IN ({})
+                    """.format(",".join(["?"] * len(self.visible_depts)))
+                    params = [fts_expr] + list(self.visible_depts)
+                else:
+                    base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(self.visible_depts)))
+                    params = list(self.visible_depts)
             else:
                 base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(self.visible_depts)))
                 params = list(self.visible_depts)
-
-            cursor.execute("SELECT COUNT(*) " + base_query, params)
-            total_count = cursor.fetchone()[0]
 
             # Limitamos para 300 para performance máxima
             query = "SELECT id, nome, sobrenome, dept, celular, cartao, email, data_upload " + base_query + " ORDER BY dept, nome LIMIT 300"
             cursor.execute(query, params)
             rows = cursor.fetchall()
+            total_count = len(rows)
 
             html_parts = ["<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse: collapse; font-family: sans-serif;'>"]
 
