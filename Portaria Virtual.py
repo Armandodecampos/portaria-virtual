@@ -3404,6 +3404,10 @@ class SmartPortariaScanner(QMainWindow):
         target_profile = profile if profile else QWebEngineProfile.defaultProfile()
         page = CustomWebPage(target_profile, view, self)
         view.setPage(page)
+
+        # Habilita acesso à área de transferência para JavaScript
+        view.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+        view.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanPaste, True)
         
         view.urlChanged.connect(lambda q: self.atualizar_barra_endereco(q, view))
         view.titleChanged.connect(lambda t: self.atualizar_titulo_aba(t, view))
@@ -3421,6 +3425,59 @@ class SmartPortariaScanner(QMainWindow):
         self.web_stack.setCurrentIndex(idx)
         return view
 
+    def desbloquear_selecao_e_copia(self, view=None):
+        if not view:
+            view = self.web_stack.currentWidget()
+        if not view: return
+
+        # Garante atributos de área de transferência na view
+        view.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+        view.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanPaste, True)
+
+        js_unblock = """
+        (function() {
+            // Injeta CSS forçando seleção de texto em todos os elementos
+            if (!document.getElementById('unlock-copy-style')) {
+                var style = document.createElement('style');
+                style.id = 'unlock-copy-style';
+                style.innerHTML = `
+                    * {
+                        -webkit-user-select: text !important;
+                        -moz-user-select: text !important;
+                        -ms-user-select: text !important;
+                        user-select: text !important;
+                    }
+                `;
+                (document.head || document.documentElement).appendChild(style);
+            }
+
+            // Evita registrar múltiplos listeners na mesma página
+            if (window._copyUnlockInjected) return;
+            window._copyUnlockInjected = true;
+
+            // Anula manipuladores de eventos que bloqueiam cópia, seleção e menu de contexto
+            var events = ['copy', 'cut', 'paste', 'selectstart', 'contextmenu'];
+            events.forEach(function(evt) {
+                document.addEventListener(evt, function(e) {
+                    e.stopPropagation();
+                }, true);
+                window.addEventListener(evt, function(e) {
+                    e.stopPropagation();
+                }, true);
+            });
+
+            // Reseta propriedades de eventos inline que possam bloquear seleção
+            try {
+                document.oncopy = null;
+                document.oncut = null;
+                document.onpaste = null;
+                document.onselectstart = null;
+                document.oncontextmenu = null;
+            } catch(e) {}
+        })();
+        """
+        view.page().runJavaScript(js_unblock)
+
     def executar_desbloqueio(self):
         view = self.web_stack.currentWidget()
         if not view: return
@@ -3429,9 +3486,12 @@ class SmartPortariaScanner(QMainWindow):
         # Garante visibilidade dos checkboxes de forma otimizada
         self.garantir_visibilidade_checkboxes(view)
 
+        # Desbloqueia seleção de texto e área de transferência
+        self.desbloquear_selecao_e_copia(view)
+
         js_hack = """
         (function() {
-            // 1. Desbloqueia botões e inputs desabilitados
+            // Desbloqueia botões e inputs desabilitados
             var disabledEls = document.querySelectorAll('*[disabled], .disabled, .blocked, .locked, [aria-disabled="true"]');
             disabledEls.forEach(el => {
                 el.removeAttribute('disabled');
@@ -3441,31 +3501,6 @@ class SmartPortariaScanner(QMainWindow):
                 el.style.opacity = '1';
                 el.style.cursor = 'pointer';
             });
-
-            // 2. Habilita seleção de texto e menus de contexto
-            var style = document.createElement('style');
-            style.innerHTML = `
-                * {
-                    -webkit-user-select: text !important;
-                    -moz-user-select: text !important;
-                    -ms-user-select: text !important;
-                    user-select: text !important;
-                }
-            `;
-            document.head.appendChild(style);
-
-            // Remove listeners que bloqueiam seleção e clique direito
-            var events = ['contextmenu', 'copy', 'cut', 'paste', 'mousedown', 'mouseup', 'selectstart'];
-            events.forEach(function(event) {
-                document.addEventListener(event, function(e) {
-                    e.stopPropagation();
-                }, true);
-            });
-
-            // Reseta propriedades via JS caso o CSS não baste
-            document.oncontextmenu = null;
-            document.onselectstart = null;
-            document.onmousedown = null;
         })();
         """
         view.page().runJavaScript(js_hack)
@@ -3704,6 +3739,12 @@ class SmartPortariaScanner(QMainWindow):
             self.address_bar.setText("" if url_str == "about:blank" else url_str)
 
     def configurar_navegadores(self):
+        # Permite acesso à área de transferência para JavaScript nos perfis
+        for prof in [QWebEngineProfile.defaultProfile(), getattr(self, 'profile_anonimo', None)]:
+            if prof:
+                prof.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+                prof.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanPaste, True)
+
         # Configura interceptação de downloads para perfil padrão e anônimo
         QWebEngineProfile.defaultProfile().downloadRequested.connect(self.gerenciar_download)
         if hasattr(self, 'profile_anonimo') and self.profile_anonimo:
@@ -4164,6 +4205,9 @@ class SmartPortariaScanner(QMainWindow):
         url_str = view.url().toString()
 
         self.injetar_login(view)
+
+        # Desbloqueia seleção de texto e área de transferência em todas as páginas
+        self.desbloquear_selecao_e_copia(view)
 
         # Injeta hacks DOM e patches apenas para sites do sistema interno
         if "controledecessos" in url_str or "governarti" in url_str or "bioLogin" in url_str or "192.168.7.9" in url_str:
