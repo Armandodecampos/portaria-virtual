@@ -4005,13 +4005,13 @@ class SmartPortariaScanner(QMainWindow):
 
             try {
                 var label_visitante = getByXpath("//div[contains(., 'Visitante')]/following::label[1]");
-                var text_visitante = label_visitante ? label_visitante.innerText : "";
+                var text_visitante = label_visitante ? (label_visitante.innerText || label_visitante.textContent || "") : "";
 
                 var tel_el = getByXpath("//div[contains(text(), 'Telefone')]/following::label[1] | //label[contains(text(), '(')]");
-                var text_tel = tel_el ? tel_el.innerText : "";
+                var text_tel = tel_el ? (tel_el.innerText || tel_el.textContent || "") : "";
 
                 var email_el = getByXpath("//div[contains(text(), 'Email')]/following::label[1] | //label[contains(text(), '@')]");
-                var text_email = email_el ? email_el.innerText : "";
+                var text_email = email_el ? (email_el.innerText || email_el.textContent || "") : "";
 
                 return {
                     visitante: text_visitante,
@@ -4735,7 +4735,8 @@ class SmartPortariaScanner(QMainWindow):
         (function() {
             var links = document.getElementsByTagName('a');
             for (var i = 0; i < links.length; i++) {
-                if (links[i].innerText.includes('Enviar convite por Whatsapp')) {
+                var linkText = links[i].innerText || links[i].textContent || "";
+                if (linkText.includes('Enviar convite por Whatsapp')) {
                     var href = links[i].href;
                     var decodedHref = decodeURIComponent(href);
                     var urlMatch = decodedHref.match(/https:\/\/portaria-global\.governarti\.com\.br\/confirmar-visita\/[a-zA-Z0-9-]+\//);
