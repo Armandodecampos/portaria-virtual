@@ -944,29 +944,66 @@ class WindowsPinMonitorThread(QThread):
         def send_keys_pin(hwnd, pin):
             if not pin:
                 return
+
+            # Garante foco na janela do prompt de segurança e aguarda estabilização do cursor/campo
             user32.SetForegroundWindow(hwnd)
-            time.sleep(0.3)
+            time.sleep(0.7)
 
             VK_RETURN = 0x0D
+            VK_SHIFT = 0x10
+            VK_CONTROL = 0x11
+            VK_MENU = 0x12  # Alt
+            KEYEVENTF_KEYUP = 0x0002
+            KEYEVENTF_UNICODE = 0x0004
 
+            # Digita cada caractere com calma para que o Windows registre todos sem perda de caracteres
             for char in pin:
                 vk_code = user32.VkKeyScanW(ord(char))
-                vk = vk_code & 0xFF
-                shift = (vk_code >> 8) & 1
 
-                if shift:
-                    user32.keybd_event(0x10, 0, 0, 0)
+                if vk_code != -1:
+                    vk = vk_code & 0xFF
+                    shift_state = (vk_code >> 8) & 0xFF
+                    has_shift = bool(shift_state & 1)
+                    has_ctrl = bool(shift_state & 2)
+                    has_alt = bool(shift_state & 4)
 
-                user32.keybd_event(vk, 0, 0, 0)
-                user32.keybd_event(vk, 0, 2, 0)
+                    # Pressiona teclas modificadoras necessárias
+                    if has_ctrl:
+                        user32.keybd_event(VK_CONTROL, 0, 0, 0)
+                    if has_alt:
+                        user32.keybd_event(VK_MENU, 0, 0, 0)
+                    if has_shift:
+                        user32.keybd_event(VK_SHIFT, 0, 0, 0)
 
-                if shift:
-                    user32.keybd_event(0x10, 0, 2, 0)
-                time.sleep(0.05)
+                    time.sleep(0.03)
 
-            time.sleep(0.2)
+                    # Pressiona e solta a tecla correspondente
+                    user32.keybd_event(vk, 0, 0, 0)
+                    time.sleep(0.04)
+                    user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+
+                    # Solta as modificadoras na ordem inversa
+                    if has_shift:
+                        user32.keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0)
+                    if has_alt:
+                        user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
+                    if has_ctrl:
+                        user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
+                else:
+                    # Fallback via caractere Unicode caso VkKeyScanW não encontre código virtual
+                    user32.keybd_event(0, ord(char), KEYEVENTF_UNICODE, 0)
+                    time.sleep(0.04)
+                    user32.keybd_event(0, ord(char), KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0)
+
+                # Pausa calma entre a inserção de cada caractere (180ms)
+                time.sleep(0.18)
+
+            # Aguarda com calma (0.7s) após preencher todos os dígitos antes de confirmar com ENTER
+            time.sleep(0.7)
             user32.keybd_event(VK_RETURN, 0, 0, 0)
-            user32.keybd_event(VK_RETURN, 0, 2, 0)
+            time.sleep(0.06)
+            user32.keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0)
+            time.sleep(0.3)
 
         keywords = [
             "segurança do windows", "windows security", "credenciais do windows",
