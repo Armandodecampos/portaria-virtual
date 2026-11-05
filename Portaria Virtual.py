@@ -1632,18 +1632,25 @@ class SearchThread(QThread):
             cursor.execute("PRAGMA cache_size = -10000")
 
             if self.search_query:
-                tokens = [t.replace('"', '""') for t in self.search_query.split() if t]
-                if tokens:
-                    fts_expr = " AND ".join([f'"{t}"' for t in tokens])
-                    base_query = """
-                        FROM zk_records
-                        JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid
-                        WHERE zk_records_fts MATCH ? AND zk_records.dept IN ({})
-                    """.format(",".join(["?"] * len(self.visible_depts)))
-                    params = [fts_expr] + list(self.visible_depts)
-                else:
-                    base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(self.visible_depts)))
-                    params = list(self.visible_depts)
+                tokens = [t for t in self.search_query.split() if t]
+                long_tokens = [t.replace('"', '""') for t in tokens if len(t) >= 3]
+                short_tokens = [t for t in tokens if len(t) < 3]
+
+                where_clauses = ["zk_records.dept IN ({})".format(",".join(["?"] * len(self.visible_depts)))]
+                params = list(self.visible_depts)
+                joins = ""
+
+                if long_tokens:
+                    joins = "JOIN zk_records_fts ON zk_records.rowid = zk_records_fts.rowid"
+                    fts_expr = " AND ".join([f'"{t}"' for t in long_tokens])
+                    where_clauses.append("zk_records_fts MATCH ?")
+                    params.append(fts_expr)
+
+                for st in short_tokens:
+                    where_clauses.append("zk_records.search_text LIKE ?")
+                    params.append(f"%{st}%")
+
+                base_query = f"FROM zk_records {joins} WHERE " + " AND ".join(where_clauses)
             else:
                 base_query = "FROM zk_records WHERE dept IN ({})".format(",".join(["?"] * len(self.visible_depts)))
                 params = list(self.visible_depts)
