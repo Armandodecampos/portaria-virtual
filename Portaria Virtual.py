@@ -29,7 +29,7 @@ try:
         QRadioButton, QButtonGroup, QInputDialog, QSizePolicy, QScrollArea, QCheckBox,
         QListWidget, QListWidgetItem, QColorDialog
     )
-    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor
+    from PyQt6.QtGui import QPixmap, QFont, QIcon, QAction, QImage, QFontMetrics, QColor, QTextCursor, QTextCharFormat
     from PyQt6.QtMultimedia import QCamera, QMediaCaptureSession, QVideoSink, QMediaDevices
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile, QWebEngineDownloadRequest
@@ -2210,6 +2210,12 @@ class ExcelRecordsWidget(QWidget):
 
         # Lista de resultados (usando QTextBrowser para renderização rápida de HTML)
         self.browser = QTextBrowser()
+        self.browser.last_click_pos = None
+        orig_mouse_press = self.browser.mousePressEvent
+        def browser_mouse_press(e):
+            self.browser.last_click_pos = e.pos()
+            orig_mouse_press(e)
+        self.browser.mousePressEvent = browser_mouse_press
         self.browser.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.browser.setOpenExternalLinks(False)
         self.browser.setOpenLinks(False)
@@ -2229,11 +2235,91 @@ class ExcelRecordsWidget(QWidget):
             QApplication.clipboard().setText(text_to_copy)
             if self.parent_window:
                 self.parent_window.txt_live.append(f"📋 Copiado: {text_to_copy}")
+            self.exibir_feedback_copiado(url_str)
         elif url_str.startswith("app://copy/"):
             text_to_copy = urllib.parse.unquote(url_str[11:])
             QApplication.clipboard().setText(text_to_copy)
             if self.parent_window:
                 self.parent_window.txt_live.append(f"📋 Copiado: {text_to_copy}")
+            self.exibir_feedback_copiado(url_str)
+
+    def exibir_feedback_copiado(self, target_href):
+        try:
+            doc = self.browser.document()
+            p = None
+            if getattr(self.browser, 'last_click_pos', None):
+                cur = self.browser.cursorForPosition(self.browser.last_click_pos)
+                p = cur.position()
+
+            norm_target = urllib.parse.unquote(target_href)
+
+            def get_char_href(pos):
+                c = QTextCursor(doc)
+                c.setPosition(pos)
+                c.setPosition(pos + 1, QTextCursor.MoveMode.KeepAnchor)
+                return urllib.parse.unquote(c.charFormat().anchorHref())
+
+            # Se encontrou a posição do clique, ajusta para o âncora clicado
+            if p is not None:
+                char_href = get_char_href(p)
+                if char_href != norm_target and p > 0 and get_char_href(p - 1) == norm_target:
+                    p = p - 1
+                    char_href = norm_target
+                if char_href != norm_target:
+                    p = None
+
+            start = None
+            end = None
+
+            if p is not None:
+                start = p
+                while start > 0 and get_char_href(start - 1) == norm_target:
+                    start -= 1
+                end = p
+                doc_len = doc.characterCount()
+                while end < doc_len - 1 and get_char_href(end) == norm_target:
+                    end += 1
+            else:
+                # Fallback: localiza a primeira ocorrência do link com [Copiar]
+                c_search = doc.find('[Copiar]')
+                while not c_search.isNull():
+                    if urllib.parse.unquote(c_search.charFormat().anchorHref()) == norm_target:
+                        start = c_search.selectionStart()
+                        end = c_search.selectionEnd()
+                        break
+                    c_search = doc.find('[Copiar]', c_search)
+
+            if start is not None and end is not None:
+                sel = QTextCursor(doc)
+                sel.setPosition(start)
+                sel.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+                text = sel.selectedText()
+                if '[Copiar]' in text or '[Copiado!]' in text:
+                    orig_fmt = QTextCharFormat(sel.charFormat())
+                    new_fmt = QTextCharFormat(orig_fmt)
+                    new_fmt.setForeground(QColor('#10b981'))
+                    sel.insertText('[Copiado!]', new_fmt)
+
+                    def restore():
+                        try:
+                            rev = QTextCursor(doc)
+                            rev.setPosition(start)
+                            rev.setPosition(min(start + len('[Copiado!]'), doc.characterCount() - 1), QTextCursor.MoveMode.KeepAnchor)
+                            if rev.selectedText() == '[Copiado!]':
+                                rev.insertText('[Copiar]', orig_fmt)
+                            else:
+                                fallback = doc.find('[Copiado!]')
+                                while not fallback.isNull():
+                                    if urllib.parse.unquote(fallback.charFormat().anchorHref()) == norm_target:
+                                        fallback.insertText('[Copiar]', orig_fmt)
+                                        break
+                                    fallback = doc.find('[Copiado!]', fallback)
+                        except Exception:
+                            pass
+
+                    QTimer.singleShot(1500, restore)
+        except Exception as e:
+            print(f"Erro ao exibir feedback de cópia: {e}")
 
     def normalize_text(self, text):
         if not text: return ""
