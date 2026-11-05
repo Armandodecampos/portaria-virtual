@@ -2730,23 +2730,60 @@ class DatabaseHandler:
     def buscar_por_filtro(self, termos):
         if not termos: return []
         with self.lock:
-            query = "SELECT visita_id, nome, cpf, horario FROM detalhes_visitas WHERE "
-            conditions = []
-            params = []
-            for t in termos:
-                t_norm = self.remove_accents(t)
-                t_digits = re.sub(r'\D', '', t)
-                # Se t_digits possui 3 ou mais dígitos (ou o termo original é majoritariamente numérico), faz busca por dígitos no CPF
-                if t_digits and (len(t_digits) >= 3 or len(t_digits) >= (len(t) / 2)):
-                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ? OR unaccent(conteudo) LIKE ? OR CAST(visita_id AS TEXT) LIKE ? OR replace(replace(cpf, '.', ''), '-', '') LIKE ?)")
-                    params.extend([f"%{t_norm}%", f"%{t}%", f"%{t_norm}%", f"%{t}%", f"%{t_digits}%"])
-                else:
-                    conditions.append("(unaccent(nome) LIKE ? OR cpf LIKE ? OR unaccent(conteudo) LIKE ? OR CAST(visita_id AS TEXT) LIKE ?)")
-                    params.extend([f"%{t_norm}%", f"%{t}%", f"%{t_norm}%", f"%{t}%"])
-            query += " AND ".join(conditions)
-            query += " ORDER BY visita_id DESC LIMIT 50"
-            self.cursor.execute(query, params)
-            return self.cursor.fetchall()
+            def exec_busca(incluir_conteudo):
+                conditions = []
+                params = []
+                score_parts = []
+                score_params = []
+
+                full_phrase = self.remove_accents(" ".join(termos))
+                score_parts.append("(CASE WHEN unaccent(nome) = ? THEN 1000 WHEN unaccent(nome) LIKE ? THEN 600 WHEN unaccent(nome) LIKE ? THEN 300 ELSE 0 END)")
+                score_params.extend([full_phrase, f"{full_phrase}%", f"%{full_phrase}%"])
+
+                for t in termos:
+                    t_norm = self.remove_accents(t)
+                    t_digits = re.sub(r'\D', '', t)
+                    has_digits = t_digits and (len(t_digits) >= 3 or len(t_digits) >= (len(t) / 2))
+
+                    subconds = [
+                        "unaccent(nome) LIKE ?",
+                        "cpf LIKE ?",
+                        "CAST(visita_id AS TEXT) LIKE ?"
+                    ]
+                    subparams = [f"%{t_norm}%", f"%{t}%", f"%{t}%"]
+
+                    if has_digits:
+                        subconds.append("replace(replace(cpf, '.', ''), '-', '') LIKE ?")
+                        subparams.append(f"%{t_digits}%")
+
+                    if incluir_conteudo:
+                        subconds.append("unaccent(conteudo) LIKE ?")
+                        subparams.append(f"%{t_norm}%")
+
+                    conditions.append("(" + " OR ".join(subconds) + ")")
+                    params.extend(subparams)
+
+                    score_parts.append("(CASE WHEN unaccent(nome) LIKE ? THEN 50 WHEN unaccent(nome) LIKE ? THEN 30 ELSE 0 END + CASE WHEN cpf LIKE ? THEN 40 ELSE 0 END + CASE WHEN CAST(visita_id AS TEXT) = ? THEN 40 ELSE 0 END)")
+                    score_params.extend([f"{t_norm}%", f"% {t_norm}%", f"%{t}%", f"{t}"])
+
+                score_expr = " + ".join(score_parts)
+                query = f"""
+                    SELECT visita_id, nome, cpf, horario, ({score_expr}) AS relevance
+                    FROM detalhes_visitas
+                    WHERE {" AND ".join(conditions)}
+                    ORDER BY relevance DESC, visita_id DESC
+                    LIMIT 50
+                """
+                self.cursor.execute(query, score_params + params)
+                rows = self.cursor.fetchall()
+                return [(r[0], r[1], r[2], r[3]) for r in rows]
+
+            # 1ª etapa: busca prioritária nos campos principais (nome, cpf, visita_id)
+            resultados = exec_busca(incluir_conteudo=False)
+            # 2ª etapa: caso não encontre nos campos principais, busca no texto completo (conteúdo da página)
+            if not resultados:
+                resultados = exec_busca(incluir_conteudo=True)
+            return resultados
 
     def get_maior_id_salvo(self):
         with self.lock:
